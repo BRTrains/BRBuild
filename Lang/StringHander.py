@@ -4,7 +4,7 @@ class String_Handler:
     _instance = None
     _auto_counter = 1
 
-    def __init__(self, lang_folder="lang"):
+    def __init__(self, lang_folder="Lang"):
         self.lang_folder = pathlib.Path(lang_folder)
         self.file_path = self.lang_folder / "english.lng"
         self.first_run()
