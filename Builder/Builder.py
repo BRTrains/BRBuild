@@ -1,5 +1,5 @@
 import time
-
+from pathlib import Path
 
 class Builder:
     name = ""
@@ -10,12 +10,18 @@ class Builder:
     def __init__(self):
         return
 
-    def build(self, name, baseFolder): 
+    def build(self, name): 
+
         self.name = name
-        self.baseFolder = baseFolder
+        self.baseFolder = Path(f"../{name}")
 
         startTime = time.time()
-        print(f"BRBuild is building project in {self.name}.")
+        print(f"BRBuild is attempting to build project in {self.baseFolder}.")
+
+        if not self.baseFolder.is_dir():
+            print(f"Error: Project folder '{self.baseFolder}' does not exist.")
+            return
+
 
         try:
             # Parse YAML
