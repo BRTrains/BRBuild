@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 @dataclass
 class BoundingBox:
     """
@@ -11,6 +13,6 @@ class BoundingBox:
     height: int
     offset_x: int
     offset_y: int
-    flags: List[str] # ["WHITE", "NOANIM"] etc
-    filename: Optional[str] = None
-    mask: Optional[str] = None
+    flags: list[str] # ["WHITE", "NOANIM"] etc
+    filename: str | None = None
+    mask: str | None = None
