@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 class ProjectFinder:
+    '''Finds all projects in the parent directory that contain a "BRBuild.yaml" file, indicating they can be built by BRBuild.'''
     def __init__(self):
         self.project_root = Path(__file__).parent.parent
         self.parent_folder = self.project_root.parent
