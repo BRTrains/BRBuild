@@ -25,8 +25,8 @@ def run_build(project_name=None):
     return True
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Build BRBuild projects")
-    parser.add_argument("project", nargs="?", default=None, help="Project name to build (optional; will search for projects if omitted)")
+    parser = argparse.ArgumentParser(description="Build BRBuild-compatible newGRF projects")
+    parser.add_argument("project", nargs="?", default=None, help="Project name to build (optional; will search for projects in the parent directory if omitted)")
     
     args = parser.parse_args()
     success = run_build(args.project)
