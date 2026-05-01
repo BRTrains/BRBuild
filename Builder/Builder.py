@@ -1,5 +1,6 @@
 import time
 from pathlib import Path
+from Builder import CandidateFinder
 
 class Builder:
     name = ""
@@ -22,6 +23,19 @@ class Builder:
             print(f"Error: Project folder '{self.baseFolder}' does not exist.")
             return
 
+        print(f"Project folder '{self.baseFolder}' found. Starting build process.")
+        print("Finding candidates...")
+
+        try:
+            finder = CandidateFinder(self.baseFolder)
+            candidates = finder.find_candidates()
+            print(f"Found {len(candidates)} candidates.")
+        except Exception as e:
+            print(f"Error during candidate finding: {e}")
+            return
+        
+        elapsed = round(time.time() - startTime, 2)
+        print(f"Candidate finding complete in {elapsed} seconds. Starting YAML parsing.")
 
         try:
             # Parse YAML
