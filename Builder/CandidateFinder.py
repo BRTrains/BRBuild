@@ -9,8 +9,6 @@ class CandidateFinder:
 
         self.pnml_extension = ".pnml"
         self.yaml_extension = ".yaml"
-        self.gnml_extension = ".gnml"
-        self.image_extension = ".png"
 
     def find_candidates(self):
         candidates = []
@@ -28,7 +26,7 @@ class CandidateFinder:
             lower_name = folder_name.lower()
             for filename in filenames:
                 filename_lower = filename.lower()
-                if filename_lower == f"{lower_name}.yaml" or filename_lower == f"{lower_name}.pnml":
+                if filename_lower == f"{lower_name}{self.yaml_extension}" or filename_lower == f"{lower_name}{self.pnml_extension}":
                     matches.append(filename)
 
             if matches:
@@ -41,8 +39,6 @@ class CandidateFinder:
                 })
 
         return candidates
-
-    find = find_candidates
 
 
 if __name__ == "__main__":
