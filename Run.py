@@ -1,7 +1,6 @@
 import argparse
 from pathlib import Path
-from Builder.Builder import Builder
-from Builder.ProjectFinder import ProjectFinder
+from Builder import ProjectFinder, Builder
 
 def run_build(project_name=None):
     if project_name:
