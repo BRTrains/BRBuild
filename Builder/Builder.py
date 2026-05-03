@@ -1,52 +1,42 @@
 import time, logging
 from pathlib import Path
 from .CandidateFinder import CandidateFinder
+from Project.Project import Project
 
 class Builder:
-    name = ""
-    baseFolder = ""
     variantList = []
     badgeList = []
-    targetFolders = []
 
     def __init__(self):
         return
 
-    def build(self, project):
-        if isinstance(project, dict):
-            project_name = project.get("name") or Path(project.get("path", "")).name
-            should_build = bool(project.get("build"))
-            self.baseFolder = Path(project.get("path", ".")).expanduser().resolve()
-            self.targetFolders = project.get("target_folders") if isinstance(project.get("target_folders"), list) else []
+    def build(self, project_data):
+        if isinstance(project_data, Project):
+            project = project_data
         else:
-            project_name = str(project)
-            should_build = True
-            self.baseFolder = Path(f"../{project_name}").expanduser().resolve()
-            self.targetFolders = []
+            project = Project(project_data)
 
-        self.name = project_name
-
-        if not should_build:
-            logging.info(f"Skipping project '{self.name}' because build is disabled.")
+        if not project.build:
+            logging.info(f"Skipping project '{project.name}' because build is disabled.")
             return
 
         startTime = time.time()
-        logging.info(f"BRBuild is attempting to build project '{self.name}' in {self.baseFolder}.")
+        logging.info(f"BRBuild is attempting to build project '{project.name}' in {project.path}.")
 
-        if not self.baseFolder.is_dir():
-            logging.error(f"Project folder '{self.baseFolder}' does not exist.")
+        if not project.path.is_dir():
+            logging.error(f"Project folder '{project.path}' does not exist.")
             return
 
-        logging.info(f"Project folder '{self.baseFolder}' found. Starting build process.")
-        if self.targetFolders:
-            logging.info(f"Using target folders: {self.targetFolders}")
+        logging.info(f"Project folder '{project.path}' found. Starting build process.")
+        if project.target_folders:
+            logging.info(f"Using target folders: {project.target_folders}")
         else:
             logging.info("No target folders specified; scanning project root.")        
 
         candidates = []
-        scan_paths = [self.baseFolder]
-        if self.targetFolders:
-            scan_paths = [self.baseFolder / target for target in self.targetFolders]
+        scan_paths = [project.path]
+        if project.target_folders:
+            scan_paths = [project.path / target for target in project.target_folders]
 
         try:
             for scan_path in scan_paths:

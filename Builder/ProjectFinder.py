@@ -2,6 +2,7 @@ import sys, logging
 from pathlib import Path
 
 import yaml
+from Project.Project import Project
 
 class ProjectFinder:
     '''Finds all projects in the parent directory that contain a "BRBuild.yaml" file, indicating they can be built by BRBuild.'''
@@ -42,12 +43,12 @@ class ProjectFinder:
             if not isinstance(target_folders, list):
                 target_folders = []
 
-            projects.append({
+            projects.append(Project({
                 "path": str(p),
                 "name": project_config.get("name"),
                 "build": bool(project_config.get("build")),
                 "target_folders": target_folders,
-            })
+            }))
 
         return projects
     
