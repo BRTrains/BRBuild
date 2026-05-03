@@ -3,13 +3,19 @@ import logging
 import sys
 from pathlib import Path
 from Builder import ProjectFinder, Builder
+from Project.Project import Project
 
 def run_build(project_name=None):
+    ''' Orchestrator for the build process. If a project name is provided, it will attempt to build that specific project. Otherwise, it will search for all projects in the parent directory and build them. '''
     if project_name:
+        logging.info(f"Attempting to build specified project: {project_name}")
         # Build specific project
+        project = Project(project_name)
+
         builder = Builder()
-        builder.build(project_name)
+        builder.build(project)
     else:
+        logging.info("No specific project specified. Searching for all projects in the parent directory.")
         # Find and build all projects
         finder = ProjectFinder()
         
@@ -17,7 +23,7 @@ def run_build(project_name=None):
             logging.info("No projects found. Please ensure there are folders with a 'BRBuild.yaml' file in the parent directory.")
             return False
         
-        logging.info("Found projects:", finder.projects)
+        logging.info(f"Found projects: {finder.projects}")
         builder = Builder()
         
         for project in finder.projects:
