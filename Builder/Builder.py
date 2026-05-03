@@ -1,34 +1,68 @@
 import time
 from pathlib import Path
-from Builder import CandidateFinder
+from .CandidateFinder import CandidateFinder
 
 class Builder:
     name = ""
     baseFolder = ""
     variantList = []
     badgeList = []
+    targetFolders = []
 
     def __init__(self):
         return
 
-    def build(self, name): 
+    def build(self, project):
+        if isinstance(project, dict):
+            project_name = project.get("name") or Path(project.get("path", "")).name
+            should_build = bool(project.get("build"))
+            self.baseFolder = Path(project.get("path", ".")).expanduser().resolve()
+            self.targetFolders = project.get("target_folders") if isinstance(project.get("target_folders"), list) else []
+        else:
+            project_name = str(project)
+            should_build = True
+            self.baseFolder = Path(f"../{project_name}").expanduser().resolve()
+            self.targetFolders = []
 
-        self.name = name
-        self.baseFolder = Path(f"../{name}")
+        self.name = project_name
+
+        if not should_build:
+            print(f"Skipping project '{self.name}' because build is disabled.")
+            return
 
         startTime = time.time()
-        print(f"BRBuild is attempting to build project in {self.baseFolder}.")
+        print(f"BRBuild is attempting to build project '{self.name}' in {self.baseFolder}.")
 
         if not self.baseFolder.is_dir():
             print(f"Error: Project folder '{self.baseFolder}' does not exist.")
             return
 
         print(f"Project folder '{self.baseFolder}' found. Starting build process.")
-        print("Finding candidates...")
+        if self.targetFolders:
+            print(f"Using target folders: {self.targetFolders}")
+        else:
+            print("No target folders specified; scanning project root.")        
+
+        candidates = []
+        scan_paths = [self.baseFolder]
+        if self.targetFolders:
+            scan_paths = [self.baseFolder / target for target in self.targetFolders]
 
         try:
-            finder = CandidateFinder(self.baseFolder)
-            candidates = finder.find_candidates()
+            for scan_path in scan_paths:
+                if not scan_path.exists():
+                    print(f"Warning: target folder '{scan_path}' does not exist; skipping.")
+                    continue
+                if not scan_path.is_dir():
+                    print(f"Warning: target path '{scan_path}' is not a directory; skipping.")
+                    continue
+
+                print("Finding candidates in folder:", scan_path)
+
+                finder = CandidateFinder(scan_path)
+                found = finder.find_candidates()
+                candidates.extend(found)
+
             print(f"Found {len(candidates)} candidates.")
         except Exception as e:
             print(f"Error during candidate finding: {e}")
@@ -38,8 +72,10 @@ class Builder:
         print(f"Candidate finding complete in {elapsed} seconds. Starting YAML parsing.")
 
         try:
-            # Parse YAML
-            time.sleep(1)  # Replace with actual build logic
+            for candidate in candidates:
+                print(f"Processing candidate: {candidate['name']} (classification: {candidate['classification']}, files: {candidate['files']})")
+                # Replace with actual YAML parsing logic
+                # Store the returned .pnml files for collation?
         except Exception as e:
             print(f"Error during YAML parsing: {e}")
             return
