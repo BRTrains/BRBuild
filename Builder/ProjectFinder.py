@@ -1,4 +1,4 @@
-import sys
+import sys, logging
 from pathlib import Path
 
 import yaml
@@ -9,13 +9,13 @@ class ProjectFinder:
         self.project_root = Path(__file__).parent.parent
         self.parent_folder = self.project_root.parent
 
-        print(f"ProjectFinder initialized. Looking for projects in: {self.parent_folder}")
+        logging.info(f"ProjectFinder initialized. Looking for projects in: {self.parent_folder}")
 
         self.projects = self.find_projects()
 
     def find_projects(self):
         # Find all folders in the directory above the project root that contain a "BRBuild.yaml" file
-        print(f"Searching for projects in: {self.parent_folder}")
+        logging.info(f"Searching for projects in: {self.parent_folder}")
         projects = []
 
         for p in self.parent_folder.iterdir():
@@ -26,16 +26,16 @@ class ProjectFinder:
             try:
                 config = yaml.safe_load(config_file.read_text())
             except Exception as exc:
-                print(f"Failed to load {config_file}: {exc}")
+                logging.exception(f"Failed to load {config_file}: {exc}")
                 continue
 
             if not isinstance(config, dict):
-                print(f"Invalid BRBuild.yaml in {p}: expected a YAML mapping")
+                logging.error(f"Invalid BRBuild.yaml in {p}: expected a YAML mapping")
                 continue
 
             project_config = config.get("project")
             if not isinstance(project_config, dict):
-                print(f"Invalid BRBuild.yaml in {p}: missing or invalid 'project' section")
+                logging.error(f"Invalid BRBuild.yaml in {p}: missing or invalid 'project' section")
                 continue
 
             target_folders = project_config.get("target_folders")
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     finder = ProjectFinder()
 
     if not finder.projects:
-        print("No projects found. Please ensure there are folders with a 'BRBuild.yaml' file in the parent directory.")
+        logging.error("No projects found. Please ensure there are folders with a 'BRBuild.yaml' file in the parent directory.")
         sys.exit(1)
     else:
-        print("Found projects:", finder.projects)
+        logging.info("Found projects:", finder.projects)

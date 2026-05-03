@@ -1,4 +1,4 @@
-import time
+import time, logging
 from pathlib import Path
 from .CandidateFinder import CandidateFinder
 
@@ -27,21 +27,21 @@ class Builder:
         self.name = project_name
 
         if not should_build:
-            print(f"Skipping project '{self.name}' because build is disabled.")
+            logging.info(f"Skipping project '{self.name}' because build is disabled.")
             return
 
         startTime = time.time()
-        print(f"BRBuild is attempting to build project '{self.name}' in {self.baseFolder}.")
+        logging.info(f"BRBuild is attempting to build project '{self.name}' in {self.baseFolder}.")
 
         if not self.baseFolder.is_dir():
-            print(f"Error: Project folder '{self.baseFolder}' does not exist.")
+            logging.error(f"Project folder '{self.baseFolder}' does not exist.")
             return
 
-        print(f"Project folder '{self.baseFolder}' found. Starting build process.")
+        logging.info(f"Project folder '{self.baseFolder}' found. Starting build process.")
         if self.targetFolders:
-            print(f"Using target folders: {self.targetFolders}")
+            logging.info(f"Using target folders: {self.targetFolders}")
         else:
-            print("No target folders specified; scanning project root.")        
+            logging.info("No target folders specified; scanning project root.")        
 
         candidates = []
         scan_paths = [self.baseFolder]
@@ -51,64 +51,64 @@ class Builder:
         try:
             for scan_path in scan_paths:
                 if not scan_path.exists():
-                    print(f"Warning: target folder '{scan_path}' does not exist; skipping.")
+                    logging.warning(f"Target folder '{scan_path}' does not exist; skipping.")
                     continue
                 if not scan_path.is_dir():
-                    print(f"Warning: target path '{scan_path}' is not a directory; skipping.")
+                    logging.warning(f"Target path '{scan_path}' is not a directory; skipping.")
                     continue
 
-                print("Finding candidates in folder:", scan_path)
+                logging.info(f"Finding candidates in folder: {scan_path}")
 
                 finder = CandidateFinder(scan_path)
                 found = finder.find_candidates()
                 candidates.extend(found)
 
-            print(f"Found {len(candidates)} candidates.")
+            logging.info(f"Found {len(candidates)} candidates.")
         except Exception as e:
-            print(f"Error during candidate finding: {e}")
+            logging.exception(f"Error during candidate finding: {e}")
             return
         
         elapsed = round(time.time() - startTime, 2)
-        print(f"Candidate finding complete in {elapsed} seconds. Starting YAML parsing.")
+        logging.info(f"Candidate finding complete in {elapsed} seconds. Starting YAML parsing.")
 
         try:
             for candidate in candidates:
-                print(f"Processing candidate: {candidate['name']} (classification: {candidate['classification']}, files: {candidate['files']})")
+                logging.info(f"Processing candidate: {candidate['name']} (classification: {candidate['classification']}, files: {candidate['files']})")
                 # Replace with actual YAML parsing logic
                 # Store the returned .pnml files for collation?
         except Exception as e:
-            print(f"Error during YAML parsing: {e}")
+            logging.exception(f"Error during YAML parsing: {e}")
             return
         
         elapsed = round(time.time() - startTime, 2)
-        print(f"YAML parsing complete in {elapsed} seconds. Starting NML collation.")
+        logging.info(f"YAML parsing complete in {elapsed} seconds. Starting NML collation.")
         
         try:
             # Collate NML
             time.sleep(1)  # Replace with actual build logic
         except Exception as e:
-            print(f"Error during NML collation: {e}")
+            logging.exception(f"Error during NML collation: {e}")
             return
         
         elapsed = round(time.time() - startTime, 2)
-        print(f"NML collation complete in {elapsed} seconds. Starting newGRF compilation.")
+        logging.info(f"NML collation complete in {elapsed} seconds. Starting newGRF compilation.")
         
         try:
             # Compile newGRF
             time.sleep(1)  # Replace with actual build logic
         except Exception as e:
-            print(f"Error during newGRF compilation: {e}")
+            logging.exception(f"Error during newGRF compilation: {e}")
             return
         
         elapsed = round(time.time() - startTime, 2)
-        print(f"newGRF compilation complete in {elapsed} seconds. Starting newGRF copying.")
+        logging.info(f"newGRF compilation complete in {elapsed} seconds. Starting newGRF copying.")
         
         try: 
             # Copy newGRF to OpenTTD newGRF folder  
             time.sleep(1)  # Replace with actual build logic
         except Exception as e:
-            print(f"Error during newGRF copying: {e}")
+            logging.exception(f"Error during newGRF copying: {e}")
             return
 
         elapsed = round(time.time() - startTime, 2)
-        print(f"BRBuild build complete after {elapsed} seconds.")
+        logging.info(f"BRBuild build complete after {elapsed} seconds.")
