@@ -8,22 +8,22 @@ from Project.Project import Project
 def run_build(project_name=None):
     ''' Orchestrator for the build process. If a project name is provided, it will attempt to build that specific project. Otherwise, it will search for all projects in the parent directory and build them. '''
     if project_name:
-        logging.info(f"Attempting to build specified project: {project_name}")
+        logger.info(f"Attempting to build specified project: {project_name}")
         # Build specific project
         project = Project(project_name)
 
         builder = Builder()
         builder.build(project)
     else:
-        logging.debug("No specific project specified. Searching for all projects in the parent directory.")
+        logger.debug("No specific project specified. Searching for all projects in the parent directory.")
         # Find and build all projects
         finder = ProjectFinder()
         
         if not finder.projects:
-            logging.debug("No projects found. Please ensure there are folders with a 'BRBuild.yaml' file in the parent directory.")
+            logger.debug("No projects found. Please ensure there are folders with a 'BRBuild.yaml' file in the parent directory.")
             return False
         
-        logging.info(f"Found projects: {finder.projects}")
+        logger.info(f"Found projects: {finder.projects}")
         builder = Builder()
         
         for project in finder.projects:
@@ -53,11 +53,13 @@ def configure_logging(enable_file: bool, log_file: str = "build.log") -> None:
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(
             logging.Formatter(
-                "%(asctime)s %(levelname)s %(message)s"
+                "%(asctime)s %(levelname)-8s %(name)-20s %(message)s"
             )
         )
 
         logger.addHandler(file_handler)
+
+    return logger
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -84,20 +86,22 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    logger = configure_logging(
+    configure_logging(
         enable_file=args.log is not None,
         log_file=args.log or "build.log"
     )
 
-    logging.info("Starting build")
+    logger = logging.getLogger("Run")
+
+    logger.info("Starting build")
 
     try: 
         success = run_build(args.project)
     except Exception as exc:
-        logging.exception("Build failed with an exception:" + str(exc))
+        logger.exception("Build failed with an exception:" + str(exc))
         success = False
 
-    logging.info(
+    logger.info(
         "Build %s",
         "succeeded" if success else "failed"
     )
