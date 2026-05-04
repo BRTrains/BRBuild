@@ -1,5 +1,6 @@
 import time, logging
 
+from Vehicle.VariantIterator import VariantIterator
 from YAMLHandler.VehicleLoader import VehicleLoader
 from .CandidateFinder import CandidateFinder
 from Project.Project import Project
@@ -64,13 +65,17 @@ class Builder:
 
         try:
             for candidate in candidates:
-                logging.info(f"Processing candidate: {candidate['name']}")
-                # Replace with actual YAML parsing logic
+                logging.info(f"Processing candidate: {candidate['name']}")                
                 # Store the returned .pnml files for collation?
                 for file in candidate['files']:
                     logging.debug(f"\tParsing YAML file: {file}")
                     vehicle = VehicleLoader.load(file)  # Example of loading the first file for the candidate
                     logging.debug(f"\tLoaded vehicle: {vehicle.name} with identifier {vehicle.identifier}, {len(vehicle.profiles)} profiles, and {len(vehicle.liveries)} liveries.")
+
+                    iterator = VariantIterator(vehicle)
+                    for variant in iterator:
+                        logging.debug(f"\tGenerated variant: {variant.vehicle.name}, using livery {variant.livery.name} and profile {variant.profile.identifier}")
+                        self.variantList.append(variant)
         except Exception as e:
             logging.exception(f"Error during YAML parsing: {e}")
             return
