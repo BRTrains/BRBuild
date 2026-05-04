@@ -15,12 +15,12 @@ def run_build(project_name=None):
         builder = Builder()
         builder.build(project)
     else:
-        logging.info("No specific project specified. Searching for all projects in the parent directory.")
+        logging.debug("No specific project specified. Searching for all projects in the parent directory.")
         # Find and build all projects
         finder = ProjectFinder()
         
         if not finder.projects:
-            logging.info("No projects found. Please ensure there are folders with a 'BRBuild.yaml' file in the parent directory.")
+            logging.debug("No projects found. Please ensure there are folders with a 'BRBuild.yaml' file in the parent directory.")
             return False
         
         logging.info(f"Found projects: {finder.projects}")
@@ -31,21 +31,32 @@ def run_build(project_name=None):
     
     return True
 
-def configure_logging(enable_file: bool, log_file: str = "build.log"):
+def configure_logging(enable_file: bool, log_file: str = "build.log") -> None:
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+
+    # clear existing handlers
+    logger.handlers.clear()
+
+    # logger must allow lowest required level
+    logger.setLevel(logging.DEBUG)
 
     console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(
         logging.Formatter("%(levelname)s %(message)s")
     )
+
     logger.addHandler(console_handler)
 
     if enable_file:
         file_handler = logging.FileHandler(log_file, mode="w")
+        file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(
-            logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+            logging.Formatter(
+                "%(asctime)s %(levelname)s %(name)s %(message)s"
+            )
         )
+
         logger.addHandler(file_handler)
 
 def parse_args():
@@ -73,7 +84,7 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    configure_logging(
+    logger = configure_logging(
         enable_file=args.log is not None,
         log_file=args.log or "build.log"
     )
