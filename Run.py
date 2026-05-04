@@ -53,7 +53,7 @@ def configure_logging(enable_file: bool, log_file: str = "build.log") -> None:
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(
             logging.Formatter(
-                "%(asctime)s %(levelname)s %(name)s %(message)s"
+                "%(asctime)s %(levelname)s %(message)s"
             )
         )
 
