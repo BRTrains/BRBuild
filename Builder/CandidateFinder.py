@@ -27,7 +27,7 @@ class CandidateFinder:
             for filename in filenames:
                 filename_lower = filename.lower()
                 if filename_lower == f"{lower_name}{self.yaml_extension}" or filename_lower == f"{lower_name}{self.pnml_extension}":
-                    matches.append(filename)
+                    matches.append(f"{dirpath}/{filename}")
 
             if matches:
                 classification = folder.parent.name.lower()

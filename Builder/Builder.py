@@ -1,5 +1,6 @@
 import time, logging
-from pathlib import Path
+
+from YAMLHandler.VehicleLoader import VehicleLoader
 from .CandidateFinder import CandidateFinder
 from Project.Project import Project
 
@@ -27,11 +28,11 @@ class Builder:
             logging.error(f"Project folder '{project.path}' does not exist.")
             return
 
-        logging.info(f"Project folder '{project.path}' found. Starting build process.")
+        logging.debug(f"Project folder '{project.path}' found. Starting build process.")
         if project.target_folders:
-            logging.info(f"Using target folders: {project.target_folders}")
+            logging.debug(f"Using target folders: {project.target_folders}")
         else:
-            logging.info("No target folders specified; scanning project root.")        
+            logging.debug("No target folders specified; scanning project root.")        
 
         candidates = []
         scan_paths = [project.path]
@@ -47,7 +48,7 @@ class Builder:
                     logging.warning(f"Target path '{scan_path}' is not a directory; skipping.")
                     continue
 
-                logging.info(f"Finding candidates in folder: {scan_path}")
+                logging.debug(f"Finding candidates in folder: {scan_path}")
 
                 finder = CandidateFinder(scan_path)
                 found = finder.find_candidates()
@@ -63,9 +64,13 @@ class Builder:
 
         try:
             for candidate in candidates:
-                logging.info(f"Processing candidate: {candidate['name']} (classification: {candidate['classification']}, files: {candidate['files']})")
+                logging.info(f"Processing candidate: {candidate['name']}")
                 # Replace with actual YAML parsing logic
                 # Store the returned .pnml files for collation?
+                for file in candidate['files']:
+                    logging.debug(f"\tParsing YAML file: {file}")
+                    vehicle = VehicleLoader.load(file)  # Example of loading the first file for the candidate
+                    logging.debug(f"\tLoaded vehicle: {vehicle.name} with identifier {vehicle.identifier}, {len(vehicle.profiles)} profiles, and {len(vehicle.liveries)} liveries.")
         except Exception as e:
             logging.exception(f"Error during YAML parsing: {e}")
             return
@@ -75,7 +80,8 @@ class Builder:
         
         try:
             # Collate NML
-            time.sleep(1)  # Replace with actual build logic
+            # Replace with actual build logic
+            pass
         except Exception as e:
             logging.exception(f"Error during NML collation: {e}")
             return
@@ -85,7 +91,8 @@ class Builder:
         
         try:
             # Compile newGRF
-            time.sleep(1)  # Replace with actual build logic
+            # Replace with actual build logic
+            pass
         except Exception as e:
             logging.exception(f"Error during newGRF compilation: {e}")
             return
@@ -95,7 +102,8 @@ class Builder:
         
         try: 
             # Copy newGRF to OpenTTD newGRF folder  
-            time.sleep(1)  # Replace with actual build logic
+            # Replace with actual build logic
+            pass
         except Exception as e:
             logging.exception(f"Error during newGRF copying: {e}")
             return

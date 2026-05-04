@@ -10,13 +10,13 @@ class ProjectFinder:
         self.project_root = Path(__file__).parent.parent
         self.parent_folder = self.project_root.parent
 
-        logging.info(f"ProjectFinder initialized. Looking for projects in: {self.parent_folder}")
+        logging.debug(f"ProjectFinder initialized. Looking for projects in: {self.parent_folder}")
 
         self.projects = self.find_projects()
 
     def find_projects(self):
         # Find all folders in the directory above the project root that contain a "BRBuild.yaml" file
-        logging.info(f"Searching for projects in: {self.parent_folder}")
+        logging.debug(f"Searching for projects in: {self.parent_folder}")
         projects = []
 
         for p in self.parent_folder.iterdir():
