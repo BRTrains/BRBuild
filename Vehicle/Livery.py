@@ -1,3 +1,8 @@
+from dataclasses import dataclass
+from typing import Optional, List, Union
+
+@dataclass
 class Livery:
-    def __init__(self, name):
-        self.name = name
+    name: str
+    sprite_override: Optional[List[int]] = None
+    profiles: Optional[List[str]] = None
