@@ -1,0 +1,5 @@
+project:
+  name: ProjectName
+  build: True
+  target_folders:
+    - src/vehicles
