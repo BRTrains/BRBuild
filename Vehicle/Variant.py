@@ -9,11 +9,14 @@ class Variant:
         self.profile = profile
 
         self.badges = list()
-        self.handleSpecialTags()
+        self.properties = dict()
+        self.callbacks = dict()
+
         self.handleSpeed()
         self.handleCapacity()
         self.handlePhysics()
         self.handleCosts()
+        self.handleSpecialTags()
 
     def get_attr(self, attr):
         # Check profile first, then livery, then vehicle
