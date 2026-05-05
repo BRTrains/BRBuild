@@ -7,7 +7,7 @@ class Physics:
 
     def calculate_TE_coefficient(self, tractive_effort, weight):
         if tractive_effort is None or weight is None:
-            logger.warning("Tractive effort or weight is None. Cannot calculate TE coefficient.")
+            raise ValueError(f"Tractive effort ({tractive_effort}) or weight ({weight}) is None. Cannot calculate TE coefficient.")
             return 0
         
         if tractive_effort < 1:
@@ -26,8 +26,7 @@ class Physics:
 
     def calculate_AD_coefficient(self, speed_mph):
         if speed_mph is None:
-            logger.warning("Speed is None. Cannot calculate AD coefficient.")
-            return 0
+            raise ValueError("Speed is None. Cannot calculate AD coefficient.")
         speed_kmh = speed_mph * 1.60934
         AD_coefficient = 8 / speed_kmh # OpenTTD calculation, the 8 is a magic  number and has no basis in physics        
         return round(AD_coefficient,5)
