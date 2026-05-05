@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import yaml
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict
 
 from PropertyCalculation.VehicleType import VehicleType
 from Vehicle.Vehicle import Vehicle, Profile, Livery
