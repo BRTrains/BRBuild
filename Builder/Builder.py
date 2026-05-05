@@ -76,6 +76,7 @@ class Builder:
                     iterator = VariantIterator(vehicle)
                     for variant in iterator:
                         logger.debug(f"\tGenerated variant: {variant.vehicle.name}, using livery {variant.livery.name} and profile {variant.profile.identifier}")
+                        variant.process()
                         self.variantList.append(variant)
         except Exception as e:
             logger.exception(f"Error during YAML parsing: {e}")
