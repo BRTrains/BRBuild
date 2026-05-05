@@ -2,7 +2,7 @@ import time, logging
 logger = logging.getLogger(__name__)
 
 from Vehicle.VariantIterator import VariantIterator
-from YAMLHandler.VehicleLoader import VehicleLoader
+from YamlHandler.VehicleLoader import VehicleLoader
 from .CandidateFinder import CandidateFinder
 from Project.Project import Project
 
@@ -11,6 +11,8 @@ class Builder:
     badgeList = []
 
     def __init__(self):
+        self.successfulVariants = []
+        self.failedVariants = []
         return
 
     def build(self, project_data):
@@ -66,18 +68,7 @@ class Builder:
 
         try:
             for candidate in candidates:
-                logger.info(f"Processing candidate: {candidate['name']}")                
-                # Store the returned .pnml files for collation?
-                for file in candidate['files']:
-                    logger.debug(f"\tParsing YAML file: {file}")
-                    vehicle = VehicleLoader.load(file)  # Example of loading the first file for the candidate
-                    logger.debug(f"\tLoaded vehicle: {vehicle.name} with identifier {vehicle.identifier}, {len(vehicle.profiles)} profiles, and {len(vehicle.liveries)} liveries.")
-
-                    iterator = VariantIterator(vehicle)
-                    for variant in iterator:
-                        logger.debug(f"\tGenerated variant: {variant.vehicle.name}, using livery {variant.livery.name} and profile {variant.profile.identifier}")
-                        variant.process()
-                        self.variantList.append(variant)
+                self.process_candidate(candidate)
         except Exception as e:
             logger.exception(f"Error during YAML parsing: {e}")
             return
@@ -117,3 +108,22 @@ class Builder:
 
         elapsed = round(time.time() - startTime, 2)
         logger.info(f"BRBuild build complete after {elapsed} seconds.")
+
+    def process_candidate(self, candidate):
+
+        logger.info(f"Processing candidate: {candidate['name']}")                
+        # Store the returned .pnml files for collation?
+        for file in candidate['files']:
+            logger.debug(f"\tParsing YAML file: {file}")
+            vehicle = VehicleLoader.load(file)  # Example of loading the first file for the candidate
+            logger.debug(f"\tLoaded vehicle: {vehicle.name} with identifier {vehicle.identifier}, {len(vehicle.profiles)} profiles, and {len(vehicle.liveries)} liveries.")
+
+            iterator = VariantIterator(vehicle)
+            for variant in iterator:
+                logger.debug(f"\tGenerated variant: {variant.vehicle.name}, using livery {variant.livery.name} and profile {variant.profile.identifier}")
+                try:
+                    variant.process()
+                except Exception as e:
+                    logger.exception(f"Error processing variant {variant}: {e}")
+                    self.failedVariants.append(variant.__repr__())
+                self.successfulVariants.append(variant)
