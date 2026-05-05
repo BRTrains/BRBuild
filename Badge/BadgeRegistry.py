@@ -40,7 +40,7 @@ class BadgeRegistry:
             badge = "/".join(accumulated)
             if badge not in self._badges:
                 self._badges.add(badge)
-                logger.info(f"Badge added: {badge}")
+                logger.debug(f"Badge added: {badge}")
         return badge
 
     def has_badge(self, badge_path):
