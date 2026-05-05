@@ -1,6 +1,7 @@
 from PropertyCalculation.Physics import Physics
 from PropertyCalculation.CostCalculator import CostCalculator
 from Badge.BadgeRegistry import BadgeRegistry
+from PropertyCalculation.VehicleType import VehicleType
 
 class Variant:
     def __init__(self, vehicle, livery, profile):
@@ -45,8 +46,13 @@ class Variant:
         te = self.get_attr("tractive_effort")
         weight = self.get_attr("weight")
 
-        self.te_coefficient = physics.calculate_TE_coefficient(te, weight)
-        self.ai_coefficient = physics.calculate_AD_coefficient(self.get_attr("speed"))
+        if self.vehicle.vehicle_type in (VehicleType.WAGON, VehicleType.COACH):
+            # No tractive effort or air drag for wagons and coaches, so set coefficients to 0
+            self.te_coefficient = 0
+            self.ad_coefficient = 0
+        else:
+            self.te_coefficient = physics.calculate_TE_coefficient(te, weight)
+            self.ai_coefficient = physics.calculate_AD_coefficient(self.get_attr("speed"))
 
 
     def handleCosts(self):
@@ -59,3 +65,7 @@ class Variant:
         for tag in self.vehicle.special_tags:
             badge = BadgeRegistry().add_badge(tag)
             self.badges.append(badge)
+
+        operator = self.get_attr("operator")
+        if operator is not None:
+            self.badges.append(f"Operator/{operator}")

@@ -3,6 +3,7 @@ from __future__ import annotations
 import yaml
 from typing import Any, Dict, List, Optional, Union
 
+from PropertyCalculation.VehicleType import VehicleType
 from Vehicle.Vehicle import Vehicle, Profile, Livery
 
 # assumes Vehicle, Profile, Livery already defined
@@ -33,6 +34,14 @@ class VehicleLoader:
             for l in data.get("liveries", []) or []
         ]
 
+        raw_type = stats.get("type")
+        try:
+            # First try to parse as enum member (e.g., "LOCOMOTIVE" or "FREIGHT_WAGON")
+            vehicle_type = VehicleType[raw_type.upper()]
+        except KeyError:
+            # If that fails, try to parse as raw value (e.g., "locomotive" or "freight_wagon")
+            vehicle_type = VehicleType(raw_type)
+
         return Vehicle(
             identifier=info.get("identifier"),
             name=info.get("name"),
@@ -41,17 +50,17 @@ class VehicleLoader:
             operator=info.get("operator"),
             classification=data.get("classification"),
 
-            vehicle_type=stats.get("type"),
+            vehicle_type=vehicle_type,
 
             weight=stats.get("weight"),
-            length=data.get("length"),
+            length=stats.get("length"),
 
-            power=data.get("power"),
-            speed=data.get("speed"),
-            tractive_effort=data.get("tractive_effort"),
+            power=stats.get("power"),
+            speed=stats.get("speed"),
+            tractive_effort=stats.get("tractive_effort"),
 
             cargo_classes=cargo.get("cargo_classes"),
-            power_type=data.get("power_type"),
+            power_type=stats.get("power_type"),
 
             introduction_date=dates.get("introduction_date") or data.get("introduction_date"),
 
