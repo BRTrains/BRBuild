@@ -1,0 +1,47 @@
+class StringRegistry:
+    def __init__(self):
+        self._counter = 1
+        self._strings = {}  # name -> text
+
+    def write_string(self, text: str, name: str = None) -> str:
+        """
+        Stores a string and returns a reference of the form string(name).
+        """
+
+        if name is None:
+            name = f"autostr_{self._counter}"
+            self._counter += 1
+        else:
+            name = self.clean_string(name)
+            name = name.lower()
+            if not name.startswith("str_"):
+                name = f"str_{name}"
+
+        self._strings[name] = text
+        return f"string({name})"
+
+    def clean_string(self, in_str: str) -> str:
+        illegal_name_chars = "(),"
+        return in_str.translate(str.maketrans("", "", illegal_name_chars))
+
+    def get(self, name: str) -> str | None:
+        return self._strings.get(name)
+
+    def items(self):
+        return self._strings.items()
+
+    def __contains__(self, name: str) -> bool:
+        return name in self._strings
+
+    def __len__(self) -> int:
+        return len(self._strings)
+
+    def clear(self):
+        self._strings.clear()
+        self._counter = 1
+
+    def __repr__(self):
+        return f"StringRegistry(size={len(self._strings)})"
+    
+_registry = StringRegistry()
+nml_str = _registry.write_string
