@@ -35,5 +35,7 @@ class Vehicle:
     loading_speed: Optional[int] = None
     sound_effect: Optional[str] = None
 
+    special_tags: Optional[list] = None
+
     profiles: List[Profile] = None
     liveries: List[Livery] = None

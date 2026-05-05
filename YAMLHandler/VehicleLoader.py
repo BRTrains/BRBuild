@@ -62,6 +62,8 @@ class VehicleLoader:
             loading_speed=data.get("loading_speed"),
             sound_effect=data.get("sound effect"),
 
+            special_tags = data.get("special_tags", {}),
+
             profiles=profiles,
             liveries=liveries,
         )
