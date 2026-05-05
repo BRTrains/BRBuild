@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 class BadgeRegistry:
     """Registry of badges seen so far.
 
@@ -5,8 +8,18 @@ class BadgeRegistry:
     When a nested badge is added, all intermediate category levels are also created.
     """
 
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            instance = super().__new__(cls)
+            instance._badges = set()
+            cls._instance = instance
+            logger.debug("BadgeRegistry instance created")
+        return cls._instance
+
     def __init__(self):
-        self._badges = set()
+        pass
 
     def add_badge(self, badge_path):
         """Add a badge path, creating parent categories as needed."""
@@ -27,6 +40,8 @@ class BadgeRegistry:
             badge = "/".join(accumulated)
             if badge not in self._badges:
                 self._badges.add(badge)
+                logger.info(f"Badge added: {badge}")
+        return badge
 
     def has_badge(self, badge_path):
         return badge_path in self._badges
@@ -52,7 +67,7 @@ class BadgeRegistry:
             else:
                 for badge in self.badges():
                     f.write(f"{badge}\n")
-    
+
 
 if __name__ == "__main__":
     registry = BadgeRegistry()
