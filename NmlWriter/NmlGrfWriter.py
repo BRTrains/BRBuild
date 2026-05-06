@@ -1,7 +1,9 @@
+import logging
 import pathlib
 from pathlib import Path
 from Lang.StringRegistry import nml_str
-class GrfWriter:
+from .NmlSwitchWriter import NmlSwitchWriter
+class NmlGrfWriter:
     def __init__(self, config):
         self.config = config
 
@@ -38,7 +40,7 @@ class GrfWriter:
                     f.write("\t\t\tnames: {\n")
                     for key, name in param["names"].items():
                         f.write(
-                            f"\t\t\t\t{key}: {nml_str(name, param['identifier'] + '_' + key)};\n"
+                            f"\t\t\t\t{key}: {nml_str(name, param['identifier'] + '_' + str(key))};\n"
                         )
                     f.write("\t\t\t};\n")
 
@@ -49,14 +51,13 @@ class GrfWriter:
 
             self.write_vehicle_switches(f)
 
+            logging.getLogger(__name__).info(f"GRF GNML written to {output_path}")
+
     def write_vehicle_switches(self, f):
-        # TODO
-        # Write vehicle switches - this is from BRMetro and used the switch writer from vehicle, but should probably be a new shared switch writer
-        # vehicle_writer = NML_Vehicle(source_root=Path("."))
-        raise(NotImplementedError("Vehicle switch writing not implemented yet"))
+        nmlSwitchWriter = NmlSwitchWriter()
 
         for sw in self.config.global_vehicle_switches:
-            vehicle_writer.write_switch(
+            nmlSwitchWriter.write_switch(
                 f=f,
                 vehicle_type=sw["vehicle_type"],
                 target_type=sw.get("target_type", "SELF"),
