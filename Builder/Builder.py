@@ -22,8 +22,10 @@ class Builder:
 
     def build(self, project_data):
         if isinstance(project_data, Project):
+            logger.debug(f"Received project data is already a Project instance: {project_data}")
             project = project_data
         else:
+            logger.debug(f"Received project data is not a Project instance, attempting to create one: {project_data}")
             project = Project(project_data)
 
         if not project.build:
@@ -47,16 +49,15 @@ class Builder:
             logger.exception(f"Error loading build configuration for project '{project.name}': {e}")
             return
 
-        logger.debug(f"Project folder '{project.path}' found. Starting build process.")
-        if project.targetFolders:
-            logger.debug(f"Using target folders: {project.targetFolders}")
-        else:
-            logger.debug("No target folders specified; scanning project root.")        
+        logger.debug(f"Project folder '{project.path}' found. Starting build process.")     
 
         candidates = []
-        scan_paths = [project.path]
         if project.targetFolders:
+            logger.debug(f"Scanning specified target folders for candidates: {project.targetFolders}")
             scan_paths = [project.path / target for target in project.targetFolders]
+        else:
+            logger.debug("No target folders specified; scanning project root.")
+            scan_paths = [project.path]
 
         try:
             candidates = self.find_candidates(scan_paths, candidates)
