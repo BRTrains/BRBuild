@@ -33,11 +33,9 @@ def run_build(project_name=None):
 
 def configure_logging(enable_file: bool, log_file: str = "build.log") -> None:
     logger = logging.getLogger()
-
     # clear existing handlers
     logger.handlers.clear()
-
-    # logger must allow lowest required level
+    # set root logger level to DEBUG to capture all messages; individual handlers will filter as needed
     logger.setLevel(logging.DEBUG)
 
     console_handler = logging.StreamHandler(sys.stdout)
@@ -45,21 +43,16 @@ def configure_logging(enable_file: bool, log_file: str = "build.log") -> None:
     console_handler.setFormatter(
         logging.Formatter("%(levelname)s %(message)s")
     )
-
     logger.addHandler(console_handler)
 
+    # Only log to file if --log argument is passed
     if enable_file:
         file_handler = logging.FileHandler(log_file, mode="w")
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(
-            logging.Formatter(
-                "%(asctime)s %(levelname)-8s %(name)-30s %(message)s"
-            )
+            logging.Formatter("%(asctime)s %(levelname)-8s %(name)-30s %(message)s")
         )
-
         logger.addHandler(file_handler)
-
-    return logger
 
 def parse_args():
     parser = argparse.ArgumentParser(
