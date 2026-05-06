@@ -1,6 +1,6 @@
-import yaml
+import yaml, logging
 from pathlib import Path
-from GRF.Grf import Grf
+from Grf.Grf import Grf
 
 
 class GrfLoader:
@@ -11,13 +11,18 @@ class GrfLoader:
         with open(self.yaml_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
+        grf_data = data.get("grf", {}) or {}
+        versioning_data = data.get("versioning", {}) or {}
+
+        logging.getLogger(__name__).debug(f"Loaded GRF data from {self.yaml_path}")
+
         return Grf(
-            grfid=data.get("grfid"),
-            short_name=data.get("short_name"),
-            name=data.get("name"),
-            description=data.get("description"),
-            version=data.get("version"),
-            compatible_version=data.get("compatible_version"),
-            params=data.get("params", []),
-            global_vehicle_switches=data.get("global_vehicle_switches", [])
+            grfid = grf_data.get("grfid"),
+            short_name = grf_data.get("short_name"),
+            name = grf_data.get("name"),
+            description = grf_data.get("description"),
+            version = versioning_data.get("version"),
+            compatible_version = versioning_data.get("compatible_version"),
+            params = data.get("params", []),
+            global_vehicle_switches = data.get("global_vehicle_switches", [])
         )
