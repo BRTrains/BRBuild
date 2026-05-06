@@ -1,4 +1,6 @@
+import logging
 from pathlib import Path
+logger = logging.getLogger(__name__)
 
 class Project:
     def __init__(self, project_data):
@@ -6,10 +8,12 @@ class Project:
             self.name = project_data.get("name") or Path(project_data.get("path", "")).name
             self.path = Path(project_data.get("path", ".")).expanduser().resolve()
             self.build = bool(project_data.get("build"))
-            self.grfFolder = project_data.get("grf_folder","src/grf")
-            self.soundFolder = project_data.get("sound_folder", "src/sound")
-            self.targetFolders = project_data.get("target_folders") if isinstance(project_data.get("target_folders"), list) else []
+            self.grfFolder = project_data.get("grfFolder", "src/grf")
+            self.soundFolder = project_data.get("soundFolder", "src/sound")
+            self.targetFolders = project_data.get("targetFolders") if isinstance(project_data.get("targetFolders"), list) else []
+            logger.debug(f"Initialized Project: {self} from data: {project_data}")
         else:
+            logger.warning(f"Project initialized with non-dict data: {project_data}. Using default values.")    
             self.name = str(project_data)
             self.path = Path(f"../{self.name}").expanduser().resolve()
             self.build = True
