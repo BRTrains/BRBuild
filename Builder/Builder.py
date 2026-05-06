@@ -1,14 +1,19 @@
 import time, logging
 logger = logging.getLogger(__name__)
 
+from NmlWriter import NmlGrfWriter
+#from NmlWriter.NmlVehicleWriter import NmlVehicleWriter
 from Vehicle.VariantIterator import VariantIterator
 from YamlHandler.VehicleLoader import VehicleLoader
+from YamlHandler.GrfLoader import GrfLoader
+from Grf.Grf import Grf
 from .CandidateFinder import CandidateFinder
 from Project.Project import Project
 
 class Builder:
     variantList = []
     badgeList = []
+    nml_files = []
 
     def __init__(self):
         self.successfulVariants = []
@@ -31,17 +36,27 @@ class Builder:
         if not project.path.is_dir():
             logger.error(f"Project folder '{project.path}' does not exist.")
             return
+        
+        try:
+            grfLoader = GrfLoader(project.path / project.grfFolder / "GRF.yaml")
+            grf = grfLoader.load()
+
+            nmlWriter = NmlGrfWriter(grf)
+            nmlWriter.write_grf_gnml(project.path / project.grfFolder / "GRF.gnml")
+        except Exception as e:
+            logger.exception(f"Error loading build configuration for project '{project.name}': {e}")
+            return
 
         logger.debug(f"Project folder '{project.path}' found. Starting build process.")
-        if project.target_folders:
-            logger.debug(f"Using target folders: {project.target_folders}")
+        if project.targetFolders:
+            logger.debug(f"Using target folders: {project.targetFolders}")
         else:
             logger.debug("No target folders specified; scanning project root.")        
 
         candidates = []
         scan_paths = [project.path]
-        if project.target_folders:
-            scan_paths = [project.path / target for target in project.target_folders]
+        if project.targetFolders:
+            scan_paths = [project.path / target for target in project.targetFolders]
 
         try:
             candidates = self.find_candidates(scan_paths, candidates)
@@ -57,7 +72,12 @@ class Builder:
 
         try:
             for candidate in candidates:
-                self.process_candidate(candidate)
+                candidate_nml_files = self.process_candidate(candidate)
+                if candidate_nml_files and len(candidate_nml_files) > 0:
+                    # Store the returned .pnml files for collation
+                    self.nml_files.extend(candidate_nml_files)
+                else: 
+                    logger.warning(f"No NML files generated for candidate '{candidate['name']}'")
         except Exception as e:
             logger.exception(f"Error during YAML parsing: {e}")
             return
@@ -70,8 +90,7 @@ class Builder:
             return
 
         try:
-            # Collate NML
-            # Replace with actual build logic
+            NmlCollator.collate(self.nml_files, project)
             pass
         except Exception as e:
             logger.exception(f"Error during NML collation: {e}")
@@ -81,8 +100,7 @@ class Builder:
         logger.info(f"NML collation complete in {elapsed} seconds. Starting newGRF compilation.")
         
         try:
-            # Compile newGRF
-            # Replace with actual build logic
+            GrfCompiler.compile(project)
             pass
         except Exception as e:
             logger.exception(f"Error during newGRF compilation: {e}")
@@ -92,8 +110,7 @@ class Builder:
         logger.info(f"newGRF compilation complete in {elapsed} seconds. Starting newGRF copying.")
         
         try: 
-            # Copy newGRF to OpenTTD newGRF folder  
-            # Replace with actual build logic
+            GrfCompiler.copy_newgrf(project)
             pass
         except Exception as e:
             logger.exception(f"Error during newGRF copying: {e}")
@@ -123,6 +140,8 @@ class Builder:
         return candidates
 
     def process_candidate(self, candidate):
+        nml_files = []
+
         logger.info(f"Processing candidate: {candidate['name']}")                
         # Store the returned .pnml files for collation?
         for file in candidate['files']:
@@ -140,12 +159,15 @@ class Builder:
                     self.failedVariants.append(variant.__repr__())
                     return
 
-                try:
-                    pass
-                    # NmlVehicleWriter.write_variant(variant)
+                try:                
+                    nml_file = NmlVehicleWriter.write_variant(variant)
+                    nml_files.append(nml_file)
+
                 except Exception as e:
                     logger.exception(f"Unable to write NML for variant {variant}: {e}")
                     self.failedVariants.append(variant.__repr__())
                     return
 
                 self.successfulVariants.append(variant)
+        
+        return nml_files
