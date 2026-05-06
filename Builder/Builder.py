@@ -44,21 +44,7 @@ class Builder:
             scan_paths = [project.path / target for target in project.target_folders]
 
         try:
-            for scan_path in scan_paths:
-                if not scan_path.exists():
-                    logger.warning(f"Target folder '{scan_path}' does not exist; skipping.")
-                    continue
-                if not scan_path.is_dir():
-                    logger.warning(f"Target path '{scan_path}' is not a directory; skipping.")
-                    continue
-
-                logger.debug(f"Finding candidates in folder: {scan_path}")
-
-                finder = CandidateFinder(scan_path)
-                found = finder.find_candidates()
-                candidates.extend(found)
-
-            logger.info(f"Found {len(candidates)} candidates.")
+            candidates = self.find_candidates(scan_paths, candidates)
         except Exception as e:
             logger.exception(f"Error during candidate finding: {e}")
             return
@@ -106,11 +92,30 @@ class Builder:
             logger.exception(f"Error during newGRF copying: {e}")
             return
 
+        logger.info(f"BRBuild build process for project '{project.name}' completed successfully.")
+        logger.info(f"Successful variants: {len(self.successfulVariants)}. Failed variants: {len(self.failedVariants)}.")   
         elapsed = round(time.time() - startTime, 2)
         logger.info(f"BRBuild build complete after {elapsed} seconds.")
 
-    def process_candidate(self, candidate):
+    def find_candidates(self, scan_paths, candidates):
+        for scan_path in scan_paths:
+                if not scan_path.exists():
+                    logger.warning(f"Target folder '{scan_path}' does not exist; skipping.")
+                    continue
+                if not scan_path.is_dir():
+                    logger.warning(f"Target path '{scan_path}' is not a directory; skipping.")
+                    continue
 
+                logger.debug(f"Finding candidates in folder: {scan_path}")
+
+                finder = CandidateFinder(scan_path)
+                found = finder.find_candidates()
+                candidates.extend(found)
+
+        logger.info(f"Found {len(candidates)} candidates.")
+        return candidates
+
+    def process_candidate(self, candidate):
         logger.info(f"Processing candidate: {candidate['name']}")                
         # Store the returned .pnml files for collation?
         for file in candidate['files']:
@@ -126,4 +131,14 @@ class Builder:
                 except Exception as e:
                     logger.exception(f"Error processing variant {variant}: {e}")
                     self.failedVariants.append(variant.__repr__())
+                    return
+
+                try:
+                    pass
+                    # NmlVehicleWriter.write_variant(variant)
+                except Exception as e:
+                    logger.exception(f"Unable to write NML for variant {variant}: {e}")
+                    self.failedVariants.append(variant.__repr__())
+                    return
+
                 self.successfulVariants.append(variant)
