@@ -49,6 +49,9 @@ class Builder:
             logger.exception(f"Error during candidate finding: {e}")
             return
         
+        if len(candidates) == 0:
+            raise Exception(f"No candidates found for project '{project.name}'. Halting build process.")
+
         elapsed = round(time.time() - startTime, 2)
         logger.info(f"Candidate finding complete in {elapsed} seconds. Starting YAML parsing.")
 
@@ -62,6 +65,10 @@ class Builder:
         elapsed = round(time.time() - startTime, 2)
         logger.info(f"YAML parsing complete in {elapsed} seconds. Starting NML collation.")
         
+        if len(self.successfulVariants) == 0:
+            raise Exception(f"No successful variants were generated for project '{project.name}'. Halting build process.")
+            return
+
         try:
             # Collate NML
             # Replace with actual build logic
