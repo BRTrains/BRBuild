@@ -7,17 +7,23 @@ from Project.Project import Project
 
 def run_build(project_name=None):
     ''' Orchestrator for the build process. If a project name is provided, it will attempt to build that specific project. Otherwise, it will search for all projects in the parent directory and build them. '''
+    finder = ProjectFinder()
+
     if project_name:
         logger.info(f"Attempting to build specified project: {project_name}")
+
         # Build specific project
-        project = Project(project_name)
+        project = finder.find_project(project_name)
+
+        if not project:
+            logger.error(f"Project '{project_name}' not found.")
+            return False
 
         builder = Builder()
         builder.build(project)
     else:
         logger.debug("No specific project specified. Searching for all projects in the parent directory.")
         # Find and build all projects
-        finder = ProjectFinder()
         
         if not finder.projects:
             logger.debug("No projects found. Please ensure there are folders with a 'BRBuild.yaml' file in the parent directory.")
