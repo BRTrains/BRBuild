@@ -52,6 +52,7 @@ class NmlGrfWriter:
             self.write_vehicle_switches(f)
 
             logging.getLogger(__name__).info(f"GRF GNML written to {output_path}")
+            return output_path
 
     def write_vehicle_switches(self, f):
         nmlSwitchWriter = NmlSwitchWriter()
