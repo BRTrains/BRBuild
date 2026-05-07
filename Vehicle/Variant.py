@@ -1,17 +1,22 @@
+from PropertyCalculation.VehicleType import VehicleType
 from PropertyCalculation.Physics import Physics
 from PropertyCalculation.CostCalculator import CostCalculator
 from Badge.BadgeRegistry import BadgeRegistry
-from PropertyCalculation.VehicleType import VehicleType
+from PropertyCalculation.TrainType import TrainType
 
 class Variant:
-    def __init__(self, vehicle, livery, profile):
+    def __init__(self, vehicle, livery, profile, vehicleType=None):
         self.vehicle = vehicle
         self.livery = livery
         self.profile = profile
+        self.vehicle_type = vehicleType if vehicleType is not None else vehicle.vehicle_type
 
         self.badges = list()
         self.properties = dict()
         self.callbacks = dict()
+
+        # Identifier must be first, in case it's needed for file naming and other properties
+        self.generate_identifiers()
 
         self.handleSpeed()
         self.handleCapacity()
@@ -46,7 +51,7 @@ class Variant:
         te = self.get_attr("tractive_effort")
         weight = self.get_attr("weight")
 
-        if self.vehicle.vehicle_type in (VehicleType.WAGON, VehicleType.COACH):
+        if self.vehicle.train_type in (TrainType.WAGON, TrainType.COACH):
             # No tractive effort or air drag for wagons and coaches, so set coefficients to 0
             self.te_coefficient = 0
             self.ad_coefficient = 0
@@ -54,6 +59,18 @@ class Variant:
             self.te_coefficient = physics.calculate_TE_coefficient(te, weight)
             self.ai_coefficient = physics.calculate_AD_coefficient(self.get_attr("speed"))
 
+    def generate_identifiers(self):
+        # Generate unique identifiers for the variant based on the vehicle, livery, and profile
+        self.identifier = (
+            f"{self.vehicle.identifier}_"
+            f"{self.profile.identifier.replace(' ', '-')}_"
+            f"{self.livery.name.replace(' ', '-')}_"
+            f"{self.vehicle_type.value}" # tram, train etc
+        ).lower()
+        
+        # {self.vehicle.classification}/{self.vehicle.identifier}/
+        self.nml_filename = f"{self.identifier}.gnml"
+    
 
     def handleCosts(self):
         vehicle = self.vehicle
