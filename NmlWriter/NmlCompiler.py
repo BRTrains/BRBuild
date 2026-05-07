@@ -19,7 +19,7 @@ class NmlCompiler:
 
         # Try local ../nml first        
         if nml_path.exists() and nml_path.is_dir():
-            print("Local instance found, using NML from ", nml_path)
+            logger.info("Local instance found, using NML from ", nml_path)
             sys.path.insert(0, str(nml_path))
             try:
                 import nml.main as nmlc
@@ -31,10 +31,10 @@ class NmlCompiler:
         if nmlc is None:
             found_nml = util.find_spec("nml")
             if found_nml is not None:
-                print(f"No NML found in {nml_path}. Trying to use nml from python")
+                logger.info(f"No NML found in {nml_path}. Trying to use nml from python")
                 import nml.main as nmlc
             else:
-                print("nml is not installed. You can get it using 'pip install nml'")
+                logger.error("nml is not installed. You can get it using 'pip install nml'")
                 return -1
 
         # Prepare parameters
@@ -70,8 +70,7 @@ class NmlCompiler:
         try:
             src = Path(grf_filepath).expanduser().resolve()
         except Exception as e:
-            print(str(grf_filepath))
-            print(e)
+            logger.error(f"Error occurred while resolving path: {grf_filepath}. {e}")
 
         if not src.is_file():
             raise FileNotFoundError(f"Source file not found: {src}")
@@ -81,19 +80,19 @@ class NmlCompiler:
         target_dir = documents / "OpenTTD" / "newgrf"
 
         if not target_dir.exists():
-            print(f"Target folder not found: {target_dir}, trying alternate")
+            logger.info(f"Target folder not found: {target_dir}, trying alternate")
             documents_alt = Path.home() / "OneDrive" / "Documents"
             target_dir = documents_alt / "OpenTTD" / "newGRF"
 
         if not target_dir.exists():
-            print(f"Target folder not found: {target_dir}")
+            logger.error(f"Target folder not found: {target_dir}")
             return None
 
         dest = target_dir / src.name
         try:
             shutil.copy2(src, dest)
-            print(f"Copied to: {dest}")
+            logger.info(f"Copied to: {dest}")
             return dest
         except Exception as e:
-            print(f"Copy failed: {e}")
+            logger.error(f"Copy failed: {e}")
             return None
