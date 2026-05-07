@@ -82,6 +82,16 @@ def parse_args():
 
     return parser.parse_args()
 
+def clean_working_data():
+    working_data = Path("WorkingData")
+
+    # Empty the WorkingData folder for the new run
+    for path in working_data.iterdir():
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+
 if __name__ == "__main__":
     args = parse_args()
 
@@ -91,6 +101,11 @@ if __name__ == "__main__":
     )
 
     logger = logging.getLogger("Run")
+
+    logger.debug(f"Parsed arguments: {args}")
+
+    logger.info("Cleaning working data")
+    clean_working_data()
 
     logger.info("Starting build")
 
