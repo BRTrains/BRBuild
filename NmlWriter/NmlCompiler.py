@@ -13,7 +13,7 @@ class NmlCompiler:
     def __init__(self):
         pass
 
-    def compile(self, nml_filepath, lang_folder = None):
+    def compile(self, nml_filepath, lang_folder = None, log_nml_output=False):
         nml_path = Path(__file__).resolve().parents[2] / "nml"
         nmlc = None
 
@@ -45,15 +45,23 @@ class NmlCompiler:
 
         logger.info(f"Compiling with parameters: {parameters}")
 
-        # Compile
-        with open("nmlc.log", "w") as log_file:
-            duplicator = StreamDuplicator(sys.stdout, log_file, enable_a=True, enable_b=True)
+        # Compile. Log output to file if requested, otherwise just print to console. Always print to console.
+        try:
+            if log_nml_output:
+                with open("nmlc.log", "w") as log_file:
+                    duplicator = StreamDuplicator(sys.stdout, log_file, enable_a=True, enable_b=True)
 
-            try:
-                with redirect_stdout(duplicator):
-                    nmlc.main(parameters)
-            except SystemExit:
-                log_file.write("NML Finished\n")
+                    with redirect_stdout(duplicator):
+                        nmlc.main(parameters)
+
+                    log_file.write("NML Finished\n")
+            else:
+                nmlc.main(parameters)
+
+        except SystemExit as e:
+            if e.code != 0:
+                logger.exception(f"NML compilation failed with SystemExit {e}")
+                raise
 
         logger.info("Finished compiling grf file")
         return nml_filepath.replace(".nml", ".grf")

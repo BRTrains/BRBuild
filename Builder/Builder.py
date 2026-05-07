@@ -28,7 +28,7 @@ class Builder:
         self.failedVariants = []
         return
 
-    def build(self, project_data):
+    def build(self, project_data, log_nml_output=False):
         if isinstance(project_data, Project):
             logger.debug(f"Received project data is already a Project instance: {project_data}")
             project = project_data
@@ -123,7 +123,7 @@ class Builder:
         logger.info(f"Wrote language file in {elapsed} seconds. Starting newGRF compilation.")
         
         try:
-            grf_filepath = self.nmlCompiler.compile(nml_filepath, lang_folder)
+            grf_filepath = self.nmlCompiler.compile(nml_filepath, lang_folder, log_nml_output)
             pass
         except Exception as e:
             logger.exception(f"Error during newGRF compilation: {e}")
