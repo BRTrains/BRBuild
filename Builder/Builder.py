@@ -1,6 +1,7 @@
 import time, logging
 logger = logging.getLogger(__name__)
 
+from Lang.StringWriter import StringWriter
 from NmlWriter import NmlGrfWriter
 from NmlWriter.NmlVariantWriter import NmlVariantWriter
 from NmlWriter.NmlCollator import NmlCollator
@@ -11,6 +12,7 @@ from YamlHandler.GrfLoader import GrfLoader
 from Grf.Grf import Grf
 from .CandidateFinder import CandidateFinder
 from Project.Project import Project
+from Lang.StringRegistry import _registry
 
 class Builder:
 
@@ -100,17 +102,28 @@ class Builder:
             return
 
         try:
-            self.nmlCollator.collate(self.nml_files, project.name)
+            nml_filepath = self.nmlCollator.collate(self.nml_files, project.name)
             pass
         except Exception as e:
             logger.exception(f"Error during NML collation: {e}")
             return
         
         elapsed = round(time.time() - startTime, 2)
-        logger.info(f"NML collation complete in {elapsed} seconds. Starting newGRF compilation.")
+        logger.info(f"NML collation complete in {elapsed} seconds. Writing language file.")
+
+        lang_folder = "WorkingData/" + project.name + "/lang/"
+        string_writer = StringWriter(_registry, lang_folder)
+        try:
+            string_writer.write_file()
+        except Exception as e:
+            logger.exception(f"Error writing language file: {e}")
+            return
+
+        elapsed = round(time.time() - startTime, 2)
+        logger.info(f"Wrote language file in {elapsed} seconds. Starting newGRF compilation.")
         
         try:
-            self.nmlCompiler.compile(self.nml_files, project)
+            grf_filepath = self.nmlCompiler.compile(nml_filepath, lang_folder)
             pass
         except Exception as e:
             logger.exception(f"Error during newGRF compilation: {e}")
@@ -120,7 +133,7 @@ class Builder:
         logger.info(f"newGRF compilation complete in {elapsed} seconds. Starting newGRF copying.")
         
         try: 
-            self.nmlCompiler.copy_newgrf(project)
+            self.nmlCompiler.copy_newgrf(grf_filepath)
             pass
         except Exception as e:
             logger.exception(f"Error during newGRF copying: {e}")
