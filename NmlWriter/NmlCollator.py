@@ -20,3 +20,5 @@ class NmlCollator:
                     f.write(f"\n\n// File: {file}\n")
                     f.write(content)
         logger.info(f"Collated NML written to {self.output_file}")
+
+        return self.output_file
