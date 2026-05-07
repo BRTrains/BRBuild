@@ -34,6 +34,8 @@ class Builder:
             logger.debug(f"Received project data is not a Project instance, attempting to create one: {project_data}")
             project = Project(project_data)
 
+        self.nml_output_folder = "WorkingData/" + project.name + "/"
+
         if not project.build:
             logger.info(f"Skipping project '{project.name}' because build is disabled.")
             return
@@ -50,7 +52,8 @@ class Builder:
             grf = grfLoader.load()
 
             nmlWriter = NmlGrfWriter(grf)
-            nmlWriter.write_grf_gnml(project.path / project.grfFolder / "GRF.gnml")
+            grfFile = nmlWriter.write_grf_gnml(self.nml_output_folder + "GRF.gnml")
+            self.nml_files.append(grfFile)
         except Exception as e:
             logger.exception(f"Error loading build configuration for project '{project.name}': {e}")
             return
@@ -97,7 +100,7 @@ class Builder:
             return
 
         try:
-            self.nmlCollator.collate(self.nml_files, project)
+            self.nmlCollator.collate(self.nml_files, project.name)
             pass
         except Exception as e:
             logger.exception(f"Error during NML collation: {e}")
@@ -149,6 +152,10 @@ class Builder:
     def process_candidate(self, candidate):
         nml_files = []
 
+        for file in candidate['pnml_files']:
+            logger.debug(f"\tFound manual PNML file: {file}")
+            self.nml_files.append(file)
+
         logger.info(f"Processing candidate: {candidate['name']}")                
         # Store the returned .pnml files for collation?
         for file in candidate['files']:
@@ -167,7 +174,7 @@ class Builder:
                     return
 
                 try:
-                    variantWriter = NmlVariantWriter(variant)
+                    variantWriter = NmlVariantWriter(variant, self.nml_output_folder)
                     nml_file = variantWriter.write()
                     nml_files.append(nml_file)
 
