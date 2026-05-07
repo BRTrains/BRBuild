@@ -84,14 +84,17 @@ def parse_args():
     return parser.parse_args()
 
 def clean_working_data():
-    working_data = Path("WorkingData")
+    for folder_name in ("WorkingData", "Build"):
+        folder = Path(folder_name)
 
-    # Empty the WorkingData folder for the new run
-    for path in working_data.iterdir():
-        if path.is_dir():
-            shutil.rmtree(path)
-        else:
-            path.unlink()
+        if not folder.exists():
+            continue
+
+        for path in folder.iterdir():
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
 
 if __name__ == "__main__":
     args = parse_args()
