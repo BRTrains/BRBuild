@@ -6,6 +6,7 @@ from Vehicle.Livery import Livery
 
 @dataclass
 class Vehicle:
+    folder_path: str
     identifier: str
     name: str
     sub_name: Optional[str] = None
@@ -15,6 +16,7 @@ class Vehicle:
     classification: Optional[str] = None
 
     vehicle_type: Optional[str] = None
+    train_type: Optional[str] = None
 
     weight: Optional[float] = None
     length: Optional[int] = None
