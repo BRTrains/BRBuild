@@ -6,7 +6,7 @@ from pathlib import Path
 from Builder import ProjectFinder, Builder
 from Project.Project import Project
 
-def run_build(project_name=None):
+def run_build(project_name=None, log_nml_output=False):
     ''' Orchestrator for the build process. If a project name is provided, it will attempt to build that specific project. Otherwise, it will search for all projects in the parent directory and build them. '''
     finder = ProjectFinder()
 
@@ -21,7 +21,7 @@ def run_build(project_name=None):
             return False
 
         builder = Builder()
-        builder.build(project)
+        builder.build(project, log_nml_output=log_nml_output)
     else:
         logger.debug("No specific project specified. Searching for all projects in the parent directory.")
         # Find and build all projects
@@ -34,7 +34,7 @@ def run_build(project_name=None):
         builder = Builder()
         
         for project in finder.projects:
-            builder.build(project)
+            builder.build(project, log_nml_output=log_nml_output)
     
     return True
 
@@ -96,8 +96,17 @@ def clean_working_data():
             else:
                 path.unlink()
 
+def clean_logs():
+    for file_name in ("nmlc.log", "build.log"):
+        path = Path(file_name)
+
+        if path.exists() and path.is_file():
+            path.unlink()
+
 if __name__ == "__main__":
     args = parse_args()
+
+    clean_logs()
 
     configure_logging(
         enable_file=args.log is not None,
@@ -114,7 +123,7 @@ if __name__ == "__main__":
     logger.info("Starting build")
 
     try: 
-        success = run_build(args.project)
+        success = run_build(args.project, args.log is not None)
     except Exception as exc:
         logger.exception("Build failed with an exception:" + str(exc))
         success = False
