@@ -65,7 +65,7 @@ class Variant:
             f"{self.vehicle.identifier}_"
             f"{self.profile.identifier.replace(' ', '-')}_"
             f"{self.livery.name.replace(' ', '-')}_"
-            f"{self.vehicle_type.value}" # tram, train etc
+            f"{self.vehicle_type.name}" # tram, train etc
         ).lower()
         
         # {self.vehicle.classification}/{self.vehicle.identifier}/
