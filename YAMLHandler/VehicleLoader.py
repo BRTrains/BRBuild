@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import yaml
 from typing import Any, Dict
+from pathlib import Path
 
 from PropertyCalculation.VehicleType import VehicleType
+from PropertyCalculation.TrainType import TrainType
 from Vehicle.Vehicle import Vehicle, Profile, Livery
 
 # assumes Vehicle, Profile, Livery already defined
@@ -15,10 +17,13 @@ class VehicleLoader:
     def load(path: str) -> Vehicle:
         with open(path, "r") as f:
             data = yaml.safe_load(f)
-        return VehicleLoader._parse_vehicle(data)
+        return VehicleLoader._parse_vehicle(
+            data,
+            folder_path=str(Path(path).parent)
+        )
 
     @staticmethod
-    def _parse_vehicle(data: Dict[str, Any]) -> Vehicle:
+    def _parse_vehicle(data: Dict[str, Any], folder_path: str) -> Vehicle:
         info = data.get("info", {}) or {}
         stats = data.get("stats", {}) or {}
         cargo = data.get("cargo", {}) or {}
@@ -34,15 +39,24 @@ class VehicleLoader:
             for l in data.get("liveries", []) or []
         ]
 
-        raw_type = stats.get("type")
+        raw_vehicle_type = stats.get("vehicle_type")
+        try:
+            # First try to parse as enum member (e.g., "TRAIN" or "ROAD_VEHICLE")
+            vehicle_type = VehicleType[raw_vehicle_type.upper()]
+        except KeyError:
+            # If that fails, try to parse as raw value (e.g., "train" or "road_vehicle")
+            vehicle_type = VehicleType(raw_vehicle_type)
+
+        raw_train_type = stats.get("train_type")
         try:
             # First try to parse as enum member (e.g., "LOCOMOTIVE" or "FREIGHT_WAGON")
-            vehicle_type = VehicleType[raw_type.upper()]
+            train_type = TrainType[raw_train_type.upper()]
         except KeyError:
             # If that fails, try to parse as raw value (e.g., "locomotive" or "freight_wagon")
-            vehicle_type = VehicleType(raw_type)
+            train_type = TrainType(raw_train_type)
 
         return Vehicle(
+            folder_path=folder_path,
             identifier=info.get("identifier"),
             name=info.get("name"),
             sub_name=info.get("sub_name"),
@@ -51,7 +65,7 @@ class VehicleLoader:
             classification=data.get("classification"),
 
             vehicle_type=vehicle_type,
-
+            train_type=train_type,
             weight=stats.get("weight"),
             length=stats.get("length"),
 
