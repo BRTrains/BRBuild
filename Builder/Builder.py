@@ -2,7 +2,9 @@ import time, logging
 logger = logging.getLogger(__name__)
 
 from NmlWriter import NmlGrfWriter
-#from NmlWriter.NmlVehicleWriter import NmlVehicleWriter
+from NmlWriter.NmlVariantWriter import NmlVariantWriter
+from NmlWriter.NmlCollator import NmlCollator
+from NmlWriter.NmlCompiler import NmlCompiler
 from Vehicle.VariantIterator import VariantIterator
 from YamlHandler.VehicleLoader import VehicleLoader
 from YamlHandler.GrfLoader import GrfLoader
@@ -11,11 +13,15 @@ from .CandidateFinder import CandidateFinder
 from Project.Project import Project
 
 class Builder:
-    variantList = []
-    badgeList = []
-    nml_files = []
 
-    def __init__(self):
+    def __init__(self):        
+        self.nmlCollator = NmlCollator()
+        self.nmlCompiler = NmlCompiler()
+
+        self.variantList = []
+        self.badgeList = []
+        self.nml_files = []
+
         self.successfulVariants = []
         self.failedVariants = []
         return
@@ -91,7 +97,7 @@ class Builder:
             return
 
         try:
-            NmlCollator.collate(self.nml_files, project)
+            self.nmlCollator.collate(self.nml_files, project)
             pass
         except Exception as e:
             logger.exception(f"Error during NML collation: {e}")
@@ -101,7 +107,7 @@ class Builder:
         logger.info(f"NML collation complete in {elapsed} seconds. Starting newGRF compilation.")
         
         try:
-            GrfCompiler.compile(project)
+            self.nmlCompiler.compile(self.nml_files, project)
             pass
         except Exception as e:
             logger.exception(f"Error during newGRF compilation: {e}")
@@ -111,7 +117,7 @@ class Builder:
         logger.info(f"newGRF compilation complete in {elapsed} seconds. Starting newGRF copying.")
         
         try: 
-            GrfCompiler.copy_newgrf(project)
+            self.nmlCompiler.copy_newgrf(project)
             pass
         except Exception as e:
             logger.exception(f"Error during newGRF copying: {e}")
@@ -147,7 +153,7 @@ class Builder:
         # Store the returned .pnml files for collation?
         for file in candidate['files']:
             logger.debug(f"\tParsing YAML file: {file}")
-            vehicle = VehicleLoader.load(file)  # Example of loading the first file for the candidate
+            vehicle = VehicleLoader.load(file)
             logger.debug(f"\tLoaded vehicle: {vehicle.name} with identifier {vehicle.identifier}, {len(vehicle.profiles)} profiles, and {len(vehicle.liveries)} liveries.")
 
             iterator = VariantIterator(vehicle)
@@ -160,8 +166,9 @@ class Builder:
                     self.failedVariants.append(variant.__repr__())
                     return
 
-                try:                
-                    nml_file = NmlVehicleWriter.write_variant(variant)
+                try:
+                    variantWriter = NmlVariantWriter(variant)
+                    nml_file = variantWriter.write()
                     nml_files.append(nml_file)
 
                 except Exception as e:
