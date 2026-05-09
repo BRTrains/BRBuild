@@ -19,7 +19,7 @@ class NmlCompiler:
 
         # Try local ../nml first        
         if nml_path.exists() and nml_path.is_dir():
-            logger.info("Local instance found, using NML from ", nml_path)
+            logger.info(f"Local instance found, using NML from {nml_path}")
             sys.path.insert(0, str(nml_path))
             try:
                 import nml.main as nmlc
