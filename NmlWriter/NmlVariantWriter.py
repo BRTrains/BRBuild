@@ -7,13 +7,13 @@ from .NmlSpritesetWriter import NmlSpritesetWriter
 
 
 class NmlVariantWriter:
-    def __init__(self, variant, output_path):
+    def __init__(self, variant_model, output_path):
 
-        self.variant = variant
+        self.variant = variant_model
         self.switch_writer = NmlSwitchWriter()
         self.spriteset_writer = NmlSpritesetWriter()
 
-        self.filepath = output_path + variant.nml_filename
+        self.filepath = output_path + variant_model.nml_filename
 
         # Ensure the output directory exists
         Path(self.filepath).parent.mkdir(parents=True, exist_ok=True)
