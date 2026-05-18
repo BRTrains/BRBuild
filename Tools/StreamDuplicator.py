@@ -10,6 +10,7 @@ def strip_ansi(text: str) -> str:
 
 
 class StreamDuplicator:
+    ''' Split the console output to both the console and a log file '''
     def __init__(self, stream_a, stream_b, enable_a: bool = True, enable_b: bool = True):
         self.stream_a = stream_a  # usually stdout
         self.stream_b = stream_b  # file

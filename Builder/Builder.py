@@ -1,4 +1,6 @@
 import time, logging
+from pathlib import Path
+
 logger = logging.getLogger(__name__)
 
 from Lang.StringWriter import StringWriter
@@ -13,189 +15,174 @@ from Grf.Grf import Grf
 from .CandidateFinder import CandidateFinder
 from Project.Project import Project
 from Lang.StringRegistry import _registry
+from .BuildContext import BuildContext
 
 class Builder:
 
-    def __init__(self):        
+    def __init__(self):
         self.nmlCollator = NmlCollator()
         self.nmlCompiler = NmlCompiler()
-
-        self.variantList = []
-        self.badgeList = []
-        self.nml_files = []
-
-        self.successfulVariants = []
-        self.failedVariants = []
         return
 
     def build(self, project_data, log_nml_output=False):
-        if isinstance(project_data, Project):
-            logger.debug(f"Received project data is already a Project instance: {project_data}")
-            project = project_data
-        else:
-            logger.debug(f"Received project data is not a Project instance, attempting to create one: {project_data}")
-            project = Project(project_data)
+        context = BuildContext(project_data=project_data, log_nml_output=log_nml_output)
 
-        self.nml_output_folder = "WorkingData/" + project.name + "/"
+        stages = [
+            self._load_project,
+            self._validate_project_path,
+            self._load_grf,
+            self._discover_candidates,
+            self._process_candidates,
+            self._collate_nml,
+            self._write_language,
+            self._compile_newgrf,
+            self._copy_newgrf,
+        ]
 
-        if not project.build:
-            logger.info(f"Skipping project '{project.name}' because build is disabled.")
-            return
+        start_time = time.time()
+        for stage in stages:
+            try:
+                stage(context)
+            except Exception as exc:
+                logger.exception(f"Build stage {stage.__name__} failed: {exc}")
+                return
 
-        startTime = time.time()
-        logger.info(f"BRBuild is attempting to build project '{project.name}' in {project.path}.")
-
-        if not project.path.is_dir():
-            logger.error(f"Project folder '{project.path}' does not exist.")
-            return
-        
-        try:
-            grfLoader = GrfLoader(project.path / project.grfFolder / "GRF.yaml")
-            grf = grfLoader.load()
-
-            nmlWriter = NmlGrfWriter(grf)
-            grfFile = nmlWriter.write_grf_gnml(self.nml_output_folder + "GRF.gnml")
-            self.nml_files.append(grfFile)
-        except Exception as e:
-            logger.exception(f"Error loading build configuration for project '{project.name}': {e}")
-            return
-
-        logger.debug(f"Project folder '{project.path}' found. Starting build process.")     
-
-        candidates = []
-        if project.targetFolders:
-            logger.debug(f"Scanning specified target folders for candidates: {project.targetFolders}")
-            scan_paths = [project.path / target for target in project.targetFolders]
-        else:
-            logger.debug("No target folders specified; scanning project root.")
-            scan_paths = [project.path]
-
-        try:
-            candidates = self.find_candidates(scan_paths, candidates)
-        except Exception as e:
-            logger.exception(f"Error during candidate finding: {e}")
-            return
-        
-        if len(candidates) == 0:
-            raise Exception(f"No candidates found for project '{project.name}'. Halting build process.")
-
-        elapsed = round(time.time() - startTime, 2)
-        logger.info(f"Candidate finding complete in {elapsed} seconds. Starting YAML parsing.")
-
-        try:
-            for candidate in candidates:
-                candidate_nml_files = self.process_candidate(candidate)
-                if candidate_nml_files and len(candidate_nml_files) > 0:
-                    # Store the returned .pnml files for collation
-                    self.nml_files.extend(candidate_nml_files)
-                else: 
-                    logger.warning(f"No NML files generated for candidate '{candidate['name']}'")
-        except Exception as e:
-            logger.exception(f"Error during YAML parsing: {e}")
-            return
-        
-        elapsed = round(time.time() - startTime, 2)
-        logger.info(f"YAML parsing complete in {elapsed} seconds. Starting NML collation.")
-        
-        if len(self.successfulVariants) == 0:
-            raise Exception(f"No successful variants were generated for project '{project.name}'. Halting build process.")
-            return
-
-        try:
-            nml_filepath = self.nmlCollator.collate(self.nml_files, project.name)
-            pass
-        except Exception as e:
-            logger.exception(f"Error during NML collation: {e}")
-            return
-        
-        elapsed = round(time.time() - startTime, 2)
-        logger.info(f"NML collation complete in {elapsed} seconds. Writing language file.")
-
-        lang_folder = "WorkingData/" + project.name + "/lang/"
-        string_writer = StringWriter(_registry, lang_folder)
-        try:
-            string_writer.write_file()
-        except Exception as e:
-            logger.exception(f"Error writing language file: {e}")
-            return
-
-        elapsed = round(time.time() - startTime, 2)
-        logger.info(f"Wrote language file in {elapsed} seconds. Starting newGRF compilation.")
-        
-        try:
-            grf_filepath = self.nmlCompiler.compile(nml_filepath, lang_folder, log_nml_output)
-            pass
-        except Exception as e:
-            logger.exception(f"Error during newGRF compilation: {e}")
-            return
-        
-        elapsed = round(time.time() - startTime, 2)
-        logger.info(f"newGRF compilation complete in {elapsed} seconds. Starting newGRF copying.")
-        
-        try: 
-            self.nmlCompiler.copy_newgrf(grf_filepath)
-            pass
-        except Exception as e:
-            logger.exception(f"Error during newGRF copying: {e}")
-            return
-
-        logger.info(f"BRBuild build process for project '{project.name}' completed successfully.")
-        logger.info(f"Successful variants: {len(self.successfulVariants)}. Failed variants: {len(self.failedVariants)}.")   
-        elapsed = round(time.time() - startTime, 2)
+        elapsed = round(time.time() - start_time, 2)
+        logger.info(f"BRBuild build process for project '{context.project.name}' completed successfully.")
+        logger.info(f"Successful variants: {len(context.successful_variants)}. Failed variants: {len(context.failed_variants)}.")
         logger.info(f"BRBuild build complete after {elapsed} seconds.")
 
-    def find_candidates(self, scan_paths, candidates):
+    def _load_project(self, ctx: BuildContext):
+        if isinstance(ctx.project_data, Project):
+            logger.debug(f"Received project data is already a Project instance: {ctx.project_data}")
+            ctx.project = ctx.project_data
+        else:
+            logger.debug(f"Received project data is not a Project instance, attempting to create one: {ctx.project_data}")
+            ctx.project = Project(ctx.project_data)
+
+        ctx.nml_output_folder = f"WorkingData/{ctx.project.name}/"
+        ctx.lang_folder = str(Path(ctx.nml_output_folder) / "lang")
+
+        if not ctx.project.build:
+            raise RuntimeError(f"Skipping project '{ctx.project.name}' because build is disabled.")
+
+        logger.info(f"BRBuild is attempting to build project '{ctx.project.name}' in {ctx.project.path}.")
+
+    def _validate_project_path(self, ctx: BuildContext):
+        if not ctx.project.path.is_dir():
+            raise FileNotFoundError(f"Project folder '{ctx.project.path}' does not exist.")
+
+    def _load_grf(self, ctx: BuildContext):
+        loader = GrfLoader(ctx.project.path / ctx.project.grfFolder / "GRF.yaml")
+        grf = loader.load()
+        writer = NmlGrfWriter(grf)
+        ctx.nml_files.append(writer.write_grf_gnml(ctx.nml_output_folder + "GRF.gnml"))
+
+    def _discover_candidates(self, ctx: BuildContext):
+        if ctx.project.targetFolders:
+            logger.debug(f"Scanning specified target folders for candidates: {ctx.project.targetFolders}")
+            scan_paths = [ctx.project.path / target for target in ctx.project.targetFolders]
+        else:
+            logger.debug("No target folders specified; scanning project root.")
+            scan_paths = [ctx.project.path]
+
+        ctx.candidates = self.find_candidates(scan_paths)
+        if len(ctx.candidates) == 0:
+            raise RuntimeError(f"No candidates found for project '{ctx.project.name}'. Halting build process.")
+
+        elapsed_candidates = len(ctx.candidates)
+        logger.info(f"Candidate finding complete. Found {elapsed_candidates} candidates.")
+
+    def find_candidates(self, scan_paths):
+        candidates = []
         for scan_path in scan_paths:
-                if not scan_path.exists():
-                    logger.warning(f"Target folder '{scan_path}' does not exist; skipping.")
-                    continue
-                if not scan_path.is_dir():
-                    logger.warning(f"Target path '{scan_path}' is not a directory; skipping.")
-                    continue
+            if not scan_path.exists():
+                logger.warning(f"Target folder '{scan_path}' does not exist; skipping.")
+                continue
+            if not scan_path.is_dir():
+                logger.warning(f"Target path '{scan_path}' is not a directory; skipping.")
+                continue
 
-                logger.debug(f"Finding candidates in folder: {scan_path}")
+            logger.debug(f"Finding candidates in folder: {scan_path}")
 
-                finder = CandidateFinder(scan_path)
-                found = finder.find_candidates()
-                candidates.extend(found)
+            finder = CandidateFinder(scan_path)
+            found = finder.find_candidates()
+            candidates.extend(found)
 
         logger.info(f"Found {len(candidates)} candidates.")
         return candidates
 
-    def process_candidate(self, candidate):
-        nml_files = []
+    def _process_candidates(self, ctx: BuildContext):
+        if not ctx.candidates:
+            raise RuntimeError("No candidates found")
 
-        for file in candidate['pnml_files']:
-            logger.debug(f"\tFound manual PNML file: {file}")
-            self.nml_files.append(file)
+        for candidate in ctx.candidates:
+            self._process_candidate(candidate, ctx)
 
-        logger.info(f"Processing candidate: {candidate['name']}")                
-        # Store the returned .pnml files for collation?
-        for file in candidate['files']:
+        if len(ctx.successful_variants) == 0:
+            raise RuntimeError(f"No successful variants were generated for project '{ctx.project.name}'. Halting build process.")
+
+    def _process_candidate(self, candidate, ctx: BuildContext):
+        logger.info(f"Processing candidate: {candidate.get('name')}")
+
+        for pnml in candidate.get("pnml_files", []):
+            logger.debug(f"\tFound manual PNML file: {pnml}")
+            ctx.nml_files.append(pnml)
+
+        for file in candidate.get("files", []):
             logger.debug(f"\tParsing YAML file: {file}")
             vehicle = VehicleLoader.load(file)
-            logger.debug(f"\tLoaded vehicle: {vehicle.name} with identifier {vehicle.identifier}, {len(vehicle.profiles)} profiles, and {len(vehicle.liveries)} liveries.")
+            logger.debug(
+                f"\tLoaded vehicle: {vehicle.name} with identifier {vehicle.identifier}, "
+                f"{len(vehicle.profiles)} profiles, and {len(vehicle.liveries)} liveries."
+            )
 
-            iterator = VariantIterator(vehicle)
-            for variant in iterator:
-                logger.debug(f"\tGenerated variant: {variant.vehicle.name}, using livery {variant.livery.name} and profile {variant.profile.identifier}")
+            for variant in VariantIterator(vehicle):
+                logger.debug(
+                    f"\tGenerated variant: {variant.vehicle.name}, using livery {variant.livery.name} "
+                    f"and profile {variant.profile.identifier}"
+                )
                 try:
                     variant.process()
-                except Exception as e:
-                    logger.exception(f"Error processing variant {variant}: {e}")
-                    self.failedVariants.append(variant.__repr__())
+                except Exception as exc:
+                    logger.exception(f"Error processing variant {variant}: {exc}")
+                    ctx.failed_variants.append(repr(variant))
                     return
 
                 try:
-                    variantWriter = NmlVariantWriter(variant, self.nml_output_folder)
-                    nml_file = variantWriter.write()
-                    nml_files.append(nml_file)
-
-                except Exception as e:
-                    logger.exception(f"Unable to write NML for variant {variant}: {e}")
-                    self.failedVariants.append(variant.__repr__())
+                    variant_writer = NmlVariantWriter(variant, ctx.nml_output_folder)
+                    nml_file = variant_writer.write()
+                    ctx.nml_files.append(nml_file)
+                except Exception as exc:
+                    logger.exception(f"Unable to write NML for variant {variant}: {exc}")
+                    ctx.failed_variants.append(repr(variant))
                     return
 
-                self.successfulVariants.append(variant)
-        
-        return nml_files
+                ctx.successful_variants.append(variant)
+
+    def _collate_nml(self, ctx: BuildContext):
+        if len(ctx.nml_files) == 0:
+            raise RuntimeError("No NML files available for collation.")
+
+        ctx.nml_filepath = self.nmlCollator.collate(ctx.nml_files, ctx.project.name)
+        logger.info(f"NML collation complete: {ctx.nml_filepath}")
+
+    def _write_language(self, ctx: BuildContext):
+        ctx.lang_folder = str(Path(ctx.nml_output_folder) / "lang")
+        string_writer = StringWriter(_registry, ctx.lang_folder)
+        string_writer.write_file()
+        logger.info(f"Wrote language file to {ctx.lang_folder}")
+
+    def _compile_newgrf(self, ctx: BuildContext):
+        if not ctx.nml_filepath:
+            raise RuntimeError("NML file path is missing for compilation.")
+
+        ctx.newgrf_filepath = self.nmlCompiler.compile(ctx.nml_filepath, ctx.lang_folder, ctx.log_nml_output)
+        logger.info(f"newGRF compilation complete: {ctx.newgrf_filepath}")
+
+    def _copy_newgrf(self, ctx: BuildContext):
+        if not getattr(ctx, 'newgrf_filepath', None):
+            raise RuntimeError("Compiled GRF path is missing for copying.")
+
+        self.nmlCompiler.copy_newgrf(ctx.newgrf_filepath)
+        logger.info(f"newGRF copying complete for {ctx.newgrf_filepath}")
