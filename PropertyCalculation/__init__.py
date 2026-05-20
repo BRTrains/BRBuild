@@ -5,10 +5,10 @@ Expose small helper classes used across the project.
 
 from .CostCalculator import CostCalculator
 from .FuelType import FuelType
-from .WagonType import WagonType
+from .Physics import Physics
 from .TrainType import TrainType
 from .VehicleType import VehicleType
-from .Physics import Physics
+from .WagonType import WagonType
 
 __all__ = [
 	"CostCalculator",

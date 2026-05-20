@@ -1,12 +1,12 @@
+import logging
+import shutil
+import sys
 from contextlib import redirect_stdout
 from importlib import util
 from pathlib import Path
-import pathlib
-import shutil
-import sys
-import logging
 
 from Tools.StreamDuplicator import StreamDuplicator
+
 logger = logging.getLogger(__name__)
 
 class NmlCompiler:

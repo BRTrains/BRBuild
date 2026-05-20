@@ -1,17 +1,18 @@
-import time, logging
+import time
+import logging
 from pathlib import Path
+
+from Lang.StringRegistry import _registry
+from Lang.StringWriter import StringWriter
+from NmlWriter import NmlGrfWriter, NmlVariantWriter, NmlCollator, NmlCompiler
+from Project import Project
+from Vehicle import VariantIterator
+from YamlHandler import VehicleLoader, GrfLoader
+from .BuildContext import BuildContext
+from .CandidateFinder import CandidateFinder
 
 logger = logging.getLogger(__name__)
 
-from Lang.StringWriter import StringWriter
-from NmlWriter import NmlGrfWriter, NmlVariantWriter, NmlCollator, NmlCompiler
-from Vehicle import VariantIterator
-from YamlHandler import VehicleLoader, GrfLoader
-from Grf import Grf
-from .CandidateFinder import CandidateFinder
-from Project import Project
-from Lang.StringRegistry import _registry
-from .BuildContext import BuildContext
 
 class Builder:
 

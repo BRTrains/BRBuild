@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from typing import Optional, List, Union
+from typing import List, Optional, Union
 
-from Vehicle.Profile import Profile
 from Vehicle.Livery import Livery
+from Vehicle.Profile import Profile
+
 
 @dataclass
 class Vehicle:

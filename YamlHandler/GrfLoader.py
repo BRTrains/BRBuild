@@ -1,5 +1,8 @@
-import yaml, logging
+import logging
 from pathlib import Path
+
+import yaml
+
 from Grf import Grf
 
 

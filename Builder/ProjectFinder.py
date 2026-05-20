@@ -1,9 +1,12 @@
-import sys, logging
-logger = logging.getLogger(__name__)
+import logging
+import sys
 from pathlib import Path
 
 import yaml
+
 from Project.Project import Project
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectFinder:

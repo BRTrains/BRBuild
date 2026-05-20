@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import yaml
-from typing import Any, Dict
 from pathlib import Path
+from typing import Any, Dict
 
-from PropertyCalculation import VehicleType, TrainType
-from Vehicle import Vehicle, Profile, Livery
+import yaml
+
+from PropertyCalculation import TrainType, VehicleType
+from Vehicle import Livery, Profile, Vehicle
 
 # assumes Vehicle, Profile, Livery already defined
 # from models import Vehicle, Profile, Livery
@@ -34,8 +35,8 @@ class VehicleLoader:
         ]
 
         liveries = [
-            VehicleLoader._parse_livery(l)
-            for l in data.get("liveries", []) or []
+            VehicleLoader._parse_livery(lv)
+            for lv in data.get("liveries", []) or []
         ]
 
         raw_vehicle_type = stats.get("vehicle_type")
@@ -101,9 +102,9 @@ class VehicleLoader:
         )
 
     @staticmethod
-    def _parse_livery(l: Dict[str, Any]) -> Livery:
+    def _parse_livery(lv: Dict[str, Any]) -> Livery:
         return Livery(
-            name=l.get("name"),
-            sprite_override=l.get("sprite_override"),
-            profiles=l.get("profiles"),
+            name=lv.get("name"),
+            sprite_override=lv.get("sprite_override"),
+            profiles=lv.get("profiles"),
         )

@@ -67,8 +67,8 @@ class CandidateFinder:
 
 
 if __name__ == "__main__":
-    import sys
     import json
+    import sys
 
     if len(sys.argv) != 2:
         print(f"Usage: {sys.argv[0]} path/to/base/folder")

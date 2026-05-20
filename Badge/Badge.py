@@ -1,5 +1,8 @@
-from __future__ import annotations # Python is stupid and won't allow self-referential Badge parameters without either this or stupid "Badge" nonsense
+from __future__ import \
+    annotations  # Python is stupid and won't allow self-referential Badge parameters without either this or stupid "Badge" nonsense
+
 import os
+
 
 class Badge:
     def __init__(self, name, parent: Badge | None = None):

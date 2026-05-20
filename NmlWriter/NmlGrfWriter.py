@@ -1,8 +1,11 @@
 import logging
 import pathlib
-from pathlib import Path
+
 from Lang.StringRegistry import nml_str
+
 from .NmlSwitchWriter import NmlSwitchWriter
+
+
 class NmlGrfWriter:
     def __init__(self, config):
         self.config = config

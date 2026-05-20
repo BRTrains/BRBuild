@@ -1,9 +1,10 @@
 import logging
-logger = logging.getLogger(__name__)
 from pathlib import Path
 
-from .NmlSwitchWriter import NmlSwitchWriter
 from .NmlSpritesetWriter import NmlSpritesetWriter
+from .NmlSwitchWriter import NmlSwitchWriter
+
+logger = logging.getLogger(__name__)
 
 
 class NmlVariantWriter:

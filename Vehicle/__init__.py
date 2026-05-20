@@ -3,12 +3,12 @@
 Export the core classes used by other packages. Keep imports lightweight.
 """
 
-from .Vehicle import Vehicle
+from .Livery import Livery
+from .Profile import Profile
 from .Variant import Variant
 from .VariantIterator import VariantIterator
-from .Profile import Profile
-from .Livery import Livery
 from .VariantNmlModel import VariantNmlModel
+from .Vehicle import Vehicle
 
 __all__ = [
 	"Vehicle",

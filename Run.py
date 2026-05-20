@@ -3,8 +3,9 @@ import logging
 import shutil
 import sys
 from pathlib import Path
-from Builder import ProjectFinder, Builder
-from Project.Project import Project
+
+from Builder import Builder, ProjectFinder
+
 
 def run_build(project_name=None, log_nml_output=False):
     ''' Orchestrator for the build process. If a project name is provided, it will attempt to build that specific project. Otherwise, it will search for all projects in the parent directory and build them. '''

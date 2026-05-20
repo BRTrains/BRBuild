@@ -1,6 +1,7 @@
 from .FuelType import FuelType
 from .WagonType import WagonType
 
+
 class CostCalculator:
     def __init__(self):
         return

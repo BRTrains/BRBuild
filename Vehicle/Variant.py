@@ -1,5 +1,6 @@
-from PropertyCalculation import VehicleType, Physics, CostCalculator, TrainType
 from Badge import BadgeRegistry
+from PropertyCalculation import CostCalculator, Physics, TrainType
+
 
 class Variant:
     def __init__(self, vehicle, livery, profile, vehicleType=None):
@@ -70,10 +71,12 @@ class Variant:
     
 
     def handleCosts(self):
-        vehicle = self.vehicle
-        calculator = CostCalculator()
+        # Compute costs using CostCalculator when needed
+        # Example usage (uncomment and adapt):
+        # calculator = CostCalculator()
         # purchase_cost = calculator.purchase_cost(speed, power, numvehs, capacity, fuelType, wagonType)
-        # running_cost = calculator.running_cost(speed, power, numvehs, capacity, fuelType, wagonType) 
+        # running_cost = calculator.running_cost(speed, power, numvehs, capacity, fuelType, wagonType)
+        pass
 
     def handleSpecialTags(self):
         for tag in self.vehicle.special_tags:

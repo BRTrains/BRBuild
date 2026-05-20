@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Optional, List, Union
+from typing import List, Optional
+
 
 @dataclass
 class Livery:

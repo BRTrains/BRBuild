@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class WagonType(Enum):
     FREIGHT_WAGON = (0.25, 0.10, "freight_wagon")
     TANK_WAGON = (0.35, 0.15, "tank_wagon")
