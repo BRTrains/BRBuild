@@ -1,8 +1,5 @@
-from PropertyCalculation.VehicleType import VehicleType
-from PropertyCalculation.Physics import Physics
-from PropertyCalculation.CostCalculator import CostCalculator
-from Badge.BadgeRegistry import BadgeRegistry
-from PropertyCalculation.TrainType import TrainType
+from PropertyCalculation import VehicleType, Physics, CostCalculator, TrainType
+from Badge import BadgeRegistry
 
 class Variant:
     def __init__(self, vehicle, livery, profile, vehicleType=None):

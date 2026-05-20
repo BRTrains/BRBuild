@@ -4,16 +4,12 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 from Lang.StringWriter import StringWriter
-from NmlWriter import NmlGrfWriter
-from NmlWriter.NmlVariantWriter import NmlVariantWriter
-from NmlWriter.NmlCollator import NmlCollator
-from NmlWriter.NmlCompiler import NmlCompiler
-from Vehicle.VariantIterator import VariantIterator
-from YamlHandler.VehicleLoader import VehicleLoader
-from YamlHandler.GrfLoader import GrfLoader
-from Grf.Grf import Grf
+from NmlWriter import NmlGrfWriter, NmlVariantWriter, NmlCollator, NmlCompiler
+from Vehicle import VariantIterator
+from YamlHandler import VehicleLoader, GrfLoader
+from Grf import Grf
 from .CandidateFinder import CandidateFinder
-from Project.Project import Project
+from Project import Project
 from Lang.StringRegistry import _registry
 from .BuildContext import BuildContext
 

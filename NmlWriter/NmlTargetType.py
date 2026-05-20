@@ -1,4 +1,5 @@
 from enum import Enum
-class NML_TargetType(Enum):
+
+class NmlTargetType(Enum):
     PARENT = 0
     SELF = 1

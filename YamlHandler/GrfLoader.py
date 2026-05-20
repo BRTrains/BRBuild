@@ -1,6 +1,6 @@
 import yaml, logging
 from pathlib import Path
-from Grf.Grf import Grf
+from Grf import Grf
 
 
 class GrfLoader:

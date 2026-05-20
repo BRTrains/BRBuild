@@ -4,9 +4,8 @@ import yaml
 from typing import Any, Dict
 from pathlib import Path
 
-from PropertyCalculation.VehicleType import VehicleType
-from PropertyCalculation.TrainType import TrainType
-from Vehicle.Vehicle import Vehicle, Profile, Livery
+from PropertyCalculation import VehicleType, TrainType
+from Vehicle import Vehicle, Profile, Livery
 
 # assumes Vehicle, Profile, Livery already defined
 # from models import Vehicle, Profile, Livery
