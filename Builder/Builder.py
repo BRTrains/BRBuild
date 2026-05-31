@@ -22,6 +22,8 @@ class Builder:
         return
 
     def build(self, project_data, log_nml_output=False):
+        # Clear the global string registry so each project build starts fresh
+        _registry.clear()
         context = BuildContext(project_data=project_data, log_nml_output=log_nml_output)
 
         stages = [
@@ -47,7 +49,7 @@ class Builder:
         elapsed = round(time.time() - start_time, 2)
         logger.info(f"BRBuild build process for project '{context.project.name}' completed successfully.")
         logger.info(f"Successful variants: {len(context.successful_variants)}. Failed variants: {len(context.failed_variants)}.")
-        logger.info(f"BRBuild build complete after {elapsed} seconds.")
+        logger.info(f"BRBuild project '{context.project.name}' build complete after {elapsed} seconds.")
 
     def _load_project(self, ctx: BuildContext):
         if isinstance(ctx.project_data, Project):
