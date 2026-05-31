@@ -82,6 +82,12 @@ def parse_args():
         help="Enable logging to a file. Optionally specify filename (default: build.log)"
     )
 
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List discovered projects and exit without building"
+    )
+
     return parser.parse_args()
 
 def clean_working_data():
@@ -117,6 +123,17 @@ if __name__ == "__main__":
     logger = logging.getLogger("Run")
 
     logger.debug(f"Parsed arguments: {args}")
+
+    # If the user only wants to list projects, do that and exit without building
+    if getattr(args, "list", False):
+        finder = ProjectFinder()
+        if not finder.projects:
+            print("No projects found. Please ensure there are folders with a 'BRBuild.yaml' file in the parent directory.")
+        else:
+            print("Discovered projects:")
+            for project in finder.projects:
+                print(f" - {project.name} (path: {project.path})")
+        raise SystemExit(0)
 
     logger.info("Cleaning working data")
     clean_working_data()
