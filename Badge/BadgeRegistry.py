@@ -44,6 +44,10 @@ class BadgeRegistry:
                 logger.debug(f"Badge added: {badge}")
         return badge
 
+    def clear(self):
+        """Clear all registered badges."""
+        self._badges.clear()
+
     def has_badge(self, badge_path):
         return badge_path in self._badges
 

@@ -1,5 +1,10 @@
+import logging
 from Badge import BadgeRegistry
 from PropertyCalculation import CostCalculator, Physics, TrainType
+
+from Vehicle.Translator.PhysicsRules import PhysicsRules
+
+logger = logging.getLogger(__name__)
 
 
 class Variant:
@@ -13,49 +18,40 @@ class Variant:
         self.properties = dict()
         self.callbacks = dict()
 
-        # Identifier must be first, in case it's needed for file naming and other properties
-        self.generate_identifiers()
-
-        self.handleSpeed()
-        self.handleCapacity()
-        self.handlePhysics()
-        self.handleCosts()
-        self.handleSpecialTags()
-
-    def get_attr(self, attr):
-        # Check profile first, then livery, then vehicle
-        return getattr(self.profile, attr, None) or getattr(self.livery, attr, None) or getattr(self.vehicle, attr, None)
+        self.identifier = None
+        self.nml_filename = None
 
     def process(self):
-        # Placeholder for processing logic, e.g., generating NML files based on the vehicle, livery, and profile
-        pass
+        """Executes the processing pipeline stages for this variant."""
+        stages = [
+            self.generate_identifiers,
+            self.handleSpeed,
+            self.handleCapacity,
+            self.handlePhysics,
+            self.handleCosts,
+            self.handleSpecialTags,
+        ]
+
+        for stage in stages:
+            try:
+                stage()
+            except Exception as exc:
+                logger.exception(f"Error in variant {self} during stage {stage.__name__}: {exc}")
+                raise
+
+    def get_attr(self, attr):
+        # Check profile first, then livery, then vehicle, returning the first non-None value
+        for obj in (self.profile, self.livery, self.vehicle):
+            val = getattr(obj, attr, None)
+            if val is not None:
+                return val
+        return None
 
     def __repr__(self):
         return f"Variant(vehicle={self.vehicle.name}, livery={self.livery.name}, profile={self.profile.identifier})"
-    
+
     def __str__(self):
         return f"{self.vehicle.name} - {self.livery.name} - {self.profile.identifier}"
-    
-    def handleSpeed(self):
-        # Placeholder for handling speed-related logic based on the profile
-        pass
-
-    def handleCapacity(self):
-        # Placeholder for handling capacity-related logic based on the profile
-        pass
-
-    def handlePhysics(self):
-        physics = Physics()
-        te = self.get_attr("tractive_effort")
-        weight = self.get_attr("weight")
-
-        if self.vehicle.train_type in (TrainType.WAGON, TrainType.COACH):
-            # No tractive effort or air drag for wagons and coaches, so set coefficients to 0
-            self.te_coefficient = 0
-            self.ad_coefficient = 0
-        else:
-            self.te_coefficient = physics.calculate_TE_coefficient(te, weight)
-            self.ai_coefficient = physics.calculate_AD_coefficient(self.get_attr("speed"))
 
     def generate_identifiers(self):
         # Generate unique identifiers for the variant based on the vehicle, livery, and profile
@@ -65,10 +61,20 @@ class Variant:
             f"{self.livery.name.replace(' ', '-')}_"
             f"{self.vehicle_type.name}" # tram, train etc
         ).lower()
-        
+
         # {self.vehicle.classification}/{self.vehicle.identifier}/
         self.nml_filename = f"{self.identifier}.gnml"
-    
+
+    def handleSpeed(self):
+        # Placeholder for handling speed-related logic based on the profile
+        pass
+
+    def handleCapacity(self):
+        # Placeholder for handling capacity-related logic based on the profile
+        pass
+
+    def handlePhysics(self):
+        PhysicsRules().apply_rules(self)
 
     def handleCosts(self):
         # Compute costs using CostCalculator when needed
@@ -79,9 +85,10 @@ class Variant:
         pass
 
     def handleSpecialTags(self):
-        for tag in self.vehicle.special_tags:
-            badge = BadgeRegistry().add_badge(tag)
-            self.badges.append(badge)
+        if self.vehicle.special_tags:
+            for tag in self.vehicle.special_tags:
+                badge = BadgeRegistry().add_badge(tag)
+                self.badges.append(badge)
 
         operator = self.get_attr("operator")
         if operator is not None:

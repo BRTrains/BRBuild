@@ -2,6 +2,10 @@ class NmlSwitchWriter:
     def __init__(self):
         pass
 
+    def writeline(self, line: str, f, indent: int = 0):
+        indent_str = "\t" * indent
+        f.write(f"{indent_str}{line}\n")
+
     def write_switch(self, f, vehicle_type, target_type, name, expression, values: dict):
         self.writeline(f"switch ({vehicle_type}, {target_type}, {name}, {expression})", f)
         self.writeline("{", f)

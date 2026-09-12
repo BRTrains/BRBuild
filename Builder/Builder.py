@@ -2,6 +2,7 @@ import time
 import logging
 from pathlib import Path
 
+from Badge import BadgeRegistry
 from Lang.StringRegistry import _registry
 from Lang.StringWriter import StringWriter
 from NmlWriter import NmlGrfWriter, NmlVariantWriter, NmlCollator, NmlCompiler
@@ -22,8 +23,9 @@ class Builder:
         return
 
     def build(self, project_data, log_nml_output=False):
-        # Clear the global string registry so each project build starts fresh
+        # Clear global registries so each project build starts fresh
         _registry.clear()
+        BadgeRegistry().clear()
         context = BuildContext(project_data=project_data, log_nml_output=log_nml_output)
 
         stages = [
