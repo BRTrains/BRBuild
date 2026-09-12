@@ -1,3 +1,4 @@
+import re
 import logging
 from Badge import BadgeRegistry
 from PropertyCalculation import CostCalculator, Physics, TrainType
@@ -47,20 +48,45 @@ class Variant:
                 return val
         return None
 
+    @property
+    def name(self):
+        """Constructs the variant display name in the format:
+        'Vehicle Name - Profile Name - Livery Name'
+        Skipping Profile Name if the profile identifier is DEFAULT (case-insensitive).
+        """
+        vehicle_name = self.vehicle.name
+
+        profile_id = str(self.profile.identifier).strip() if self.profile and self.profile.identifier else ""
+        profile_name = (self.profile.name or profile_id) if self.profile else ""
+
+        livery_name = self.livery.name if self.livery and self.livery.name else ""
+
+        parts = [vehicle_name]
+
+        if profile_id and profile_id.upper() != "DEFAULT" and profile_name:
+            parts.append(profile_name)
+
+        if livery_name:
+            parts.append(livery_name)
+
+        return " - ".join(parts)
+
     def __repr__(self):
         return f"Variant(vehicle={self.vehicle.name}, livery={self.livery.name}, profile={self.profile.identifier})"
 
     def __str__(self):
-        return f"{self.vehicle.name} - {self.livery.name} - {self.profile.identifier}"
+        return self.name
 
     def generate_identifiers(self):
         # Generate unique identifiers for the variant based on the vehicle, livery, and profile
-        self.identifier = (
+        raw_id = (
             f"{self.vehicle.identifier}_"
-            f"{self.profile.identifier.replace(' ', '-')}_"
-            f"{self.livery.name.replace(' ', '-')}_"
-            f"{self.vehicle_type.name}" # tram, train etc
+            f"{self.profile.identifier}_"
+            f"{self.livery.name}_"
+            f"{self.vehicle_type.name}"
         ).lower()
+        self.identifier = re.sub(r"[^a-z0-9_]", "_", raw_id)
+        self.nml_filename = f"{self.identifier}.gnml"
 
         # {self.vehicle.classification}/{self.vehicle.identifier}/
         self.nml_filename = f"{self.identifier}.gnml"
