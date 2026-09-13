@@ -9,22 +9,23 @@ from Tools.StreamDuplicator import StreamDuplicator
 
 logger = logging.getLogger(__name__)
 
+
 class NmlCompiler:
     def __init__(self):
         pass
 
-    def compile(self, nml_filepath, lang_folder = None, log_nml_output=False):
+    def compile(self, nml_filepath, lang_folder=None, log_nml_output=False):
         nml_path = Path(__file__).resolve().parents[2] / "nml"
         nmlc = None
 
-        # Try local ../nml first        
+        # Try local ../nml first
         if nml_path.exists() and nml_path.is_dir():
             logger.info(f"Local instance found, using NML from {nml_path}")
             sys.path.insert(0, str(nml_path))
             try:
                 import nml.main as nmlc
             except ImportError:
-                raise                
+                logger.warning(f"Could not import NML from local path {nml_path}")
                 nmlc = None
 
         # If local not available, try installed package
@@ -71,6 +72,7 @@ class NmlCompiler:
             src = Path(grf_filepath).expanduser().resolve()
         except Exception as e:
             logger.error(f"Error occurred while resolving path: {grf_filepath}. {e}")
+            return None
 
         if not src.is_file():
             raise FileNotFoundError(f"Source file not found: {src}")

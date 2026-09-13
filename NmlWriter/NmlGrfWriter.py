@@ -2,12 +2,16 @@ import logging
 import pathlib
 
 from Lang.StringRegistry import nml_str
-
+from .BaseNmlWriter import BaseNmlWriter
 from .NmlSwitchWriter import NmlSwitchWriter
+from .NmlTargetType import NmlTargetType
+
+logger = logging.getLogger(__name__)
 
 
-class NmlGrfWriter:
+class NmlGrfWriter(BaseNmlWriter):
     def __init__(self, config):
+        super().__init__()
         self.config = config
 
     def __repr__(self):
@@ -18,54 +22,57 @@ class NmlGrfWriter:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(output_path, "w", encoding="utf-8") as f:
-            f.write("// GRF definition block\n")
-            f.write("grf {\n")
+            self.writeline(f, "// GRF definition block", indent=0)
+            self.writeline(f, "grf {", indent=0)
 
-            f.write(f'\tgrfid: "{self.config.grfid}"; // {self.config.name}\n')
-            f.write(f'\tname: {nml_str(self.config.name, "grf_name")};\n')
-            f.write(f'\tdesc: {nml_str(self.config.description, "grf_desc")};\n')
-            f.write(f'\tversion: {self.config.version};\n')
-            f.write(f'\tmin_compatible_version: {self.config.compatible_version};\n')
+            self.writeline(f, f'grfid: "{self.config.grfid}"; // {self.config.name}', indent=1)
+            self.writeline(f, f'name: {nml_str(self.config.name, "grf_name")};', indent=1)
+            self.writeline(f, f'desc: {nml_str(self.config.description, "grf_desc")};', indent=1)
+            self.writeline(f, f"version: {self.config.version};", indent=1)
+            self.writeline(f, f"min_compatible_version: {self.config.compatible_version};", indent=1)
 
             for idx, param in enumerate(self.config.params):
-                f.write(f"\tparam {idx} {{\n")
-                f.write(f"\t\t{param['identifier']} {{\n")
+                self.writeline(f, f"param {idx} {{", indent=1)
+                self.writeline(f, f"{param['identifier']} {{", indent=2)
 
                 p_type = param.get("type", "int")
-                f.write(f"\t\t\ttype: {p_type};\n")
-                f.write(f"\t\t\tname: {nml_str(param['name_str'], param['identifier'] + '_name')};\n")
-                f.write(f"\t\t\tdesc: {nml_str(param['desc_str'], param['identifier'] + '_desc')};\n")
-                f.write(f"\t\t\tmin_value: {param['min_value']};\n")
-                f.write(f"\t\t\tmax_value: {param['max_value']};\n")
-                f.write(f"\t\t\tdef_value: {param['def_value']};\n")
+                self.writeline(f, f"type: {p_type};", indent=3)
+                self.writeline(f, f"name: {nml_str(param['name_str'], param['identifier'] + '_name')};", indent=3)
+                self.writeline(f, f"desc: {nml_str(param['desc_str'], param['identifier'] + '_desc')};", indent=3)
+                self.writeline(f, f"min_value: {param['min_value']};", indent=3)
+                self.writeline(f, f"max_value: {param['max_value']};", indent=3)
+                self.writeline(f, f"def_value: {param['def_value']};", indent=3)
 
                 if param.get("names"):
-                    f.write("\t\t\tnames: {\n")
+                    self.writeline(f, "names: {", indent=3)
                     for key, name in param["names"].items():
-                        f.write(
-                            f"\t\t\t\t{key}: {nml_str(name, param['identifier'] + '_' + str(key))};\n"
+                        self.writeline(
+                            f, f"{key}: {nml_str(name, param['identifier'] + '_' + str(key))};", indent=4
                         )
-                    f.write("\t\t\t};\n")
+                    self.writeline(f, "};", indent=3)
 
-                f.write("\t\t}\n")
-                f.write("\t}\n")
+                self.writeline(f, "}", indent=2)
+                self.writeline(f, "}", indent=1)
 
-            f.write("}\n\n\n")
+            self.writeline(f, "}\n\n", indent=0)
 
             self.write_vehicle_switches(f)
 
-            logging.getLogger(__name__).info(f"GRF GNML written to {output_path}")
+            logger.info(f"GRF GNML written to {output_path}")
             return output_path
 
     def write_vehicle_switches(self, f):
         nmlSwitchWriter = NmlSwitchWriter()
 
         for sw in self.config.global_vehicle_switches:
+            raw_target = sw.get("target_type", NmlTargetType.SELF)
+            target_enum = NmlTargetType.from_str(raw_target)
+
             nmlSwitchWriter.write_switch(
                 f=f,
                 vehicle_type=sw["vehicle_type"],
-                target_type=sw.get("target_type", "SELF"),
+                target_type=target_enum,
                 name=sw["name"],
                 expression=sw["expression"],
-                values=sw["values"]
+                values=sw["values"],
             )

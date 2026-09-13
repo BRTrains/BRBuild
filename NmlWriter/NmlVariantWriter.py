@@ -2,14 +2,16 @@ import logging
 from pathlib import Path
 
 from PropertyCalculation import VehicleType
+from .BaseNmlWriter import BaseNmlWriter
 from .NmlSpritesetWriter import NmlSpritesetWriter
 from .NmlSwitchWriter import NmlSwitchWriter
 
 logger = logging.getLogger(__name__)
 
 
-class NmlVariantWriter:
+class NmlVariantWriter(BaseNmlWriter):
     def __init__(self, variant_model, output_path):
+        super().__init__()
         self.variant = variant_model
         self.switch_writer = NmlSwitchWriter()
         self.spriteset_writer = NmlSpritesetWriter()
@@ -38,28 +40,28 @@ class NmlVariantWriter:
             if v_name in ("TRAM", "ROADVEH"):
                 feature = "FEAT_ROADVEHS"
 
-        f.write(f"item ({feature}, {variant.identifier}) {{\n")
+        self.writeline(f, f"item ({feature}, {variant.identifier}) {{", indent=0)
 
         # NML Properties Block
         properties = getattr(variant, "properties", None)
         if properties and len(properties) > 0:
-            f.write("    property {\n")
+            self.writeline(f, "property {", indent=1)
             for prop_name, prop_val in properties.items():
                 val_str = str(prop_val).strip()
                 if not val_str.endswith(";"):
                     val_str += ";"
-                f.write(f"        {prop_name}: {val_str}\n")
-            f.write("    }\n")
+                self.writeline(f, f"{prop_name}: {val_str}", indent=2)
+            self.writeline(f, "}", indent=1)
 
         # NML Graphics & Callbacks Block
         callbacks = getattr(variant, "callbacks", None)
         if callbacks and len(callbacks) > 0:
-            f.write("    graphics {\n")
+            self.writeline(f, "graphics {", indent=1)
             for cb_name, cb_target in callbacks.items():
                 target_str = str(cb_target).strip()
                 if not target_str.endswith(";"):
                     target_str += ";"
-                f.write(f"        {cb_name}: {target_str}\n")
-            f.write("    }\n")
+                self.writeline(f, f"{cb_name}: {target_str}", indent=2)
+            self.writeline(f, "}", indent=1)
 
-        f.write("}\n\n")
+        self.writeline(f, "}\n", indent=0)

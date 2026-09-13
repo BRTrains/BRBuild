@@ -1,3 +1,4 @@
+from .BaseNmlWriter import BaseNmlWriter
 from .NmlCollator import NmlCollator
 from .NmlCompiler import NmlCompiler
 from .NmlGrfWriter import NmlGrfWriter
@@ -7,11 +8,12 @@ from .NmlTargetType import NmlTargetType
 from .NmlVariantWriter import NmlVariantWriter
 
 __all__ = [
-	"NmlSwitchWriter",
-	"NmlGrfWriter",
-	"NmlVariantWriter",
-	"NmlCollator",
-	"NmlCompiler",
-	"NmlSpritesetWriter",
-	"NmlTargetType",
+    "BaseNmlWriter",
+    "NmlSwitchWriter",
+    "NmlGrfWriter",
+    "NmlVariantWriter",
+    "NmlCollator",
+    "NmlCompiler",
+    "NmlSpritesetWriter",
+    "NmlTargetType",
 ]
