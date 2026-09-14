@@ -27,12 +27,13 @@ class Variant:
         """Executes the processing pipeline stages for this variant."""
         stages = [
             self.generate_identifiers,
-            self.handleBasicProperties,
+            self.handleBasicProperties, # Things that don't need any complicated transformations or calculations
             self.handleSpeed,
             self.handleCapacity,
             self.handlePhysics,
             self.handleCosts,
             self.handleSpecialTags,
+            self.handleAdditionalText
         ]
 
         for stage in stages:
@@ -41,6 +42,10 @@ class Variant:
             except Exception as exc:
                 logger.exception(f"Error in variant {self} during stage {stage.__name__}: {exc}")
                 raise
+
+    # Clamp ranges
+    def clamp(n, smallest, largest):
+        return max(smallest, min(n, largest))
 
     def get_attr(self, attr):
         # Check profile first, then livery, then vehicle, returning the first non-None value
@@ -121,12 +126,19 @@ class Variant:
                 self.properties["introduction_date"] = str(intro_date)
 
         model_life = self.get_attr("model_life")
-        if model_life is not None:
-            self.properties["model_life"] = str(model_life)
+        if model_life is None or int(model_life) == 0:
+            model_life = "VEHICLE_NEVER_EXPIRES"
+        else:
+            model_life = self.clamp(int(model_life), 1, 254) # Clamp to NML range
+        self.properties["model_life"] = str(model_life)
+
 
         vehicle_life = self.get_attr("vehicle_life")
         if vehicle_life is not None:
-            self.properties["vehicle_life"] = str(vehicle_life)
+            vehicle_life = self.clamp(int(vehicle_life), 1, 255) # Clamp to NML range
+        else:
+            vehicle_life = 30 # Default
+        self.properties["vehicle_life"] = str(vehicle_life)
 
         length = self.get_attr("length")
         if length is not None:
@@ -134,6 +146,7 @@ class Variant:
 
     def handleSpeed(self):
         speed = self.get_attr("speed")
+        self.speed = speed
         if speed is not None:
             if isinstance(speed, float):
                 self.properties["speed"] = f"{speed:.1f} mph"
@@ -141,15 +154,21 @@ class Variant:
                 self.properties["speed"] = f"{speed} mph"
 
     def handleCapacity(self):
-        # Placeholder for handling capacity-related logic based on the profile
-        pass
+        capacity = self.get_attr("capacity")
+        if capacity is None:
+            capacity = 0
+        self.callbacks["cargo_capacity"] = f"{int(capacity)} * param_passenger_multiplier"
+        self.properties["cargo_capacity"] = 1 # Needed for NML to allow the callback override
 
     def handlePhysics(self):
         PhysicsRules().apply_rules(self)
 
         power = self.get_attr("power")
         if power is not None:
+            self.power = power
             self.properties["power"] = f"{power} hp"
+        else:
+            self.power = 0
 
         weight = self.get_attr("weight")
         if weight is not None:
@@ -162,8 +181,21 @@ class Variant:
             self.properties["air_drag_coefficient"] = str(self.ad_coefficient)
 
     def handleCosts(self):
-        # Compute costs using CostCalculator when needed
-        pass
+        calculator = CostCalculator(self)
+
+        purchase_cost = calculator.purchase_cost(False)
+        running_cost = calculator.running_cost(False)
+
+        self.callbacks["cost_factor"] = purchase_cost
+        self.callbacks["running_cost_factor"] = running_cost
+    
+    #todo: this doesn't need to be per variant, can be done per vehicle instead
+    def handleAdditionalText(self):
+        additional_text = self.get_attr("additional_text")
+        if additional_text:
+            if isinstance(additional_text, list):
+                additional_text = "{}".join(additional_text)
+            self.callbacks["additional_text"] = nml_str(additional_text,f"{self.identifier}_additional_text")
 
     def handleSpecialTags(self):
         if self.vehicle.special_tags:

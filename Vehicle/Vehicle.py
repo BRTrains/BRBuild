@@ -15,6 +15,7 @@ class Vehicle:
     based_on: Optional[str] = None
     operator: Optional[str] = None
     classification: Optional[str] = None
+    additional_text: Optional[str] = None
 
     vehicle_type: Optional[str] = None
     train_type: Optional[str] = None
@@ -28,6 +29,7 @@ class Vehicle:
 
     cargo_classes: Optional[List[str]] = None
     power_type: Optional[List[str]] = None
+    capacity: Optional[int] = None
 
     introduction_date: Optional[Union[str, int]] = None
 

@@ -45,8 +45,10 @@ class NmlVariantWriter(BaseNmlWriter):
         # NML Properties Block
         properties = getattr(variant, "properties", None)
         if properties and len(properties) > 0:
+            properties = sorted(properties.items())
+
             self.writeline(f, "property {", indent=1)
-            for prop_name, prop_val in properties.items():
+            for prop_name, prop_val in properties:
                 val_str = str(prop_val).strip()
                 if not val_str.endswith(";"):
                     val_str += ";"

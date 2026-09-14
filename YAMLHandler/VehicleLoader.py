@@ -63,6 +63,7 @@ class VehicleLoader:
             based_on=info.get("based_on"),
             operator=info.get("operator"),
             classification=data.get("classification"),
+            additional_text=data.get("additional_text"),
 
             vehicle_type=vehicle_type,
             train_type=train_type,
@@ -72,6 +73,7 @@ class VehicleLoader:
             power=stats.get("power"),
             speed=stats.get("speed"),
             tractive_effort=stats.get("tractive_effort"),
+            capacity = stats.get("capacity"),
 
             cargo_classes=cargo.get("cargo_classes"),
             power_type=stats.get("power_type"),

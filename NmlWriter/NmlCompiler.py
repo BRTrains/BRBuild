@@ -23,6 +23,7 @@ class NmlCompiler:
             logger.info(f"Local instance found, using NML from {nml_path}")
             sys.path.insert(0, str(nml_path))
             try:
+                # pyrefly: ignore [missing-import]
                 import nml.main as nmlc
             except ImportError:
                 logger.warning(f"Could not import NML from local path {nml_path}")
@@ -33,6 +34,7 @@ class NmlCompiler:
             found_nml = util.find_spec("nml")
             if found_nml is not None:
                 logger.info(f"No NML found in {nml_path}. Trying to use nml from python")
+                # pyrefly: ignore [missing-import]
                 import nml.main as nmlc
             else:
                 logger.error("nml is not installed. You can get it using 'pip install nml'")
