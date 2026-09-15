@@ -33,20 +33,30 @@ class CostCalculator:
 
         if variant.get_attr("wagon_type") is not None:
             self.wagon_type = variant.wagon_type
-        else:
+        elif self.power == 0:
             self.wagon_type = WagonType.COACH
-
+        else:
+            self.wagon_type = None
 
     def base_performance_cost(self) -> float:
         if self.speed == 0 or self.speed is None:
             self.speed = 1
 
         self.size = max(1, self.size)
-        return (
-            (self.speed / 250.0) * 0.4 +
-            (self.power / self.size / 3000.0) * 0.4 +
-            (self.capacity / 1000.0) * 0.2
-        )
+
+        if self.power > 0:
+            # Powered vehicles (locomotives / power units)
+            return (
+                (self.speed / 250.0) * 0.5 +
+                (self.power / self.size / 3000.0) * 0.5
+            )
+        else:
+            # Unpowered vehicles (coaches / wagons)
+            return (
+                (self.speed / 250.0) * 0.4 +
+                (self.capacity / 100.0) * 0.4 +
+                (self.size / 8.0) * 0.2
+            )
 
     # Ensure the final cost value is an integer between 0 and 255, as required by NML.
     def clean_value(self, value: float, allow_zero: bool = False) -> int:
