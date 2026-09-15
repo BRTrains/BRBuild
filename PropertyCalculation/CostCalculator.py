@@ -24,8 +24,10 @@ class CostCalculator:
         else:
             self.capacity = 0
 
-        if variant.get_attr("fuel_type") is not None:
+        if getattr(variant, "fuel_type", None) is not None:
             self.fuel_type = variant.fuel_type
+        elif variant.get_attr("fuel_type") is not None:
+            self.fuel_type = variant.get_attr("fuel_type")
         else:
             self.fuel_type = FuelType.DIESEL
 

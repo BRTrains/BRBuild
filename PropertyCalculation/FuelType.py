@@ -44,6 +44,11 @@ class FuelType(Enum):
         "battery",
     )
 
+    UNPOWERED = (
+        0.3,
+        0.2,
+        "unpowered",
+    )
 
     def __init__(
         self,

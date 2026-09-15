@@ -2,7 +2,7 @@ import re
 import logging
 from Badge import BadgeRegistry
 from Lang.StringRegistry import nml_str
-from PropertyCalculation import CostCalculator, Physics, TrainType, VehicleType
+from PropertyCalculation import CostCalculator, FuelType, Physics, PowerTypeClassifier, TrainType, VehicleType
 
 from Vehicle.Translator.PhysicsRules import PhysicsRules
 
@@ -31,6 +31,7 @@ class Variant:
             self.handleSpeed,
             self.handleCapacity,
             self.handlePhysics,
+            self.handleFuelType,
             self.handleCosts,
             self.handleSpecialTags,
             self.handleAdditionalText
@@ -115,8 +116,8 @@ class Variant:
                 sprite_id = "SPRITE_ID_NEW_ROADVEH"
 
         self.properties["sprite_id"] = sprite_id
-        self.properties["climates_available"] = "ALL_CLIMATES"
 
+    ''' Handle some fairly simple properties that don't need complex calculations'''
     def handleBasicProperties(self):
         intro_date = self.get_attr("introduction_date")
         if intro_date is not None:
@@ -132,6 +133,7 @@ class Variant:
             model_life = self.clamp(int(model_life), 1, 254) # Clamp to NML range
         self.properties["model_life"] = str(model_life)
 
+        self.properties["climates_available"] = "ALL_CLIMATES"
 
         vehicle_life = self.get_attr("vehicle_life")
         if vehicle_life is not None:
@@ -210,3 +212,6 @@ class Variant:
         if self.badges:
             badges_formatted = ", ".join(f'"{b}"' for b in self.badges)
             self.properties["badges"] = f"[{badges_formatted}]"
+
+    def handleFuelType(self):
+        PowerTypeClassifier(self).process()
