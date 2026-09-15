@@ -206,7 +206,7 @@ class Variant:
                 self.badges.append(badge)
 
         operator = self.get_attr("operator")
-        if operator is not None:
+        if operator:
             self.badges.append(f"Operator/{operator}")
 
         if self.badges:

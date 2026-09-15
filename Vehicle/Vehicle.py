@@ -1,4 +1,6 @@
-from dataclasses import dataclass
+from PropertyCalculation.VehicleType import VehicleType
+from PropertyCalculation.TrainType import TrainType
+from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
 from Vehicle.Livery import Livery
@@ -17,8 +19,8 @@ class Vehicle:
     classification: Optional[str] = None
     additional_text: Optional[str] = None
 
-    vehicle_type: Optional[str] = None
-    train_type: Optional[str] = None
+    vehicle_type: Optional[VehicleType] = None
+    train_type: Optional[TrainType] = None
 
     weight: Optional[float] = None
     length: Optional[int] = None
@@ -42,5 +44,5 @@ class Vehicle:
 
     special_tags: Optional[list] = None
 
-    profiles: List[Profile] = None
-    liveries: List[Livery] = None
+    profiles: List[Profile] = field(default_factory=list)
+    liveries: List[Livery] = field(default_factory=list)

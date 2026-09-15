@@ -19,11 +19,12 @@ class VehicleLoader:
             data = yaml.safe_load(f)
         return VehicleLoader._parse_vehicle(
             data,
-            folder_path=str(Path(path).parent)
+            folder_path=str(Path(path).parent),
+            path=path
         )
 
     @staticmethod
-    def _parse_vehicle(data: Dict[str, Any], folder_path: str) -> Vehicle:
+    def _parse_vehicle(data: Dict[str, Any], folder_path: str, path: str) -> Vehicle:
         info = data.get("info", {}) or {}
         stats = data.get("stats", {}) or {}
         cargo = data.get("cargo", {}) or {}
@@ -40,14 +41,21 @@ class VehicleLoader:
         ]
 
         raw_vehicle_type = stats.get("vehicle_type")
-        try:
-            # First try to parse as enum member (e.g., "TRAIN" or "ROAD_VEHICLE")
-            vehicle_type = VehicleType[raw_vehicle_type.upper()]
-        except KeyError:
-            # If that fails, try to parse as raw value (e.g., "train" or "road_vehicle")
-            vehicle_type = VehicleType(raw_vehicle_type)
 
-        raw_train_type = stats.get("train_type")
+        if raw_vehicle_type is None:
+            raise ValueError(f"Missing required stat 'vehicle_type' in {path}")
+
+        try:
+            vehicle_type = VehicleType[raw_vehicle_type.upper()]
+        except (KeyError, AttributeError):
+            raise ValueError(
+                f"Invalid value '{raw_vehicle_type}' for 'vehicle_type' in {path}."
+            )
+        
+        raw_train_type = stats.get("train_type", "").upper()
+        if raw_train_type == "":
+            raise ValueError(f"Missing required stat 'train_type' in {path}")
+
         try:
             # First try to parse as enum member (e.g., "LOCOMOTIVE" or "FREIGHT_WAGON")
             train_type = TrainType[raw_train_type.upper()]
@@ -57,10 +65,10 @@ class VehicleLoader:
 
         return Vehicle(
             folder_path=folder_path,
-            identifier=info.get("identifier"),
-            name=info.get("name"),
-            sub_name=info.get("sub_name"),
-            based_on=info.get("based_on"),
+            identifier=info["identifier"],
+            name=info.get("name", ""),
+            sub_name=info.get("sub_name", ""),
+            based_on=info.get("based_on", ""),
             operator=info.get("operator"),
             classification=data.get("classification"),
             additional_text=data.get("additional_text"),
@@ -95,8 +103,11 @@ class VehicleLoader:
 
     @staticmethod
     def _parse_profile(p: Dict[str, Any]) -> Profile:
+        identifier = p.get("identifier")
+        if identifier is None:
+            raise ValueError(f"Profile configuration missing required 'identifier': {p}")
         return Profile(
-            identifier=p.get("identifier"),
+            identifier=str(identifier),
             name=p.get("name"),
             size=p.get("size"),
             capacity=p.get("capacity"),
@@ -105,8 +116,11 @@ class VehicleLoader:
 
     @staticmethod
     def _parse_livery(lv: Dict[str, Any]) -> Livery:
+        name = lv.get("name")
+        if name is None:
+            raise ValueError(f"Livery configuration missing required 'name': {lv}")
         return Livery(
-            name=lv.get("name"),
+            name=str(name),
             sprite_override=lv.get("sprite_override"),
             profiles=lv.get("profiles"),
         )
