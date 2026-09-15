@@ -3,26 +3,18 @@ from .WagonType import WagonType
 
 
 class CostCalculator:
-    def __init__(self, variant): 
-        if variant.speed is not None:
-            self.speed = variant.speed
-        else:
-            self.speed = 100
-        
-        if variant.power is not None:
-            self.power = variant.power
-        else:
-            self.power = 0
+    def __init__(self, variant):
+        raw_speed = getattr(variant, "speed", None) or variant.get_attr("speed")
+        self.speed: float = float(raw_speed) if raw_speed is not None else 100.0
 
-        if variant.get_attr("size") is not None:
-            self.size = variant.get_attr("size")
-        else:
-            self.size = 1
+        raw_power = getattr(variant, "power", None) or variant.get_attr("power")
+        self.power: float = float(raw_power) if raw_power is not None else 0.0
 
-        if variant.get_attr("capacity") is not None:
-            self.capacity = variant.get_attr("capacity")
-        else:
-            self.capacity = 0
+        raw_size = variant.get_attr("size") or getattr(variant, "size", None)
+        self.size: float = float(raw_size) if raw_size is not None else 1.0
+
+        raw_capacity = variant.get_attr("capacity") or getattr(variant, "capacity", None)
+        self.capacity: float = float(raw_capacity) if raw_capacity is not None else 0.0
 
         if getattr(variant, "fuel_type", None) is not None:
             self.fuel_type = variant.fuel_type
@@ -39,23 +31,23 @@ class CostCalculator:
             self.wagon_type = None
 
     def base_performance_cost(self) -> float:
-        if self.speed == 0 or self.speed is None:
-            self.speed = 1
+        speed = max(1.0, self.speed)
+        size = max(1.0, self.size)
+        power = max(0.0, self.power)
+        capacity = max(0.0, self.capacity)
 
-        self.size = max(1, self.size)
-
-        if self.power > 0:
+        if power > 0:
             # Powered vehicles (locomotives / power units)
             return (
-                (self.speed / 250.0) * 0.5 +
-                (self.power / self.size / 3000.0) * 0.5
+                (speed / 250.0) * 0.5 +
+                (power / size / 3000.0) * 0.5
             )
         else:
             # Unpowered vehicles (coaches / wagons)
             return (
-                (self.speed / 250.0) * 0.4 +
-                (self.capacity / 100.0) * 0.4 +
-                (self.size / 8.0) * 0.2
+                (speed / 250.0) * 0.4 +
+                (capacity / 100.0) * 0.4 +
+                (size / 8.0) * 0.2
             )
 
     # Ensure the final cost value is an integer between 0 and 255, as required by NML.
