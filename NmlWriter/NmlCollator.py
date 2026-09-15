@@ -1,5 +1,6 @@
 import logging
 from Badge import BadgeRegistry
+from .NmlBadgeWriter import NmlBadgeWriter
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +28,8 @@ class NmlCollator:
                     f.write(f"\n\n// File: {file}\n")
                     f.write(infile.read())
 
-            # 2. Write badgetable block right after GRF block (must precede item blocks using badges)
-            badges = BadgeRegistry().badges()
-            if badges:
-                f.write("\n\n// Badges definition block\n")
-                f.write("badgetable {\n")
-                f.write(",\n".join(f'    "{b}"' for b in badges))
-                f.write("\n}\n")
+            # 2. Write badgetable and FEAT_BADGES item definitions
+            NmlBadgeWriter().write_all(f)
 
             # 3. Collated vehicle item files
             for file in other_files:
