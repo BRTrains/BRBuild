@@ -215,7 +215,9 @@ class Builder:
 
                 if allocator is not None:
                     try:
-                        variant.spritesets, variant.sprite_template_names = allocator.get(variant.profile, variant.livery)
+                        variant.spritesets, variant.sprite_template_names, variant.sprite_lengths = allocator.get(
+                            variant.profile, variant.livery
+                        )
                         purchase = allocator.get_purchase()
                         variant.purchase_spriteset, variant.purchase_template_name = purchase if purchase else (None, None)
                     except Exception as exc:

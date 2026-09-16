@@ -56,6 +56,13 @@ class NmlVariantWriter(BaseNmlWriter):
             expression = f"position_in_articulated_veh % {len(spritesets)}"
             self.switch_writer.write_switch(f, self._feature(variant), "SELF", switch_name, expression, values)
 
+        length_switch_name = getattr(variant, "length_switch_name", None)
+        lengths = getattr(variant, "sprite_lengths", None)
+        if length_switch_name and lengths:
+            values = {i: length for i, length in enumerate(lengths)}
+            expression = f"position_in_articulated_veh % {len(lengths)}"
+            self.switch_writer.write_switch(f, self._feature(variant), "SELF", length_switch_name, expression, values)
+
     def _feature(self, variant):
         v_type = variant.vehicle_type
         feature = "FEAT_TRAINS"

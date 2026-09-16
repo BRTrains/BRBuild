@@ -23,11 +23,13 @@ class Variant:
         self.spritesets = list()
         self.sprite_pattern = list()
         self.sprite_template_names = list()
+        self.sprite_lengths = list()
         self.spriteset_names = list()
         self.purchase_spriteset = None
         self.purchase_spriteset_name = None
         self.purchase_template_name = None
         self.sprite_switch_name = None
+        self.length_switch_name = None
 
         self.identifier = None
         self.nml_filename = None
@@ -248,6 +250,10 @@ class Variant:
             self.spriteset_names.append(name_by_spriteset[key])
 
         self.callbacks["default"] = self.sprite_switch_name
+
+        if self.sprite_lengths:
+            self.length_switch_name = f"sw_{self.identifier}_length"
+            self.callbacks["length"] = self.length_switch_name
 
         if self.purchase_spriteset is not None:
             self.purchase_spriteset_name = f"spriteset_{self.identifier}_purchase"

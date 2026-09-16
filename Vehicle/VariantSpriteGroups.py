@@ -136,14 +136,16 @@ class VehicleSpriteAllocator:
 		self.cursor = 0
 		self._spritesets: dict[tuple[str, str], list[Spriteset]] = {}
 		self._template_names: dict[tuple[str, str], list[str]] = {}
+		self._lengths: dict[tuple[str, str], list[int]] = {}
 
-	def get(self, profile: Profile, livery: Livery) -> tuple[list[Spriteset], list[str]]:
-		"""Return the (spritesets, template_names) for a profile/livery combination.
+	def get(self, profile: Profile, livery: Livery) -> tuple[list[Spriteset], list[str], list[int]]:
+		"""Return the (spritesets, template_names, lengths) for a profile/livery combination.
 
 		Consumes new confidently-identified rows from the sheet only the first time this
 		combination is seen; `template_names` are the real NML template macro (e.g.
 		`tmpl_train_6`) each corresponding spriteset was matched against, for the writer
-		to call verbatim instead of guessing one from an articulation role.
+		to call verbatim instead of guessing one from an articulation role. `lengths` are
+		the matched templates' own `length` (1-8), for the per-variant `length` callback.
 		"""
 		key = (str(profile.identifier), str(livery.name))
 
@@ -161,8 +163,9 @@ class VehicleSpriteAllocator:
 
 			self._spritesets[key] = [group_slice[position - 1][0] for position in group.pattern]
 			self._template_names[key] = [group_slice[position - 1][1].name for position in group.pattern]
+			self._lengths[key] = [group_slice[position - 1][1].length for position in group.pattern]
 
-		return self._spritesets[key], self._template_names[key]
+		return self._spritesets[key], self._template_names[key], self._lengths[key]
 
 	def get_purchase(self) -> tuple[Spriteset, str] | None:
 		"""Return the (spriteset, template_name) for the sheet's shared purchase icon, if any.
