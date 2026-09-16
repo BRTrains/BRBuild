@@ -12,6 +12,8 @@ class Project:
             self.grfFolder = project_data.get("grfFolder", "src/grf")
             self.soundFolder = project_data.get("soundFolder", "src/sound")
             self.targetFolders = project_data.get("targetFolders") if isinstance(project_data.get("targetFolders"), list) else []
+            self.palette = project_data.get("palette", "Sprites/ttd-newgrf-dos.gpl")
+            self.templateFolder = project_data.get("template_folder")
             logger.debug(f"Initialized Project: {self} from data: {project_data}")
         else:
             logger.warning(f"Project initialized with non-dict data: {project_data}. Using default values.")    
@@ -21,6 +23,8 @@ class Project:
             self.grfFolder = "src/grf"
             self.soundFolder = "src/sound"
             self.targetFolders = []
+            self.palette = "Sprites/ttd-newgrf-dos.gpl"
+            self.templateFolder = None
 
     def __repr__(self):
         return f"Project(name='{self.name}', path='{self.path}', build={self.build}, targetFolders={self.targetFolders})"

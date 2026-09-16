@@ -3,3 +3,11 @@ project:
   build: True
   target_folders:
     - src/vehicles
+  # Optional: path to the GIMP .gpl palette used to read vehicle spritesheets.
+  # Defaults to Sprites/ttd-newgrf-dos.gpl if omitted.
+  palette: Sprites/ttd-newgrf-dos.gpl
+  # Optional: folder (relative to the project root) containing raw .pnml files that
+  # define NML `template` blocks (e.g. tmpl_train_1, tmpl_purchase). Every .pnml file
+  # found is written before any vehicle candidates. Falls back to BRBuild's own
+  # Templates/ folder if omitted.
+  template_folder: src/templates

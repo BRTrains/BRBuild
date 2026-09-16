@@ -20,6 +20,15 @@ class Variant:
         self.properties = dict()
         self.callbacks = dict()
 
+        self.spritesets = list()
+        self.sprite_pattern = list()
+        self.sprite_template_names = list()
+        self.spriteset_names = list()
+        self.purchase_spriteset = None
+        self.purchase_spriteset_name = None
+        self.purchase_template_name = None
+        self.sprite_switch_name = None
+
         self.identifier = None
         self.nml_filename = None
 
@@ -34,7 +43,8 @@ class Variant:
             self.handleFuelType,
             self.handleCosts,
             self.handleSpecialTags,
-            self.handleAdditionalText
+            self.handleAdditionalText,
+            self.handleSprites,
         ]
 
         for stage in stages:
@@ -215,3 +225,30 @@ class Variant:
 
     def handleFuelType(self):
         PowerTypeClassifier(self).process()
+
+    def handleSprites(self):
+        """Wire the per-variant sprite switch into graphics{} if sprites were assigned.
+
+        Spriteset/switch names must be unique across the whole collated .nml, but the
+        same underlying Spriteset can be reused by multiple variants (e.g. the same
+        livery across train/tram types), so names are generated here from this
+        variant's own identifier rather than reused from the shared Spriteset objects.
+        """
+        if not self.spritesets:
+            return
+
+        self.sprite_switch_name = f"sw_{self.identifier}"
+
+        name_by_spriteset: dict[int, str] = {}
+        self.spriteset_names = []
+        for spriteset in self.spritesets:
+            key = id(spriteset)
+            if key not in name_by_spriteset:
+                name_by_spriteset[key] = f"spriteset_{self.identifier}_{len(name_by_spriteset)}"
+            self.spriteset_names.append(name_by_spriteset[key])
+
+        self.callbacks["default"] = self.sprite_switch_name
+
+        if self.purchase_spriteset is not None:
+            self.purchase_spriteset_name = f"spriteset_{self.identifier}_purchase"
+            self.callbacks["purchase"] = self.purchase_spriteset_name

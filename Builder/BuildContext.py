@@ -17,3 +17,5 @@ class BuildContext:
     lang_folder: str | None = None
     newgrf_filepath: str | None = None
     log_nml_output: bool = False
+    palette: list | None = None
+    template_definitions: list | None = None

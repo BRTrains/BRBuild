@@ -1,9 +1,10 @@
 import logging
 
+from Templates.Template import Template
+
 from .PalettedImage import PalettedImage
 from .Sprite import Sprite
 from .Spriteset import Spriteset
-from .Template import Template
 
 logger = logging.getLogger(__name__)
 
@@ -36,31 +37,24 @@ class SpritesheetExtractor:
 		if image.image.mode == "RGBA":
 			image.image = image.image.convert("RGB")
 
-		self.is_paletted = image.image.mode == "P"
+		if not image.is_using_palette():
+			image.set_palette()
+
 		self.image = image.image
 		self.width, self.height = self.image.size
 		self.pixels = self.image.load()
 
-		self._palette_rgb = None
-		if self.is_paletted:
-			raw_palette = self.image.getpalette() or []
-			self._palette_rgb = [
-				tuple(raw_palette[i:i + 3]) for i in range(0, len(raw_palette), 3)
-			]
+		raw_palette = self.image.getpalette() or []
+		self._palette_rgb = [
+			tuple(raw_palette[i:i + 3]) for i in range(0, len(raw_palette), 3)
+		]
 
 	def _get_rgb(self, x: int, y: int) -> tuple[int, int, int]:
-		"""Return the pixel at (x, y) as an RGB tuple, regardless of image mode."""
-		px = self.pixels[x, y]
-
-		if self.is_paletted:
-			idx = px if isinstance(px, int) else px[0]
-			if self._palette_rgb is None or idx >= len(self._palette_rgb):
-				return (0, 0, 0)
-			return self._palette_rgb[idx]
-
-		if isinstance(px, tuple) and len(px) >= 3:
-			return px[:3]
-		return (0, 0, 0)
+		"""Return the pixel at (x, y) as an RGB tuple via the enforced palette table."""
+		idx = self.pixels[x, y]
+		if idx >= len(self._palette_rgb):
+			return (0, 0, 0)
+		return self._palette_rgb[idx]
 
 	def is_gutter(self, x: int, y: int) -> bool:
 		"""A gutter pixel is white or near-white, marking gaps between sprites/rows."""
@@ -144,7 +138,12 @@ class SpritesheetExtractor:
 	# -- spriteset construction ----------------------------------------------
 
 	def extract_spritesets(self) -> list[Spriteset]:
-		"""Detect rows and the sprites within them, returning one `Spriteset` per row."""
+		"""Detect rows and the sprites within them, returning one `Spriteset` per row.
+
+		TODO: rows are expected to have 4 or 8 views; a single-view row is likely a legacy
+		purchase-sprite remnant and other counts may be doodles/notes, not real content.
+		This isn't filtered yet - legacy template detection is a separate future task.
+		"""
 		spritesets = []
 
 		for row_index, row_y in enumerate(self._detect_rows()):

@@ -2,19 +2,20 @@ from .BaseNmlWriter import BaseNmlWriter
 
 
 class NmlSpritesetWriter(BaseNmlWriter):
+    """Writes `spriteset(...)` blocks for a variant's Spriteset objects.
+
+    Each spriteset calls the exact NML template macro (e.g. `tmpl_train_6`, `tmpl_purchase`)
+    it was matched against by `Templates.TemplateMatcher`, so the caller must supply that
+    real template name rather than one guessed from vehicle type/articulation role.
+    """
+
     def __init__(self):
         super().__init__()
 
-    def write(self, f, sprite, variant):
-        if getattr(sprite, "type", None) == "purchase" or getattr(sprite, "size", 0) == 0:
-            template_name = "tmpl_purchase"
-        elif isinstance(sprite.size, int):
-            v_type = variant.vehicle_type
-            v_type_str = v_type.name.lower() if hasattr(v_type, "name") else str(v_type).lower()
-            template_name = f"tmpl_{v_type_str}_{sprite.size}"
-        else:
-            template_name = "tmpl_purchase"
+    def write(self, f, spriteset, template_name, name=None):
+        spriteset_name = name or spriteset.name
 
-        self.writeline(f, f'spriteset({sprite.name}, "{sprite.file}") {{', indent=0)
-        self.writeline(f, f"{template_name}({sprite.x}, {sprite.y})", indent=1)
+        self.writeline(f, f'spriteset({spriteset_name}, "{spriteset.file}") {{', indent=0)
+        self.writeline(f, f"{template_name}({spriteset.x}, {spriteset.y})", indent=1)
         self.writeline(f, "}\n", indent=0)
+

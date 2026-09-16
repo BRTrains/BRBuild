@@ -143,6 +143,10 @@ class PowerTypeClassifier:
         return fuel_enum
 
     def _extract_tokens(self, raw: Any) -> List[str]:
+        return self._tokenize(raw)
+
+    @staticmethod
+    def _tokenize(raw: Any) -> List[str]:
         if raw is None:
             return []
 
@@ -156,9 +160,16 @@ class PowerTypeClassifier:
                     tokens.append(clean)
         elif isinstance(raw, (list, tuple, set)):
             for item in raw:
-                tokens.extend(self._extract_tokens(item))
+                tokens.extend(PowerTypeClassifier._tokenize(item))
 
         return tokens
+
+    @staticmethod
+    def is_ohle(power_type: Any) -> bool:
+        """Return True if the given power/fuel type tokens indicate OHLE (overhead catenary)."""
+        tokens = PowerTypeClassifier._tokenize(power_type)
+        ohle_types = {"OHLE", "OHLE_25KV", "OVERHEAD", "CATENARY", "DUAL", "DUAL_VOLTAGE"}
+        return any(t in ohle_types for t in tokens)
 
     def _add_badge(self, badge: str):
         registered = BadgeRegistry().add_badge(badge)

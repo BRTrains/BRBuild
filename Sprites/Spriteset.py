@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .Template import Template
+from Templates.Template import Template
 
 
 @dataclass

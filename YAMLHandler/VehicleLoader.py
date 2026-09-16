@@ -68,6 +68,7 @@ class VehicleLoader:
             identifier=info["identifier"],
             name=info.get("name", ""),
             sub_name=info.get("sub_name", ""),
+            yaml_path=path,
             based_on=info.get("based_on", ""),
             operator=info.get("operator"),
             classification=data.get("classification"),
@@ -85,6 +86,10 @@ class VehicleLoader:
 
             cargo_classes=cargo.get("cargo_classes"),
             power_type=stats.get("power_type"),
+
+            size=stats.get("size") or data.get("size"),
+            sprite_override=data.get("sprite_override"),
+            sprite_exclude=data.get("sprite_exclude"),
 
             introduction_date=dates.get("introduction_date") or data.get("introduction_date"),
 
@@ -110,6 +115,8 @@ class VehicleLoader:
             identifier=str(identifier),
             name=p.get("name"),
             size=p.get("size"),
+            sprite_override=p.get("sprite_override"),
+            sprite_exclude=p.get("sprite_exclude"),
             capacity=p.get("capacity"),
             types=p.get("types"),
         )
@@ -121,6 +128,8 @@ class VehicleLoader:
             raise ValueError(f"Livery configuration missing required 'name': {lv}")
         return Livery(
             name=str(name),
+            size=lv.get("size"),
             sprite_override=lv.get("sprite_override"),
+            sprite_exclude=lv.get("sprite_exclude"),
             profiles=lv.get("profiles"),
         )

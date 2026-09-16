@@ -7,5 +7,7 @@ class Profile:
     identifier: str
     name: Optional[str] = None
     size: Optional[int] = None
+    sprite_override: Optional[List[int]] = None
+    sprite_exclude: Optional[List[int]] = None
     capacity: Optional[int] = None
     types: Optional[List[str]] = None

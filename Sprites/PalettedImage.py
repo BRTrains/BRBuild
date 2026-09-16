@@ -30,11 +30,18 @@ class PalettedImage:
         return image_palette == self.palette
 
     def set_palette(self):
-        """Set the configured palette on the image."""
-        if self.image.mode != "P":
-            self.image = self.image.convert("P")
+        """Force the image onto the configured palette.
 
-        self.image.putpalette(self.palette)
+        Remaps every pixel to its nearest colour in the configured palette first (so an
+        artist's stray non-palette colours land on the closest intended colour, e.g. gutters
+        stay white), then attaches the exact palette table. Dithering is disabled so flat
+        colour regions (like gutters) stay solid instead of being speckled with noise.
+        """
+        palette_image = Image.new("P", (1, 1))
+        palette_image.putpalette(self.palette)
+
+        rgb_image = self.image.convert("RGB")
+        self.image = rgb_image.quantize(palette=palette_image, dither=Image.Dither.NONE)
 
     @classmethod
     def load_palette(cls, filename):

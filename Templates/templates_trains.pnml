@@ -1,0 +1,169 @@
+template tmpl_train_1(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+   0,    y+ 0,     8,     11,       -3,      -12,  ] // N
+	[ x+   9,    y+ 0,     8,     12,        1,      -12,  ] // NE
+	[ x+  18,    y+ 0,     5,     13,        8,       -9,  ] // E
+	[ x+  24,    y+ 0,     8,     12,        9,       -4,  ] // SE
+	[ x+  33,    y+ 0,     8,     11,       -3,       -5,  ] // S
+	[ x+  42,    y+ 0,     8,     12,      -13,       -5,  ] // SW
+	[ x+  51,    y+ 0,     5,     13,      -15,       -9,  ] // W
+	[ x+  57,    y+ 0,     8,     12,       -5,      -11,  ] // NW
+}
+
+template tmpl_train_2(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+   0,    y+ 0,     8,     13,       -3,      -12,  ] // N
+	[ x+   9,    y+ 0,    10,     13,       -1,      -12,  ] // NE
+	[ x+  20,    y+ 0,     9,     13,        4,       -9,  ] // E
+	[ x+  30,    y+ 0,    10,     13,        7,       -5,  ] // SE
+	[ x+  41,    y+ 0,     8,     13,       -3,       -7,  ] // S
+	[ x+  50,    y+ 0,    10,     13,      -13,       -6,  ] // SW
+	[ x+  61,    y+ 0,     9,     13,      -15,       -9,  ] // W
+	[ x+  71,    y+ 0,    10,     13,       -5,      -11,  ] // NW
+}
+
+template tmpl_train_3(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+   0,    y+ 0,     8,     15,       -3,      -12,  ] // N
+	[ x+   9,    y+ 0,    12,     14,       -3,      -12,  ] // NE
+	[ x+  22,    y+ 0,    13,     13,        0,       -9,  ] // E
+	[ x+  36,    y+ 0,    12,     14,        5,       -6,  ] // SE
+	[ x+  49,    y+ 0,     8,     15,       -3,       -9,  ] // S
+	[ x+  58,    y+ 0,    12,     14,      -13,       -7,  ] // SW
+	[ x+  71,    y+ 0,    13,     13,      -15,       -9,  ] // W
+	[ x+  85,    y+ 0,    12,     14,       -5,      -11,  ] // NW
+}
+
+template tmpl_train_3_reversed(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+  49,    y+ 0,     8,     15,       -3,      -12,  ] // S  as N
+	[ x+  58,    y+ 0,    12,     14,       -3,      -12,  ] // SW as NE
+	[ x+  71,    y+ 0,    13,     13,        0,       -9,  ] // W  as E
+	[ x+  85,    y+ 0,    12,     14,        5,       -6,  ] // NW as SE
+	[ x+   0,    y+ 0,     8,     15,       -3,       -9,  ] // N  as S
+	[ x+   9,    y+ 0,    12,     14,      -13,       -7,  ] // NE as SW
+	[ x+  22,    y+ 0,    13,     13,      -15,       -9,  ] // E  as W
+	[ x+  36,    y+ 0,    12,     14,       -5,      -11,  ] // SE as NW
+}
+
+template tmpl_train_4(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+   0,    y+ 0,     8,     17,       -3,      -13,  ] // N
+	[ x+   9,    y+ 0,    14,     15,       -5,      -12,  ] // NE
+	[ x+  24,    y+ 0,    17,     13,       -4,       -9,  ] // E
+	[ x+  42,    y+ 0,    14,     15,        3,       -7,  ] // SE
+	[ x+  57,    y+ 0,     8,     17,       -3,      -10,  ] // S
+	[ x+  66,    y+ 0,    14,     15,      -13,       -8,  ] // SW
+	[ x+  81,    y+ 0,    17,     13,      -15,       -9,  ] // W
+	[ x+  99,    y+ 0,    14,     15,       -5,      -11,  ] // NW
+}
+
+template tmpl_train_4_reversed(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+  57,    y+ 0,     8,     17,       -3,      -13,  ] // S  as N
+	[ x+  66,    y+ 0,    14,     15,       -5,      -12,  ] // SW as NE
+	[ x+  81,    y+ 0,    17,     13,       -4,       -9,  ] // W  as E
+	[ x+  99,    y+ 0,    14,     15,        3,       -7,  ] // NW as SE
+	[ x+   0,    y+ 0,     8,     17,       -3,      -10,  ] // N  as S
+	[ x+   9,    y+ 0,    14,     15,      -13,       -8,  ] // NE as SW
+	[ x+  24,    y+ 0,    17,     13,      -15,       -9,  ] // E  as W
+	[ x+  42,    y+ 0,    14,     15,       -5,      -11,  ] // SE as NW
+}
+
+template tmpl_train_5(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+   0,    y+ 0,     8,     19,       -3,      -13,  ] // N
+	[ x+   9,    y+ 0,    16,     16,       -7,      -12,  ] // NE
+	[ x+  26,    y+ 0,    21,     13,       -8,       -9,  ] // E
+	[ x+  48,    y+ 0,    16,     16,        1,       -8,  ] // SE
+	[ x+  65,    y+ 0,     8,     19,       -3,      -13,  ] // S
+	[ x+  74,    y+ 0,    16,     16,      -13,       -9,  ] // SW
+	[ x+  91,    y+ 0,    21,     13,      -15,       -9,  ] // W
+	[ x+ 113,    y+ 0,    16,     16,       -5,      -11,  ] // NW
+}
+
+template tmpl_train_5_reversed(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+  65,    y+ 0,     8,     19,       -3,      -13,  ] // S  as N
+	[ x+  74,    y+ 0,    16,     16,       -7,      -12,  ] // SW as NE
+	[ x+  91,    y+ 0,    21,     13,       -8,       -9,  ] // W  as E
+	[ x+ 113,    y+ 0,    16,     16,        0,       -8,  ] // NW as SE
+	[ x+   0,    y+ 0,     8,     19,       -3,      -13,  ] // N  as S
+	[ x+   9,    y+ 0,    16,     16,      -13,       -9,  ] // NE as SW
+	[ x+  26,    y+ 0,    21,     13,      -15,       -9,  ] // E  as W
+	[ x+  48,    y+ 0,    16,     16,       -5,      -11,  ] // SE as NW
+}
+
+template tmpl_train_6(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+   0,    y+ 0,     8,     21,       -3,      -12,  ] // N
+	[ x+   9,    y+ 0,    18,     17,       -9,      -12,  ] // NE
+	[ x+  28,    y+ 0,    25,     13,      -12,       -9,  ] // E
+	[ x+  54,    y+ 0,    18,     17,       -1,       -9,  ] // SE
+	[ x+  73,    y+ 0,     8,     21,       -3,      -15,  ] // S
+	[ x+  82,    y+ 0,    18,     17,      -13,      -10,  ] // SW
+	[ x+ 101,    y+ 0,    25,     13,      -15,       -9,  ] // W
+	[ x+ 127,    y+ 0,    18,     17,       -5,      -11,  ] // NW
+}
+
+template tmpl_train_7(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+   0,    y+ 0,     8,     23,       -3,      -12,  ] // N
+	[ x+   9,    y+ 0,    20,     18,      -11,      -12,  ] // NE
+	[ x+  30,    y+ 0,    29,     13,      -16,       -9,  ] // E
+	[ x+  60,    y+ 0,    20,     18,       -3,      -10,  ] // SE
+	[ x+  81,    y+ 0,     8,     23,       -3,      -17,  ] // S
+	[ x+  90,    y+ 0,    20,     18,      -13,      -11,  ] // SW
+	[ x+ 111,    y+ 0,    29,     13,      -15,       -9,  ] // W
+	[ x+ 141,    y+ 0,    20,     18,       -5,      -11,  ] // NW
+}
+
+template tmpl_train_7_reversed(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+  81,    y+ 0,     8,     23,       -3,      -12,  ] // S  as N
+	[ x+  90,    y+ 0,    20,     18,      -11,      -12,  ] // SW as NE
+	[ x+ 111,    y+ 0,    29,     13,      -16,       -9,  ] // W  as E
+	[ x+ 141,    y+ 0,    20,     18,       -3,      -10,  ] // NW as SE
+	[ x+   0,    y+ 0,     8,     23,       -3,      -17,  ] // N  as S
+	[ x+   9,    y+ 0,    20,     18,      -13,      -11,  ] // NE as SW
+	[ x+  30,    y+ 0,    29,     13,      -15,       -9,  ] // E  as W
+	[ x+  60,    y+ 0,    20,     18,       -5,      -11,  ] // SE as NW
+}
+
+template tmpl_train_8(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+   0,    y+ 0,     8,     25,       -3,      -12, NOANIM ] // N
+	[ x+   9,    y+ 0,    22,     19,      -13,      -12, NOANIM ] // NE
+	[ x+  32,    y+ 0,    33,     13,      -20,       -9, NOANIM ] // E
+	[ x+  66,    y+ 0,    22,     19,       -5,      -11, NOANIM ] // SE
+	[ x+  89,    y+ 0,     8,     25,       -3,      -19, NOANIM ] // S
+	[ x+  98,    y+ 0,    22,     19,      -13,      -12, NOANIM ] // SW
+	[ x+ 121,    y+ 0,    33,     13,      -15,       -9, NOANIM ] // W
+	[ x+ 155,    y+ 0,    22,     19,       -5,      -11, NOANIM ] // NW
+}
+
+template tmpl_train_8_reversed(x, y)
+{
+ // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
+	[ x+  89,    y+ 0,     8,     25,       -3,      -12, NOANIM ] // S  as N
+	[ x+  98,    y+ 0,    22,     19,      -13,      -12, NOANIM ] // SW as NE
+	[ x+ 121,    y+ 0,    33,     13,      -20,       -9, NOANIM ] // W  as E
+	[ x+ 155,    y+ 0,    22,     19,       -5,      -11, NOANIM ] // NW as SE
+	[ x+   0,    y+ 0,     8,     25,       -3,      -19, NOANIM ] // N  as S
+	[ x+   9,    y+ 0,    22,     19,      -13,      -12, NOANIM ] // NE as SW
+	[ x+  32,    y+ 0,    33,     13,      -15,       -9, NOANIM ] // E  as W
+	[ x+  66,    y+ 0,    22,     19,       -5,      -11, NOANIM ] // SE as NW
+}
+

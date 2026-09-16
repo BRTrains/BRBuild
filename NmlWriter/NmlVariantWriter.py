@@ -25,11 +25,38 @@ class NmlVariantWriter(BaseNmlWriter):
         variant = self.variant
 
         with open(self.filepath, "w", encoding="utf-8") as f:
+            self.write_sprites(f, variant)
             self.write_item(f, variant)
 
         return self.filepath
 
-    def write_item(self, f, variant):
+    def write_sprites(self, f, variant):
+        """Write this variant's spriteset(s) and articulation switch, if any were assigned."""
+        spritesets = getattr(variant, "spritesets", None)
+        names = getattr(variant, "spriteset_names", None)
+        template_names = getattr(variant, "sprite_template_names", None)
+        if not spritesets or not names or not template_names:
+            return
+
+        if variant.purchase_spriteset is not None and variant.purchase_template_name is not None:
+            self.spriteset_writer.write(
+                f, variant.purchase_spriteset, variant.purchase_template_name, name=variant.purchase_spriteset_name
+            )
+
+        written_names = set()
+        for spriteset, template_name, name in zip(spritesets, template_names, names):
+            if name in written_names:
+                continue
+            self.spriteset_writer.write(f, spriteset, template_name, name=name)
+            written_names.add(name)
+
+        switch_name = getattr(variant, "sprite_switch_name", None)
+        if switch_name:
+            values = {i: name for i, name in enumerate(names)}
+            expression = f"position_in_articulated_veh % {len(spritesets)}"
+            self.switch_writer.write_switch(f, self._feature(variant), "SELF", switch_name, expression, values)
+
+    def _feature(self, variant):
         v_type = variant.vehicle_type
         feature = "FEAT_TRAINS"
 
@@ -39,6 +66,11 @@ class NmlVariantWriter(BaseNmlWriter):
             v_name = v_type.name.upper()
             if v_name in ("TRAM", "ROADVEH"):
                 feature = "FEAT_ROADVEHS"
+
+        return feature
+
+    def write_item(self, f, variant):
+        feature = self._feature(variant)
 
         self.writeline(f, f"item ({feature}, {variant.identifier}) {{", indent=0)
 

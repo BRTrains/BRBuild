@@ -6,6 +6,8 @@ from pathlib import Path
 
 from Builder import Builder, ProjectFinder
 
+logger = logging.getLogger("Run")
+
 
 def run_build(project_name=None, log_nml_output=False):
     ''' Orchestrator for the build process. If a project name is provided, it will attempt to build that specific project. Otherwise, it will search for all projects in the parent directory and build them. '''
@@ -38,6 +40,50 @@ def run_build(project_name=None, log_nml_output=False):
             builder.build(project, log_nml_output=log_nml_output)
     
     return True
+
+def reset_graphics(project_name=None):
+    ''' Restore vehicle spritesheets from their _original.png backups (if present), removing the
+    current base .png and any _working.png copy, without touching the _original.png itself. '''
+    finder = ProjectFinder()
+
+    if project_name:
+        project = finder.find_project(project_name)
+
+        if not project:
+            logger.error(f"Project '{project_name}' not found.")
+            return False
+
+        projects = [project]
+    else:
+        if not finder.projects:
+            logger.debug("No projects found. Please ensure there are folders with a 'BRBuild.yaml' file in the parent directory.")
+            return False
+
+        projects = finder.projects
+
+    reset_count = sum(reset_project_graphics(project) for project in projects)
+    logger.info(f"Reset {reset_count} spritesheet(s) from their _original backups.")
+    return True
+
+def reset_project_graphics(project) -> int:
+    ''' Reset every spritesheet with an _original.png backup within a single project. '''
+    count = 0
+
+    for original_path in sorted(project.path.rglob("*_original.png")):
+        base_path = original_path.with_name(original_path.name.replace("_original.png", ".png"))
+        working_path = base_path.with_name(f"{base_path.stem}_working.png")
+
+        if base_path.exists():
+            base_path.unlink()
+
+        if working_path.exists():
+            working_path.unlink()
+
+        shutil.copy2(original_path, base_path)
+        logger.info(f"Reset '{base_path}' from '{original_path}'")
+        count += 1
+
+    return count
 
 def configure_logging(enable_file: bool, log_file: str = "build.log") -> None:
     logger = logging.getLogger()
@@ -88,6 +134,12 @@ def parse_args():
         help="List discovered projects and exit without building"
     )
 
+    parser.add_argument(
+        "--reset-graphics",
+        action="store_true",
+        help="Restore vehicle spritesheets from their _original.png backups (if present) and exit without building"
+    )
+
     return parser.parse_args()
 
 def clean_working_data():
@@ -134,6 +186,11 @@ if __name__ == "__main__":
             for project in finder.projects:
                 print(f" - {project.name} (path: {project.path})")
         raise SystemExit(0)
+
+    # If the user only wants to reset graphics, do that and exit without building
+    if getattr(args, "reset_graphics", False):
+        success = reset_graphics(args.project)
+        raise SystemExit(0 if success else 1)
 
     logger.info("Cleaning working data")
     clean_working_data()

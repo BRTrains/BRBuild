@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from .Sprite import Sprite
+from Sprites.Sprite import Sprite
 
 
 @dataclass
