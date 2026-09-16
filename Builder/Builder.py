@@ -278,7 +278,13 @@ class Builder:
         if len(ctx.nml_files) == 0:
             raise RuntimeError("No NML files available for collation.")
 
-        ctx.nml_filepath = self.nmlCollator.collate(ctx.nml_files, ctx.project.name)
+        custom_nml_folder = ctx.project.path / ctx.project.grfFolder / "custom_nml"
+        ctx.nml_filepath = self.nmlCollator.collate(
+            ctx.nml_files,
+            ctx.project.name,
+            custom_nml_folder,
+            ctx.project.path,
+        )
         logger.info(f"NML collation complete: {ctx.nml_filepath}")
 
     def _write_language(self, ctx: BuildContext):
