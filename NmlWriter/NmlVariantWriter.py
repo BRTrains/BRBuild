@@ -32,6 +32,17 @@ class NmlVariantWriter(BaseNmlWriter):
 
     def write_sprites(self, f, variant):
         """Write this variant's spriteset(s) and articulation switch, if any were assigned."""
+        articulated_switch_name = getattr(variant, "articulated_switch_name", None)
+        articulated_count = getattr(variant, "articulated_count", None)
+        if articulated_switch_name and articulated_count is not None:
+            values = {
+                f"1..{articulated_count - 1}": variant.identifier,
+                "default": "CB_RESULT_NO_MORE_ARTICULATED_PARTS",
+            }
+            self.switch_writer.write_switch(
+                f, self._feature(variant), "SELF", articulated_switch_name, "extra_callback_info1", values
+            )
+
         spritesets = getattr(variant, "spritesets", None)
         names = getattr(variant, "spriteset_names", None)
         template_names = getattr(variant, "sprite_template_names", None)

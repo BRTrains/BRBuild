@@ -30,6 +30,8 @@ class Variant:
         self.purchase_template_name = None
         self.sprite_switch_name = None
         self.length_switch_name = None
+        self.articulated_switch_name = None
+        self.articulated_count = None
 
         self.identifier = None
         self.nml_filename = None
@@ -38,6 +40,7 @@ class Variant:
         """Executes the processing pipeline stages for this variant."""
         stages = [
             self.generate_identifiers,
+            self.handleArticulated,
             self.handleBasicProperties, # Things that don't need any complicated transformations or calculations
             self.handleSpeed,
             self.handleCapacity,
@@ -258,3 +261,13 @@ class Variant:
         if self.purchase_spriteset is not None:
             self.purchase_spriteset_name = f"spriteset_{self.identifier}_purchase"
             self.callbacks["purchase"] = self.purchase_spriteset_name
+
+    def handleArticulated(self):
+        count = self.get_attr("num_vehicles")
+        if count is None:
+            count = self.get_attr("size")
+
+        if count is not None and int(count) > 1:
+            self.articulated_count = int(count)
+            self.articulated_switch_name = f"switch_articulated_{self.identifier}"
+            self.callbacks["articulated_part"] = self.articulated_switch_name
