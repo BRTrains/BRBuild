@@ -46,6 +46,20 @@ def _resolve(attr: str, livery: Livery, profile: Profile, vehicle: Vehicle):
 	return None
 
 
+def _resolve_pattern(livery: Livery, profile: Profile, vehicle: Vehicle) -> list[int] | None:
+	"""Resolve an explicit sprite pattern, falling back to the vehicle count."""
+	for obj in (livery, profile, vehicle):
+		override = getattr(obj, "sprite_override", None)
+		if override:
+			return list(override)
+
+		num_vehicles = getattr(obj, "num_vehicles", None)
+		if num_vehicles is not None:
+			return list(range(1, int(num_vehicles) + 1))
+
+	return None
+
+
 def _liveries_for_profile(profile: Profile, liveries: list[Livery]) -> list[Livery]:
 	"""Return liveries that apply to a profile, in their configured order.
 
@@ -62,15 +76,13 @@ def _liveries_for_profile(profile: Profile, liveries: list[Livery]) -> list[Live
 def _build_group(profile: Profile, livery: Livery, vehicle: Vehicle, is_ohle: bool) -> SpriteGroup:
 	"""Resolve a single profile/livery combination's pattern and raw spriteset requirement."""
 	size = _resolve("size", livery, profile, vehicle)
-	override = _resolve("sprite_override", livery, profile, vehicle)
+	pattern = _resolve_pattern(livery, profile, vehicle)
 	exclude = _resolve("sprite_exclude", livery, profile, vehicle) or []
 
 	if isinstance(exclude, int):
 		exclude = [exclude]
 
-	if override:
-		pattern = list(override)
-	else:
+	if pattern is None:
 		pattern = standard_pattern(int(size) if size is not None else 1, is_ohle)
 
 	used = set(pattern) | set(exclude)

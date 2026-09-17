@@ -6,6 +6,7 @@ from typing import List, Optional
 class Livery:
     name: str
     size: Optional[int] = None
+    num_vehicles: Optional[int] = None
     sprite_override: Optional[List[int]] = None
     sprite_exclude: Optional[List[int]] = None
     profiles: Optional[List[str]] = None
