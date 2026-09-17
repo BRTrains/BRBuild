@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 NEAR_WHITE_TOLERANCE = 3  # gutter pixels are white or near-white
 MAX_SPRITES_PER_ROW = 8
 MAX_NON_WHITE_ROW_GUTTER_PIXELS = 10
+LEGACY_PURCHASE_MARKER_WIDTH = 36
+LEGACY_PURCHASE_MARKER_RED = (255, 0, 0)
+LEGACY_PURCHASE_MARKER_YELLOW = (255, 255, 0)
 
 
 class SpritesheetExtractor:
@@ -81,6 +84,8 @@ class SpritesheetExtractor:
 		row_width = self._estimate_row_width(y_start)
 		y = y_start
 		while y < self.height:
+			if self._is_legacy_purchase_marker(y, row_width):
+				return y - y_start + 1
 			if self._is_row_gutter(y, row_width):
 				return y - y_start + 1
 			y += 1
@@ -102,6 +107,23 @@ class SpritesheetExtractor:
 			not self.is_gutter(x, y) for x in range(min(self.width, row_width))
 		)
 		return non_white_pixels <= MAX_NON_WHITE_ROW_GUTTER_PIXELS
+
+	def _is_legacy_purchase_marker(self, y: int, row_width: int) -> bool:
+		non_white = [
+			x for x in range(min(self.width, row_width)) if not self.is_gutter(x, y)
+		]
+		if len(non_white) != LEGACY_PURCHASE_MARKER_WIDTH:
+			return False
+
+		if any(right != left + 1 for left, right in zip(non_white, non_white[1:])):
+			return False
+
+		colours = [self._get_rgb(x, y) for x in non_white]
+		return (
+			colours[:4] == [LEGACY_PURCHASE_MARKER_RED] * 4
+			and colours[4:24] == [LEGACY_PURCHASE_MARKER_YELLOW] * 20
+			and colours[24:] == [LEGACY_PURCHASE_MARKER_RED] * 12
+		)
 
 	# -- sprite detection within a row --------------------------------------
 
@@ -140,6 +162,8 @@ class SpritesheetExtractor:
 	def _estimate_sprite_height(self, x_start: int, y_start: int, width: int) -> int:
 		y = y_start
 		while y < self.height:
+			if self._is_legacy_purchase_marker(y, x_start + width):
+				return max(1, y - y_start)
 			if self._is_full_gutter_row_segment(y, x_start, x_start + width):
 				return max(1, y - y_start)
 			y += 1
