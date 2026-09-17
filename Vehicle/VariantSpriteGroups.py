@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import re
+
+from PIL import Image
 
 from PropertyCalculation.PowerTypeClassifier import PowerTypeClassifier
+from Sprites.Sprite import Sprite
 from Sprites.Spriteset import Spriteset
 from Sprites.SpritesheetExtractor import SpritesheetExtractor
+from Templates.Template import Template
 from Templates.TemplateDefinition import TemplateDefinition
 from Templates.TemplateMatcher import classify_row
 from Templates.TemplateType import TemplateType
@@ -108,21 +114,19 @@ class VehicleSpriteAllocator:
 		v_type = vehicle.vehicle_type
 		vehicle_type_str = v_type.name.lower() if hasattr(v_type, "name") else str(v_type).lower()
 
-		raw_rows = SpritesheetExtractor(vehicle.spritesheet_path, palette).extract_spritesets()
+		extractor = SpritesheetExtractor(vehicle.spritesheet_path, palette)
+		self._image = extractor.image
+		self._palette = palette
+		raw_rows = extractor.extract_spritesets()
 
 		# Rows that match a known VEHICLE template, in sheet order, ready to be consumed per group.
 		self.vehicle_rows: list[tuple[Spriteset, TemplateDefinition]] = []
-		# The sheet's shared purchase-list icon, if a `tmpl_purchase`-like row was found (first one wins).
-		self.purchase_row: tuple[Spriteset, TemplateDefinition] | None = None
-
 		for row in raw_rows:
 			match = classify_row(row.template.sprites, vehicle_type_str, definitions)
 			if match is None:
 				continue  # unrecognised row (doodle/note/label/etc) - ignore, not a spriteset
 
 			if match.template_type == TemplateType.PURCHASE:
-				if self.purchase_row is None:
-					self.purchase_row = (row, match)
 				continue
 
 			self.vehicle_rows.append((row, match))
@@ -167,15 +171,59 @@ class VehicleSpriteAllocator:
 
 		return self._spritesets[key], self._template_names[key], self._lengths[key]
 
-	def get_purchase(self) -> tuple[Spriteset, str] | None:
-		"""Return the (spriteset, template_name) for the sheet's shared purchase icon, if any.
-
-		Assumes at most one purchase-list row per spritesheet, shared by every variant of
-		this vehicle - matches the observed real spritesheet layout (one leading purchase
-		row, followed by the vehicle's own content rows).
-		"""
-		if self.purchase_row is None:
+	def get_purchase(
+		self,
+		spritesets: list[Spriteset],
+		output_folder: str,
+	) -> tuple[Spriteset, str] | None:
+		"""Build a 128x13 purchase sprite from the west view of each vehicle part."""
+		if not spritesets:
 			return None
 
-		spriteset, definition = self.purchase_row
-		return spriteset, definition.name
+		blue_index = self._palette_index((0, 0, 255))
+		purchase = Image.new("P", (128, 13), color=blue_index)
+		purchase.putpalette(self._palette)
+		x_cursor = 0
+
+		for spriteset in spritesets:
+			views = spriteset.template.sprites
+			if len(views) <= 6:
+				return None
+
+			view = views[6]
+			crop = self._image.crop(
+				(
+					spriteset.x + view.left_x,
+					spriteset.y + view.upper_y,
+					spriteset.x + view.left_x + view.width,
+					spriteset.y + view.upper_y + view.height,
+				)
+			)
+			if x_cursor >= purchase.width:
+				break
+
+			visible_width = min(crop.width, purchase.width - x_cursor)
+			purchase.paste(crop.crop((0, 0, visible_width, min(crop.height, purchase.height))), (x_cursor, 0))
+			x_cursor += crop.width
+
+		path = Path(output_folder) / self._purchase_filename(spritesets)
+		path.parent.mkdir(parents=True, exist_ok=True)
+		purchase.save(path)
+
+		template = Template(
+			name="generated_purchase",
+			sprites=[Sprite(0, 0, 128, 13, -25, -8)],
+		)
+		return Spriteset("generated_purchase", str(path.resolve()), template), "tmpl_purchase"
+
+	def _palette_index(self, colour: tuple[int, int, int]) -> int:
+		for index in range(256):
+			if tuple(self._palette[index * 3:index * 3 + 3]) == colour:
+				return index
+		raise ValueError(f"Colour {colour} is missing from the configured palette")
+
+	def _purchase_filename(self, spritesets: list[Spriteset]) -> str:
+		parts = [self.vehicle.identifier]
+		for spriteset in spritesets:
+			parts.append(f"{Path(spriteset.file).stem}_{spriteset.y}")
+		return "purchase_" + re.sub(r"[^a-zA-Z0-9_.-]+", "_", "_".join(parts)) + ".png"

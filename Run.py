@@ -134,8 +134,16 @@ def parse_args():
         help="List discovered projects and exit without building"
     )
 
-    parser.add_argument(
+    reset_graphics_group = parser.add_mutually_exclusive_group()
+
+    reset_graphics_group.add_argument(
         "--reset-graphics",
+        action="store_true",
+        help="Restore vehicle spritesheets from their _original.png backups (if present) and continue with the build"
+    )
+
+    reset_graphics_group.add_argument(
+        "--reset-graphics-only",
         action="store_true",
         help="Restore vehicle spritesheets from their _original.png backups (if present) and exit without building"
     )
@@ -187,10 +195,11 @@ if __name__ == "__main__":
                 print(f" - {project.name} (path: {project.path})")
         raise SystemExit(0)
 
-    # If the user only wants to reset graphics, do that and exit without building
-    if getattr(args, "reset_graphics", False):
+    # Reset graphics before building when requested.
+    if getattr(args, "reset_graphics", False) or getattr(args, "reset_graphics_only", False):
         success = reset_graphics(args.project)
-        raise SystemExit(0 if success else 1)
+        if not success or getattr(args, "reset_graphics_only", False):
+            raise SystemExit(0 if success else 1)
 
     logger.info("Cleaning working data")
     clean_working_data()

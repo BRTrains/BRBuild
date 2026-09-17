@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 NEAR_WHITE_TOLERANCE = 3  # gutter pixels are white or near-white
 MAX_SPRITES_PER_ROW = 8
+MAX_NON_WHITE_ROW_GUTTER_PIXELS = 10
 
 
 class SpritesheetExtractor:
@@ -77,15 +78,30 @@ class SpritesheetExtractor:
 		return rows
 
 	def _estimate_row_height(self, y_start: int) -> int:
+		row_width = self._estimate_row_width(y_start)
 		y = y_start
 		while y < self.height:
-			if self._is_full_gutter_row(y):
+			if self._is_row_gutter(y, row_width):
 				return y - y_start + 1
 			y += 1
 		return self.height - y_start
 
-	def _is_full_gutter_row(self, y: int) -> bool:
-		return all(self.is_gutter(x, y) for x in range(self.width))
+	def _estimate_row_width(self, y_start: int) -> int:
+		"""Estimate the row's sprite width from its first scanline.
+
+		Content outside this width may be notes or working art and must not prevent
+		rows from being separated.
+		"""
+		for x in range(self.width - 1, -1, -1):
+			if not self.is_gutter(x, y_start):
+				return x + 1
+		return self.width
+
+	def _is_row_gutter(self, y: int, row_width: int) -> bool:
+		non_white_pixels = sum(
+			not self.is_gutter(x, y) for x in range(min(self.width, row_width))
+		)
+		return non_white_pixels <= MAX_NON_WHITE_ROW_GUTTER_PIXELS
 
 	# -- sprite detection within a row --------------------------------------
 

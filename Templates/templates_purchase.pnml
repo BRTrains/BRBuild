@@ -14,6 +14,6 @@ template tmpl_mu_purchase(x, y)
 template tmpl_purchase(x, y)
 {
  // [ left_x, upper_y, width, height, offset_x, offset_y, flags]
-	[ x+   0, y+ 0,    87,    12,   -25,    -8 ]
+	[ x+   0, y+ 0,   128,    13,   -25,    -8 ]
 }
 

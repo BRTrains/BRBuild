@@ -43,7 +43,7 @@ class SpritesheetLegacyConverter:
 		kept_rows = []
 		for row in raw_rows:
 			definition = classify_row(row.template.sprites, vehicle_type, self.definitions)
-			if definition is not None:
+			if definition is not None and definition.template_type.value == "vehicle":
 				kept_rows.append(row)
 			else:
 				logger.debug(f"Dropping unrecognised row at y={row.y} in '{path}' (no matching template)")

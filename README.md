@@ -12,7 +12,9 @@ To build a specific project `projectname` pass it as the first parameter using `
 
 Optionally append `--log` to write the output to build.log
 
-Full usage: `python Run.py [projectname] [--log]`
+Full usage: `python Run.py [projectname] [--log] [--reset-graphics | --reset-graphics-only]`
+
+Use `--reset-graphics` to restore spritesheets from their `_original.png` backups before building. Use `--reset-graphics-only` to restore them without building.
 
 ### Build from target project folder
 
