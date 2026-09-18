@@ -35,6 +35,8 @@ class Variant:
 
         self.identifier = None
         self.nml_filename = None
+        self.sprite_id = None
+        self.sprite_id_generation = 1
 
     def process(self):
         """Executes the processing pipeline stages for this variant."""
@@ -109,29 +111,15 @@ class Variant:
             f"{self.vehicle_type.name}"
         ).lower()
         self.identifier = re.sub(r"[^a-z0-9_]", "_", raw_id)
+        if self.sprite_id_generation > 1:
+            self.identifier = f"{self.identifier}_v{self.sprite_id_generation}"
         self.nml_filename = f"{self.identifier}.gnml"
 
         # Formatted NML header properties
         name_ref = nml_str(self.name, f"{self.identifier}_name")
         self.properties["name"] = name_ref
 
-        # Sprite ID based on vehicle feature
         v_type = self.vehicle_type
-        sprite_id = "SPRITE_ID_NEW_TRAIN"
-        if isinstance(v_type, VehicleType):
-            if v_type in (VehicleType.TRAM, VehicleType.ROADVEH):
-                sprite_id = "SPRITE_ID_NEW_ROADVEH"
-            elif v_type == VehicleType.SHIP:
-                sprite_id = "SPRITE_ID_NEW_SHIP"
-            elif v_type == VehicleType.PLANE:
-                sprite_id = "SPRITE_ID_NEW_AIRCRAFT"
-        elif hasattr(v_type, "name"):
-            v_name = v_type.name.upper()
-            if v_name in ("TRAM", "ROADVEH"):
-                sprite_id = "SPRITE_ID_NEW_ROADVEH"
-
-        self.properties["sprite_id"] = sprite_id
-
         if getattr(v_type, "name", str(v_type)).upper() == "TRAM":
             self.properties["misc_flags"] = "bitmask(ROADVEH_FLAG_TRAM)"
 

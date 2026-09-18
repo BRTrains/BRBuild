@@ -92,8 +92,13 @@ class NmlVariantWriter(BaseNmlWriter):
 
     def write_item(self, f, variant):
         feature = self._feature(variant)
+        sprite_id = getattr(variant, "sprite_id", None)
+        item_header = f"item ({feature}, {variant.identifier}"
+        if sprite_id is not None:
+            item_header += f", {sprite_id}"
+        item_header += ") {"
 
-        self.writeline(f, f"item ({feature}, {variant.identifier}) {{", indent=0)
+        self.writeline(f, item_header, indent=0)
 
         # NML Properties Block
         properties = getattr(variant, "properties", None)

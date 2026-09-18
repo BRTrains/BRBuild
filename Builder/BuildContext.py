@@ -19,3 +19,5 @@ class BuildContext:
     log_nml_output: bool = False
     palette: list | None = None
     template_definitions: list | None = None
+    sprite_id_registry: Any = None
+    release: bool = False

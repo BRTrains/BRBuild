@@ -9,7 +9,7 @@ from Builder import Builder, ProjectFinder
 logger = logging.getLogger("Run")
 
 
-def run_build(project_name=None, log_nml_output=False):
+def run_build(project_name=None, log_nml_output=False, release=False):
     ''' Orchestrator for the build process. If a project name is provided, it will attempt to build that specific project. Otherwise, it will search for all projects in the parent directory and build them. '''
     finder = ProjectFinder()
 
@@ -24,7 +24,7 @@ def run_build(project_name=None, log_nml_output=False):
             return False
 
         builder = Builder()
-        builder.build(project, log_nml_output=log_nml_output)
+        builder.build(project, log_nml_output=log_nml_output, release=release)
     else:
         logger.debug("No specific project specified. Searching for all projects in the parent directory.")
         # Find and build all projects
@@ -37,7 +37,7 @@ def run_build(project_name=None, log_nml_output=False):
         builder = Builder()
         
         for project in finder.projects:
-            builder.build(project, log_nml_output=log_nml_output)
+            builder.build(project, log_nml_output=log_nml_output, release=release)
     
     return True
 
@@ -134,6 +134,12 @@ def parse_args():
         help="List discovered projects and exit without building"
     )
 
+    parser.add_argument(
+        "--release",
+        action="store_true",
+        help="Lock sprite IDs and deprecate savegame-breaking or removed variants"
+    )
+
     reset_graphics_group = parser.add_mutually_exclusive_group()
 
     reset_graphics_group.add_argument(
@@ -207,7 +213,7 @@ if __name__ == "__main__":
     logger.info("Starting build")
 
     try: 
-        success = run_build(args.project, args.log is not None)
+        success = run_build(args.project, args.log is not None, args.release)
     except Exception as exc:
         logger.exception("Build failed with an exception:" + str(exc))
         success = False

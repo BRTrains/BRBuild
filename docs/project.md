@@ -209,3 +209,9 @@ liveries:
 If a vehicle candidate folder contains `.pnml` files (e.g., `Thomas.pnml` alongside `Thomas.yaml`), BRBuild will automatically discover them and prepend them to the generated NML sources (just before the YAML-generated code).
 
 This is useful for writing custom graphics overrides, callbacks, or advanced logic blocks that cannot be fully described in YAML.
+
+## 6. Sprite IDs and releases
+
+BRBuild stores the numeric vehicle IDs used in `item()` definitions in `src/grf/VehicleIDData.yaml`. The registry identifies a variant by vehicle, profile, livery, and vehicle type. Generated GNML is archived beside that file so released variants can remain in the GRF after they are removed or changed.
+
+Normal development builds reuse IDs from variants that were not seen in the build. Run with `--release` when the set of variants is ready to be savegame-compatible: active IDs are locked, and changes to capacity, articulated-part count, or individual part lengths create a new ID. The previous definition is retained with `NO_CLIMATE` and `(DEPRECATED)` so it remains loadable but cannot be purchased.

@@ -14,6 +14,7 @@ from Vehicle import VariantIterator, VehicleSpriteAllocator
 from YamlHandler import VehicleLoader, GrfLoader
 from .BuildContext import BuildContext
 from .CandidateFinder import CandidateFinder
+from .SpriteIDRegistry import SpriteIDRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -25,20 +26,27 @@ class Builder:
         self.nmlCompiler = NmlCompiler()
         return
 
-    def build(self, project_data, log_nml_output=False):
+    def build(self, project_data, log_nml_output=False, release=False):
         # Clear global registries so each project build starts fresh
         _registry.clear()
         BadgeRegistry().clear()
-        context = BuildContext(project_data=project_data, log_nml_output=log_nml_output)
+        context = BuildContext(
+            project_data=project_data,
+            log_nml_output=log_nml_output,
+            release=release,
+        )
 
         stages = [
             self._load_project,
             self._validate_project_path,
+            self._load_sprite_id_registry,
             self._load_grf,
             self._load_palette,
             self._write_templates,
             self._discover_candidates,
+            self._prepare_sprite_ids,
             self._process_candidates,
+            self._finalize_sprite_ids,
             self._collate_nml,
             self._write_language,
             self._compile_newgrf,
@@ -77,6 +85,14 @@ class Builder:
     def _validate_project_path(self, ctx: BuildContext):
         if not ctx.project.path.is_dir():
             raise FileNotFoundError(f"Project folder '{ctx.project.path}' does not exist.")
+
+    def _load_sprite_id_registry(self, ctx: BuildContext):
+        registry_folder = ctx.project.path / ctx.project.grfFolder
+        ctx.sprite_id_registry = SpriteIDRegistry(
+            registry_folder / "VehicleIDData.yaml",
+            registry_folder / "generated_variants",
+            release=ctx.release,
+        )
 
     def _load_grf(self, ctx: BuildContext):
         loader = GrfLoader(ctx.project.path / ctx.project.grfFolder / "GRF.yaml")
@@ -149,6 +165,22 @@ class Builder:
 
         elapsed_candidates = len(ctx.candidates)
         logger.info(f"Candidate finding complete. Found {elapsed_candidates} candidates.")
+
+    def _prepare_sprite_ids(self, ctx: BuildContext):
+        keys = set()
+        for candidate in ctx.candidates:
+            for file in candidate.get("files", []):
+                vehicle = VehicleLoader.load(file)
+                for variant in VariantIterator(vehicle):
+                    keys.add(
+                        (
+                            str(vehicle.identifier).strip().lower(),
+                            str(variant.profile.identifier).strip().lower(),
+                            str(variant.livery.name).strip().lower(),
+                            self._vehicle_type_name(variant.vehicle_type),
+                        )
+                    )
+        ctx.sprite_id_registry.prepare(keys)
 
     def find_candidates(self, scan_paths):
         candidates = []
@@ -225,6 +257,16 @@ class Builder:
                         ctx.failed_variants.append(repr(variant))
                         return
 
+                assignment = ctx.sprite_id_registry.resolve(
+                    vehicle.identifier,
+                    variant.profile.identifier,
+                    variant.livery.name,
+                    self._vehicle_type_name(variant.vehicle_type),
+                    self._compatibility_snapshot(variant),
+                )
+                variant.sprite_id = assignment["id"]
+                variant.sprite_id_generation = assignment["generation"]
+
                 try:
                     variant.process()
                 except Exception as exc:
@@ -236,12 +278,42 @@ class Builder:
                     variant_writer = NmlVariantWriter(variant, ctx.nml_output_folder)
                     nml_file = variant_writer.write()
                     ctx.nml_files.append(nml_file)
+                    ctx.sprite_id_registry.mark_written(assignment)
+                    ctx.sprite_id_registry.archive_variant(
+                        assignment,
+                        nml_file,
+                        dict(_registry.items()),
+                        variant.identifier,
+                    )
                 except Exception as exc:
                     logger.exception(f"Unable to write NML for variant {variant}: {exc}")
                     ctx.failed_variants.append(repr(variant))
                     return
 
                 ctx.successful_variants.append(variant)
+
+    @staticmethod
+    def _vehicle_type_name(vehicle_type) -> str:
+        return getattr(vehicle_type, "name", str(vehicle_type)).lower()
+
+    @staticmethod
+    def _compatibility_snapshot(variant) -> dict:
+        capacity = variant.get_attr("capacity")
+        articulated_count = variant.get_attr("num_vehicles")
+        if articulated_count is None:
+            articulated_count = variant.get_attr("size")
+
+        lengths = list(getattr(variant, "sprite_lengths", None) or [])
+        if not lengths:
+            vehicle_length = variant.get_attr("length")
+            if vehicle_length is not None:
+                lengths = [vehicle_length]
+
+        return {
+            "capacity": capacity or 0,
+            "articulated_count": articulated_count or 1,
+            "lengths": lengths,
+        }
 
     def _load_sprite_allocator(self, vehicle, ctx: BuildContext):
         """Build a sprite allocator for a vehicle's spritesheet.
@@ -287,8 +359,13 @@ class Builder:
         )
         logger.info(f"NML collation complete: {ctx.nml_filepath}")
 
+    def _finalize_sprite_ids(self, ctx: BuildContext):
+        deprecated_files = ctx.sprite_id_registry.finalize(ctx.nml_output_folder)
+        ctx.nml_files.extend(deprecated_files)
+
     def _write_language(self, ctx: BuildContext):
         ctx.lang_folder = str(Path(ctx.nml_output_folder) / "lang")
+        ctx.sprite_id_registry.register_deprecated_strings(_registry.write_string)
         string_writer = StringWriter(_registry, ctx.lang_folder)
         string_writer.write_file()
         logger.info(f"Wrote language file to {ctx.lang_folder}")

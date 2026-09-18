@@ -12,9 +12,11 @@ To build a specific project `projectname` pass it as the first parameter using `
 
 Optionally append `--log` to write the output to build.log
 
-Full usage: `python Run.py [projectname] [--log] [--reset-graphics | --reset-graphics-only]`
+Full usage: `python Run.py [projectname] [--log] [--release] [--reset-graphics | --reset-graphics-only]`
 
 Use `--reset-graphics` to restore spritesheets from their `_original.png` backups before building. Use `--reset-graphics-only` to restore them without building.
+
+Use `--release` to lock vehicle sprite IDs and check savegame-breaking changes. IDs are stored in `src/grf/VehicleIDData.yaml` in the project, and removed or changed released variants are retained as unavailable `(DEPRECATED)` items.
 
 ### Build from target project folder
 
