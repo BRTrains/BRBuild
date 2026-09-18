@@ -10,3 +10,4 @@ class Livery:
     sprite_override: Optional[List[int]] = None
     sprite_exclude: Optional[List[int]] = None
     profiles: Optional[List[str]] = None
+    special_tags: Optional[List[str]] = None

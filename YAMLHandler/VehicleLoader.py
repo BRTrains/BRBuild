@@ -121,6 +121,7 @@ class VehicleLoader:
             sprite_exclude=p.get("sprite_exclude"),
             capacity=p.get("capacity"),
             types=p.get("types"),
+            special_tags=p.get("special_tags"),
         )
 
     @staticmethod
@@ -135,4 +136,5 @@ class VehicleLoader:
             sprite_override=lv.get("sprite_override"),
             sprite_exclude=lv.get("sprite_exclude"),
             profiles=lv.get("profiles"),
+            special_tags=lv.get("special_tags"),
         )

@@ -132,6 +132,9 @@ class Variant:
 
         self.properties["sprite_id"] = sprite_id
 
+        if getattr(v_type, "name", str(v_type)).upper() == "TRAM":
+            self.properties["misc_flags"] = "bitmask(ROADVEH_FLAG_TRAM)"
+
     ''' Handle some fairly simple properties that don't need complex calculations'''
     def handleBasicProperties(self):
         intro_date = self.get_attr("introduction_date")
@@ -189,6 +192,9 @@ class Variant:
 
         weight = self.get_attr("weight")
         if weight is not None:
+            vehicle_type_name = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
+            if vehicle_type_name == "TRAM":
+                weight /= 4
             self.properties["weight"] = f"{weight} ton"
 
         if hasattr(self, "te_coefficient") and self.te_coefficient is not None:
@@ -215,10 +221,11 @@ class Variant:
             self.callbacks["additional_text"] = nml_str(additional_text,f"{self.identifier}_additional_text")
 
     def handleSpecialTags(self):
-        if self.vehicle.special_tags:
-            for tag in self.vehicle.special_tags:
+        for source in (self.vehicle, self.profile, self.livery):
+            for tag in getattr(source, "special_tags", None) or []:
                 badge = BadgeRegistry().add_badge(tag)
-                self.badges.append(badge)
+                if badge not in self.badges:
+                    self.badges.append(badge)
 
         operator = self.get_attr("operator")
         if operator:

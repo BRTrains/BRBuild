@@ -126,7 +126,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
 *   **`stats`**:
     *   `vehicle_type`: Core type. Supported values: `train`, `tram`, `road_vehicle`, `ship`, `plane`.
     *   `train_type` *(only for `vehicle_type: train`)*: Enum defining sub-type. Supported: `locomotive`, `multiple_unit`, `wagon`, `coach`.
-    *   `weight`: Weight in metric tons (float).
+    *   `weight`: Weight in metric tons (float). Tram weights are converted to NewGRF's quarter-ton units when written.
     *   `length`: Length of the vehicle.
     *   `power`: Power output in hp (integer).
     *   `speed`: Max speed in mph (integer).
@@ -146,6 +146,9 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `name`: Name of the livery.
     *   `sprite_override`: Custom sprite template file to map.
     *   `profiles`: List of profile identifiers this livery applies to.
+    *   `special_tags`: List of custom tags triggering special badges for this livery's variants.
+  *   **Profile fields**:
+    *   `special_tags`: List of custom tags triggering special badges for this profile's variants.
 *   **Other root fields**:
     *   `classification`: Categorization string.
     *   `model_life`: How long the vehicle remains in the purchase list.
@@ -154,7 +157,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `cargo_age_period`: Duration for cargo aging penalties.
     *   `loading_speed`: Base speed for loading cargo.
     *   `sound effect`: Custom sound effect string.
-    *   `special_tags`: List of custom tags triggering special badges (e.g., `["express", "high-speed"]`).
+    *   `special_tags`: List of custom tags triggering special badges for all variants (e.g., `["express", "high-speed"]`).
 
 ### Example configuration
 

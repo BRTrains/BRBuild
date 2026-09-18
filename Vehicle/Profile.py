@@ -12,3 +12,4 @@ class Profile:
     sprite_exclude: Optional[List[int]] = None
     capacity: Optional[int] = None
     types: Optional[List[str]] = None
+    special_tags: Optional[List[str]] = None
