@@ -42,8 +42,7 @@ def run_build(project_name=None, log_nml_output=False, release=False):
     return True
 
 def reset_graphics(project_name=None):
-    ''' Restore vehicle spritesheets from their _original.png backups (if present), removing the
-    current base .png and any _working.png copy, without touching the _original.png itself. '''
+    ''' Restore vehicle spritesheets from their original/ backups (if present). '''
     finder = ProjectFinder()
 
     if project_name:
@@ -62,24 +61,44 @@ def reset_graphics(project_name=None):
         projects = finder.projects
 
     reset_count = sum(reset_project_graphics(project) for project in projects)
-    logger.info(f"Reset {reset_count} spritesheet(s) from their _original backups.")
+    logger.info(f"Reset {reset_count} spritesheet(s) from their original/ backups.")
     return True
 
 def reset_project_graphics(project) -> int:
-    ''' Reset every spritesheet with an _original.png backup within a single project. '''
+    ''' Reset every spritesheet with an original/ backup within a single project. '''
     count = 0
 
-    for original_path in sorted(project.path.rglob("*_original.png")):
-        base_path = original_path.with_name(original_path.name.replace("_original.png", ".png"))
-        working_path = base_path.with_name(f"{base_path.stem}_working.png")
+    for working_path in project.path.rglob("*_working.png"):
+        working_path.unlink()
+
+    original_paths = {
+        original_path.parent.parent / original_path.name: original_path
+        for original_path in project.path.rglob("original/*.png")
+    }
+    for legacy_path in project.path.rglob("*_original.png"):
+        base_path = legacy_path.with_name(legacy_path.name.replace("_original.png", ".png"))
+        original_paths.setdefault(base_path, legacy_path)
+
+    for legacy_path in project.path.rglob("*_original.png"):
+        base_path = legacy_path.with_name(legacy_path.name.replace("_original.png", ".png"))
+        selected_path = original_paths.get(base_path)
+        if selected_path is not None and selected_path.parent.name == "original":
+            legacy_path.unlink()
+
+    for base_path, original_path in sorted(original_paths.items()):
+        if original_path.parent.name != "original":
+            migrated_path = original_path.parent / "original" / base_path.name
+            migrated_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(original_path, migrated_path)
+            original_path = migrated_path
 
         if base_path.exists():
             base_path.unlink()
 
-        if working_path.exists():
-            working_path.unlink()
-
-        shutil.copy2(original_path, base_path)
+        if original_path.is_file():
+            shutil.copy2(original_path, base_path)
+        else:
+            continue
         logger.info(f"Reset '{base_path}' from '{original_path}'")
         count += 1
 
@@ -145,13 +164,13 @@ def parse_args():
     reset_graphics_group.add_argument(
         "--reset-graphics",
         action="store_true",
-        help="Restore vehicle spritesheets from their _original.png backups (if present) and continue with the build"
+        help="Restore vehicle spritesheets from original/ backups (if present) and continue with the build"
     )
 
     reset_graphics_group.add_argument(
         "--reset-graphics-only",
         action="store_true",
-        help="Restore vehicle spritesheets from their _original.png backups (if present) and exit without building"
+        help="Restore vehicle spritesheets from original/ backups (if present) and exit without building"
     )
 
     return parser.parse_args()
