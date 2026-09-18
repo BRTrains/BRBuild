@@ -42,7 +42,7 @@ def run_build(project_name=None, log_nml_output=False, release=False):
     return True
 
 def reset_graphics(project_name=None):
-    ''' Restore vehicle spritesheets from their original/ backups (if present). '''
+    ''' Ingest new spritesheets or restore them from original/ backups. '''
     finder = ProjectFinder()
 
     if project_name:
@@ -61,11 +61,11 @@ def reset_graphics(project_name=None):
         projects = finder.projects
 
     reset_count = sum(reset_project_graphics(project) for project in projects)
-    logger.info(f"Reset {reset_count} spritesheet(s) from their original/ backups.")
+    logger.info(f"Reset or ingested {reset_count} spritesheet(s).")
     return True
 
 def reset_project_graphics(project) -> int:
-    ''' Reset every spritesheet with an original/ backup within a single project. '''
+    ''' Ingest new spritesheets, otherwise restore each sheet from its original/ backup. '''
     count = 0
 
     for working_path in project.path.rglob("*_working.png"):
@@ -79,13 +79,47 @@ def reset_project_graphics(project) -> int:
         base_path = legacy_path.with_name(legacy_path.name.replace("_original.png", ".png"))
         original_paths.setdefault(base_path, legacy_path)
 
+    new_paths = {}
+    for new_folder in project.path.rglob("new"):
+        if not new_folder.is_dir():
+            continue
+
+        candidates = sorted(
+            path for path in new_folder.iterdir() if path.is_file() and path.suffix.lower() == ".png"
+        )
+        if len(candidates) > 1:
+            raise ValueError(f"Expected one PNG in '{new_folder}', found {len(candidates)}.")
+        if not candidates:
+            continue
+
+        yaml_path = new_folder.parent / f"{new_folder.parent.name}.yaml"
+        if not yaml_path.is_file():
+            logger.warning(f"Cannot determine spritesheet path for '{new_folder}'; expected '{yaml_path}'.")
+            continue
+        new_paths[yaml_path.with_suffix(".png")] = candidates[0]
+
     for legacy_path in project.path.rglob("*_original.png"):
         base_path = legacy_path.with_name(legacy_path.name.replace("_original.png", ".png"))
         selected_path = original_paths.get(base_path)
         if selected_path is not None and selected_path.parent.name == "original":
             legacy_path.unlink()
 
-    for base_path, original_path in sorted(original_paths.items()):
+    for base_path in sorted(set(original_paths) | set(new_paths)):
+        new_path = new_paths.get(base_path)
+        if new_path is not None:
+            original_path = base_path.parent / "original" / base_path.name
+            original_path.parent.mkdir(parents=True, exist_ok=True)
+            if original_path.exists():
+                original_path.unlink()
+            shutil.move(new_path, original_path)
+            if base_path.exists():
+                base_path.unlink()
+            shutil.copy2(original_path, base_path)
+            logger.info(f"Ingested '{original_path}' from '{new_path.parent}'.")
+            count += 1
+            continue
+
+        original_path = original_paths[base_path]
         if original_path.parent.name != "original":
             migrated_path = original_path.parent / "original" / base_path.name
             migrated_path.parent.mkdir(parents=True, exist_ok=True)

@@ -21,6 +21,10 @@ A BRBuild-compatible project (e.g., `OpenTTE2`, `BRMetro`) should be located as 
 │           └── [custom].pnml  # Optional raw PNML files containing sprites/custom code
 ```
 
+### Ingesting new sprites
+
+Place exactly one PNG in a vehicle's `new/` folder. A normal build moves it to `original/[VehicleName].png`, copies it to the vehicle's normal `[VehicleName].png` path, and runs the normal spritesheet conversion pipeline. Reset mode gives this ingest priority; if no new image is available, it restores the archived original instead. The `new/` folder is a working drop location; version control records the archived source revisions.
+
 ---
 
 ## 2. Project Manifest: `BRBuild.yaml`

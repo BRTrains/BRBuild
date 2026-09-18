@@ -14,7 +14,9 @@ Optionally append `--log` to write the output to build.log
 
 Full usage: `python Run.py [projectname] [--log] [--release] [--reset-graphics | --reset-graphics-only]`
 
-Use `--reset-graphics` to restore spritesheets from their `original/` backups before building. Use `--reset-graphics-only` to restore them without building.
+Use `--reset-graphics` to ingest `new/` spritesheets first, or restore spritesheets from their `original/` backups when no new image is available, then build. Use `--reset-graphics-only` for the same ingest/restore step without building.
+
+To ingest a new spritesheet, place one PNG in the vehicle's `new/` subfolder. On the next build it is moved to `original/<Vehicle>.png`, copied to the normal spritesheet path, and processed; the `new/` folder is then empty.
 
 Use `--release` to lock vehicle sprite IDs and check savegame-breaking changes. IDs are stored in `src/grf/VehicleIDData.yaml` in the project, and removed or changed released variants are retained as unavailable `(DEPRECATED)` items.
 

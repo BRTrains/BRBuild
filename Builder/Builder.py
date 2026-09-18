@@ -1,5 +1,6 @@
 import time
 import logging
+import shutil
 from pathlib import Path
 
 from Badge import BadgeRegistry
@@ -226,6 +227,7 @@ class Builder:
                 f"{len(vehicle.profiles)} profiles, and {len(vehicle.liveries)} liveries."
             )
 
+            self._ingest_new_spritesheet(vehicle)
             has_spritesheet = bool(vehicle.spritesheet_path) and Path(vehicle.spritesheet_path).is_file()
             allocator = None
 
@@ -291,6 +293,36 @@ class Builder:
                     return
 
                 ctx.successful_variants.append(variant)
+
+    @staticmethod
+    def _ingest_new_spritesheet(vehicle) -> bool:
+        """Promote one PNG from the vehicle's ``new/`` drop folder."""
+        if not vehicle.spritesheet_path:
+            return False
+
+        base_path = Path(vehicle.spritesheet_path)
+        new_folder = base_path.parent / "new"
+        if not new_folder.is_dir():
+            return False
+
+        candidates = sorted(
+            path for path in new_folder.iterdir() if path.is_file() and path.suffix.lower() == ".png"
+        )
+        if not candidates:
+            return False
+        if len(candidates) > 1:
+            raise ValueError(f"Expected one PNG in '{new_folder}', found {len(candidates)}.")
+
+        original_folder = base_path.parent / "original"
+        original_folder.mkdir(parents=True, exist_ok=True)
+        original_path = original_folder / base_path.name
+        if original_path.exists():
+            original_path.unlink()
+
+        shutil.move(str(candidates[0]), original_path)
+        shutil.copy2(original_path, base_path)
+        logger.info(f"Ingested new spritesheet '{candidates[0]}' as '{original_path}'.")
+        return True
 
     @staticmethod
     def _vehicle_type_name(vehicle_type) -> str:
