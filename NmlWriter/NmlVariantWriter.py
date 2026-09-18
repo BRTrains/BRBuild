@@ -101,7 +101,9 @@ class NmlVariantWriter(BaseNmlWriter):
         self.writeline(f, item_header, indent=0)
 
         # NML Properties Block
-        properties = getattr(variant, "properties", None)
+        properties = dict(getattr(variant, "properties", None) or {})
+        if sprite_id is not None:
+            properties["sprite_id"] = self._sprite_id_property(feature)
         if properties and len(properties) > 0:
             properties = sorted(properties.items())
 
@@ -125,3 +127,12 @@ class NmlVariantWriter(BaseNmlWriter):
             self.writeline(f, "}", indent=1)
 
         self.writeline(f, "}\n", indent=0)
+
+    @staticmethod
+    def _sprite_id_property(feature):
+        return {
+            "FEAT_TRAINS": "SPRITE_ID_NEW_TRAIN",
+            "FEAT_ROADVEHS": "SPRITE_ID_NEW_ROADVEH",
+            "FEAT_SHIPS": "SPRITE_ID_NEW_SHIP",
+            "FEAT_AIRCRAFT": "SPRITE_ID_NEW_AIRCRAFT",
+        }[feature]

@@ -14,8 +14,10 @@ class NmlCollator:
         pass
 
     def collate(self, files, project_name, custom_nml_folder=None, project_path=None):
-        self.output_file = f"Build/{project_name}.nml"
-        custom_nml_output = Path("WorkingData") / project_name / "custom_nml"
+        project_root = Path(project_path).expanduser().resolve() if project_path else Path.cwd()
+        self.output_file = str(project_root / "Build" / f"{project_name}.nml")
+        custom_nml_output = project_root / "WorkingData" / project_name / "custom_nml"
+        Path(self.output_file).parent.mkdir(parents=True, exist_ok=True)
         custom_nml_files = []
 
         if custom_nml_folder:

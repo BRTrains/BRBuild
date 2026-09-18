@@ -75,7 +75,7 @@ class Builder:
             logger.debug(f"Received project data is not a Project instance, attempting to create one: {ctx.project_data}")
             ctx.project = Project(ctx.project_data)
 
-        ctx.nml_output_folder = f"WorkingData/{ctx.project.name}/"
+        ctx.nml_output_folder = str(ctx.project.path / "WorkingData" / ctx.project.name)
         ctx.lang_folder = str(Path(ctx.nml_output_folder) / "lang")
 
         if not ctx.project.build:
@@ -99,7 +99,8 @@ class Builder:
         loader = GrfLoader(ctx.project.path / ctx.project.grfFolder / "GRF.yaml")
         grf = loader.load()
         writer = NmlGrfWriter(grf)
-        ctx.nml_files.append(writer.write_grf_gnml(ctx.nml_output_folder + "GRF.gnml"))
+        output_path = Path(ctx.nml_output_folder) / "GRF.gnml"
+        ctx.nml_files.append(writer.write_grf_gnml(output_path))
 
     def _load_palette(self, ctx: BuildContext):
         ctx.palette = PalettedImage.load_palette(ctx.project.palette)
