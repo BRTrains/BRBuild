@@ -77,7 +77,8 @@ class NmlVariantWriter(BaseNmlWriter):
             expression = f"position_in_articulated_veh % {len(lengths)}"
             self.switch_writer.write_switch(f, self._feature(variant), "SELF", length_switch_name, expression, values)
 
-    def _feature(self, variant):
+    @staticmethod
+    def _feature(variant):
         v_type = variant.vehicle_type
         feature = "FEAT_TRAINS"
 

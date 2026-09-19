@@ -231,6 +231,7 @@ class Builder:
             self._ingest_new_spritesheet(vehicle)
             has_spritesheet = bool(vehicle.spritesheet_path) and Path(vehicle.spritesheet_path).is_file()
             allocator = None
+            variant_groups = {}
 
             if has_spritesheet:
                 allocator = self._load_sprite_allocator(vehicle, ctx)
@@ -276,6 +277,8 @@ class Builder:
                     logger.exception(f"Error processing variant {variant}: {exc}")
                     ctx.failed_variants.append(repr(variant))
                     return
+
+                self._assign_variant_group(variant, variant_groups)
 
                 try:
                     variant_writer = NmlVariantWriter(variant, ctx.nml_output_folder)
@@ -328,6 +331,18 @@ class Builder:
     @staticmethod
     def _vehicle_type_name(vehicle_type) -> str:
         return getattr(vehicle_type, "name", str(vehicle_type)).lower()
+
+    @staticmethod
+    def _assign_variant_group(variant, variant_groups):
+        feature = NmlVariantWriter._feature(variant)
+        profile_key = str(variant.profile.identifier).strip().lower()
+        feature_groups = variant_groups.setdefault(feature, {})
+        profile_id = feature_groups.get(profile_key)
+
+        if profile_id is None:
+            feature_groups[profile_key] = variant.sprite_id
+        else:
+            variant.properties["variant_group"] = profile_id
 
     @staticmethod
     def _compatibility_snapshot(variant) -> dict:

@@ -76,6 +76,32 @@ class BuildPathTests(unittest.TestCase):
 
         self.assertIn("sprite_id: SPRITE_ID_NEW_TRAIN;", output.getvalue())
 
+    def test_variant_groups_liveries_under_profile(self):
+        class Profile:
+            def __init__(self, identifier):
+                self.identifier = identifier
+
+        class Variant:
+            vehicle_type = VehicleType.TRAIN
+
+            def __init__(self, sprite_id, profile_id):
+                self.sprite_id = sprite_id
+                self.profile = Profile(profile_id)
+                self.properties = {}
+
+        groups = {}
+        first_livery = Variant(100, "default")
+        second_livery = Variant(101, "default")
+        first_livery_other_profile = Variant(102, "express")
+
+        Builder._assign_variant_group(first_livery, groups)
+        Builder._assign_variant_group(second_livery, groups)
+        Builder._assign_variant_group(first_livery_other_profile, groups)
+
+        self.assertNotIn("variant_group", first_livery.properties)
+        self.assertEqual(second_livery.properties["variant_group"], 100)
+        self.assertNotIn("variant_group", first_livery_other_profile.properties)
+
 
 if __name__ == "__main__":
     unittest.main()
