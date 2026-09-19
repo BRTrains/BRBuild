@@ -19,34 +19,40 @@ class VariantIterator:
         return self
 
     def __next__(self):
-        if self.current_profile_index >= len(self.profiles):
-            raise StopIteration
+        while True:
+            if self.current_profile_index >= len(self.profiles):
+                raise StopIteration
 
-        livery = self.liveries[self.current_livery_index]
-        profile = self.profiles[self.current_profile_index]
+            livery = self.liveries[self.current_livery_index]
+            profile = self.profiles[self.current_profile_index]
 
-        vehicle_types = getattr(profile, "types", None)
+            vehicle_types = getattr(profile, "types", None)
+            if not vehicle_types:
+                vehicle_types = [None]
 
-        if not vehicle_types:
-            vehicle_types = [None]
+            vehicle_type = vehicle_types[self.current_type_index]
 
-        vehicle_type = vehicle_types[self.current_type_index]
+            self.current_type_index += 1
 
-        variant = Variant(
-            self.vehicle,
-            livery,
-            profile,
-            vehicleType=vehicle_type
-        )
+            if self.current_type_index >= len(vehicle_types):
+                self.current_type_index = 0
+                self.current_livery_index += 1
 
-        self.current_type_index += 1
+                if self.current_livery_index >= len(self.liveries):
+                    self.current_livery_index = 0
+                    self.current_profile_index += 1
 
-        if self.current_type_index >= len(vehicle_types):
-            self.current_type_index = 0
-            self.current_livery_index += 1
+            profile_id = str(profile.identifier).replace("_", "").strip().lower()
+            livery_profiles = getattr(livery, "profiles", None)
+            if livery_profiles and not any(
+                str(livery_profile).replace("_", "").strip().lower() == profile_id
+                for livery_profile in livery_profiles
+            ):
+                continue
 
-            if self.current_livery_index >= len(self.liveries):
-                self.current_livery_index = 0
-                self.current_profile_index += 1
-
-        return variant
+            return Variant(
+                self.vehicle,
+                livery,
+                profile,
+                vehicleType=vehicle_type,
+            )

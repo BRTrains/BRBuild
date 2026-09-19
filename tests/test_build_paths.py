@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from io import StringIO
 from pathlib import Path
 
 from Builder.BuildContext import BuildContext
@@ -60,8 +61,6 @@ class BuildPathTests(unittest.TestCase):
             self.assertTrue(emitted_path.is_file())
 
     def test_item_with_sprite_id_declares_new_graphics_property(self):
-        from io import StringIO
-
         class Variant:
             identifier = "example_train"
             nml_filename = "example_train.gnml"
@@ -75,6 +74,62 @@ class BuildPathTests(unittest.TestCase):
         writer.write_item(output, Variant())
 
         self.assertIn("sprite_id: SPRITE_ID_NEW_TRAIN;", output.getvalue())
+
+    def test_variant_names_use_property_and_group_callback_labels(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        livery = Livery("Blue")
+        vehicle.liveries = [livery]
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle,
+            livery,
+            Profile("Passenger", name="Passenger"),
+            VehicleType.TRAIN,
+        )
+        variant.process()
+
+        self.assertEqual(variant.name, "Passenger - Blue")
+        self.assertEqual(variant.grouped_name, "Class Example - Passenger")
+        self.assertEqual(variant.properties["name"], "string(str_example_passenger_blue_train_name)")
+        self.assertEqual(variant.callbacks["name"], "sw_example_passenger_blue_train_name")
+
+        output = StringIO()
+        NmlVariantWriter(variant, "/tmp").write_sprites(output, variant)
+        switch = output.getvalue()
+        self.assertIn("switch (FEAT_TRAINS, SELF, sw_example_passenger_blue_train_name, extra_callback_info1 & 0xFF)", switch)
+        self.assertIn("0x20 : sw_example_passenger_blue_train_name_purchase;", switch)
+        self.assertIn("switch (FEAT_TRAINS, SELF, sw_example_passenger_blue_train_name_purchase, getbits(extra_callback_info1, 0, 16))", switch)
+        self.assertIn("0x20 : string(str_example_passenger_blue_train_single_livery_name);", switch)
+        self.assertIn("0x120 : string(str_example_passenger_blue_train_name);", switch)
+        self.assertIn("\tstring(str_example_passenger_blue_train_name);", switch)
+        self.assertIn("CB_FAILED;", switch)
+
+    def test_variant_name_callback_uses_group_name_for_multiple_liveries(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        first = Livery("Blue")
+        second = Livery("Green")
+        vehicle.liveries = [first, second]
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle,
+            first,
+            Profile("Passenger", name="Passenger"),
+            VehicleType.TRAIN,
+        )
+        variant.process()
+
+        output = StringIO()
+        NmlVariantWriter(variant, "/tmp").write_sprites(output, variant)
+        switch = output.getvalue()
+        self.assertIn("switch (FEAT_TRAINS, SELF, sw_example_passenger_blue_train_name_purchase, getbits(extra_callback_info1, 0, 16))", switch)
+        self.assertIn("0x20 : string(str_example_passenger_blue_train_group_name);", switch)
+        self.assertIn("0x120 : string(str_example_passenger_blue_train_name);", switch)
 
     def test_variant_groups_liveries_under_profile(self):
         class Profile:

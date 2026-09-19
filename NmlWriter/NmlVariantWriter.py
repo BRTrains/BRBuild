@@ -31,7 +31,12 @@ class NmlVariantWriter(BaseNmlWriter):
         return self.filepath
 
     def write_sprites(self, f, variant):
-        """Write this variant's spriteset(s) and articulation switch, if any were assigned."""
+        """Write the generated switches and sprites for this variant."""
+        self._write_articulated_switch(f, variant)
+        self._write_name_switches(f, variant)
+        self._write_spritesets(f, variant)
+
+    def _write_articulated_switch(self, f, variant):
         articulated_switch_name = getattr(variant, "articulated_switch_name", None)
         articulated_count = getattr(variant, "articulated_count", None)
         if articulated_switch_name and articulated_count is not None:
@@ -46,6 +51,48 @@ class NmlVariantWriter(BaseNmlWriter):
                 f, self._feature(variant), "SELF", articulated_switch_name, "extra_callback_info1", values
             )
 
+    def _write_name_switches(self, f, variant):
+        name_switch_name = getattr(variant, "name_callback_name", None)
+        name_switch_string = getattr(variant, "name_callback_string", None)
+        if name_switch_name and name_switch_string:
+            # Callback 0x161 is called with extra_callback_info1 bit 0..7 as
+            # the GUI context and bits 8..15 as purchase-list indentation.
+            # A single 0x20 branch would therefore return the root/group name
+            # for every item in the purchase list, including its children.
+            purchase_name_switch = f"{name_switch_name}_purchase"
+            base_name_string = (getattr(variant, "properties", None) or {}).get("name", "CB_FAILED")
+            profile_id = str(getattr(getattr(variant, "profile", None), "identifier", "")).replace("_", "").strip().lower()
+            eligible_liveries = [
+                livery
+                for livery in getattr(getattr(variant, "vehicle", None), "liveries", [])
+                if not getattr(livery, "profiles", None)
+                or any(str(livery_profile).replace("_", "").strip().lower() == profile_id for livery_profile in livery.profiles)
+            ]
+            grouped_name_string = getattr(variant, "name_callback_string", name_switch_string)
+            single_livery_name_string = getattr(variant, "name_callback_single_livery_string", base_name_string)
+            root_name_string = single_livery_name_string if len(eligible_liveries) <= 1 else grouped_name_string
+            self.switch_writer.write_switch(
+                f,
+                self._feature(variant),
+                "SELF",
+                purchase_name_switch,
+                "getbits(extra_callback_info1, 0, 16)",
+                {
+                    "0x20": root_name_string,
+                    "0x120": base_name_string,
+                    "default": base_name_string,
+                },
+            )
+            self.switch_writer.write_switch(
+                f,
+                self._feature(variant),
+                "SELF",
+                name_switch_name,
+                "extra_callback_info1 & 0xFF",
+                {"0x20": purchase_name_switch, "default": "CB_FAILED"},
+            )
+
+    def _write_spritesets(self, f, variant):
         spritesets = getattr(variant, "spritesets", None)
         names = getattr(variant, "spriteset_names", None)
         template_names = getattr(variant, "sprite_template_names", None)

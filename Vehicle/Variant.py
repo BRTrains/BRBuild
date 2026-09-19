@@ -75,26 +75,26 @@ class Variant:
 
     @property
     def name(self):
-        """Constructs the variant display name in the format:
-        'Vehicle Name - Profile Name - Livery Name'
-        Skipping Profile Name if the profile identifier is DEFAULT (case-insensitive).
-        """
-        vehicle_name = self.vehicle.name
+        """Return the purchase-menu name, excluding the vehicle class."""
+        parts = [self._profile_display_name(), self._livery_display_name()]
+        return " - ".join(part for part in parts if part)
 
-        profile_id = str(self.profile.identifier).strip() if self.profile and self.profile.identifier else ""
-        profile_name = (self.profile.name or profile_id) if self.profile else ""
+    @property
+    def grouped_name(self):
+        """Return the name used when OpenTTD displays a grouped livery."""
+        parts = [self.vehicle.name, self._profile_display_name()]
+        return " - ".join(part for part in parts if part)
 
-        livery_name = self.livery.name if self.livery and self.livery.name else ""
+    def _profile_display_name(self):
+        if not self.profile:
+            return ""
+        profile_id = str(self.profile.identifier).strip() if self.profile.identifier else ""
+        if profile_id.upper() == "DEFAULT":
+            return ""
+        return self.profile.name or profile_id
 
-        parts = [vehicle_name]
-
-        if profile_id and profile_id.upper() != "DEFAULT" and profile_name:
-            parts.append(profile_name)
-
-        if livery_name:
-            parts.append(livery_name)
-
-        return " - ".join(parts)
+    def _livery_display_name(self):
+        return self.livery.name if self.livery and self.livery.name else ""
 
     def __repr__(self):
         return f"Variant(vehicle={self.vehicle.name}, livery={self.livery.name}, profile={self.profile.identifier})"
@@ -118,6 +118,13 @@ class Variant:
         # Formatted NML header properties
         name_ref = nml_str(self.name, f"{self.identifier}_name")
         self.properties["name"] = name_ref
+        self.name_callback_name = f"sw_{self.identifier}_name"
+        self.name_callback_string = nml_str(self.grouped_name, f"{self.identifier}_group_name")
+        self.name_callback_single_livery_string = nml_str(
+            f"{self.grouped_name} - {self._livery_display_name()}",
+            f"{self.identifier}_single_livery_name",
+        )
+        self.callbacks["name"] = self.name_callback_name
 
         v_type = self.vehicle_type
         if getattr(v_type, "name", str(v_type)).upper() == "TRAM":
