@@ -32,6 +32,8 @@ Place exactly one PNG in a vehicle's `new/` folder. A build only touches a sprit
 - the raw ingested source is kept as `ingested/[VehicleName].png`, for artists and debugging, including any annotation or notes the artist sent;
 - `new/` is emptied so it is obvious where the next drop goes, and the staging area is deleted.
 
+If a vehicle fails to build, its staged sheet is *not* published: the drop stays in `new/`, the published `[VehicleName].png` and `ingested/` copy are left alone, and the failure is logged. That keeps a partially working project from silently adopting artwork it could not build.
+
 Only the latest ingested source is kept, since git holds the version history. Replacements are not destructive of the published sheet until a build actually succeeds: a failed build publishes nothing and leaves the drop in `new/` to retry.
 
 Artists work from the tracked `ingested/` sheet: edit it, drop the result into `new/`, and the next build normalises and republishes it.
