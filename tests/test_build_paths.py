@@ -1,3 +1,4 @@
+import sys
 import tempfile
 import unittest
 from io import StringIO
@@ -187,6 +188,85 @@ class BuildPathTests(unittest.TestCase):
         self.assertNotIn("variant_group", first_livery.properties)
         self.assertEqual(second_livery.properties["variant_group"], 100)
         self.assertNotIn("variant_group", first_livery_other_profile.properties)
+
+    def test_each_compile_runs_with_fresh_nml_state(self):
+        """Building more than one project used to fail on the second compile.
+
+        nmlc keeps loaded language strings in module-level globals, so a second
+        in-process compile saw the first project's strings and aborted with
+        'String name "str_grf_name" is used multiple times'. The compiler now runs
+        each project in its own interpreter. This test uses a stand-in nml package
+        that is only importable in the child process, so it fails the old way if the
+        compiler ever runs nmlc in the process that invoked it.
+        """
+        import importlib
+        import os
+        from NmlWriter.NmlCompiler import NmlCompiler
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            fake_nml = root / "fakepkg" / "nml"
+            fake_nml.mkdir(parents=True)
+            # Importable only when the compiler has put the package on the child's
+            # PYTHONPATH: an in-process import still sees the real installed nml.
+            (fake_nml / "__init__.py").write_text(
+                "import os\n"
+                "if os.environ.get('NML_TEST_CHILD') != '1':\n"
+                "    raise ImportError('the stand-in nml package is for subprocesses only')\n"
+                "from . import main\n",
+                encoding="utf-8",
+            )
+            (fake_nml / "main.py").write_text(
+                "import os\n"
+                "from pathlib import Path\n"
+                "def main(argv):\n"
+                "    Path(argv[-1]).write_text(str(os.getpid()))\n"
+                "    return 0\n",
+                encoding="utf-8",
+            )
+
+            nml_file = root / "Example.nml"
+            nml_file.write_text("// example\n", encoding="utf-8")
+            lang_folder = root / "lang"
+            lang_folder.mkdir()
+            (lang_folder / "english.lng").write_text("##grflangid 0x01\n", encoding="utf-8")
+            caller_file = root / "caller.txt"
+
+            # The compiler resolves nml from the running interpreter's sys.path, so
+            # the stand-in is found by making the test directory current and putting
+            # it first. A real local ../nml checkout would take priority instead.
+            previous_cwd = os.getcwd()
+            previous_environment = os.environ.get("NML_TEST_CHILD")
+            os.environ["NML_TEST_CHILD"] = "1"
+            sys.path.insert(0, str(root / "fakepkg"))
+            # sys.path was already searched for nml earlier in the suite, so the
+            # import system's directory cache has to be dropped for the new entry.
+            importlib.invalidate_caches()
+            os.chdir(root)
+            try:
+                compiler = NmlCompiler()
+                resolved = compiler._resolve_nml()
+                first = compiler.compile(str(nml_file), str(caller_file))
+                first_caller = caller_file.read_text()
+                second = compiler.compile(str(nml_file), str(caller_file))
+                second_caller = caller_file.read_text()
+            finally:
+                os.chdir(previous_cwd)
+                sys.path.remove(str(root / "fakepkg"))
+                if previous_environment is None:
+                    os.environ.pop("NML_TEST_CHILD", None)
+                else:
+                    os.environ["NML_TEST_CHILD"] = previous_environment
+
+            self.assertEqual(resolved, root / "fakepkg")
+            self.assertEqual(first, str(nml_file).replace(".nml", ".grf"))
+            self.assertEqual(second, first)
+            # Each compile must run in its own process, never in the process that
+            # tried to import nml itself (whose globals are what leaks).
+            self.assertNotEqual(first_caller, str(os.getpid()))
+            self.assertNotEqual(second_caller, str(os.getpid()))
+            self.assertNotEqual(first_caller, second_caller)
+            self.assertNotIn("nml", sys.modules)
 
 
 if __name__ == "__main__":

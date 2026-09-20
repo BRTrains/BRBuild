@@ -1,11 +1,12 @@
 import logging
+import os
 import shutil
+import subprocess
 import sys
-from contextlib import redirect_stdout
 from importlib import util
 from pathlib import Path
 
-from Tools.StreamDuplicator import StreamDuplicator
+from Tools.StreamDuplicator import strip_ansi
 
 logger = logging.getLogger(__name__)
 
@@ -14,31 +15,43 @@ class NmlCompiler:
     def __init__(self):
         pass
 
-    def compile(self, nml_filepath, lang_folder=None, log_nml_output=False):
-        nml_path = Path(__file__).resolve().parents[2] / "nml"
-        nmlc = None
+    def _resolve_nml(self) -> Path | None:
+        """Locate the directory that holds the nml package to compile with.
 
-        # Try local ../nml first
+        A local ../nml checkout next to BRBuild takes priority over the nml
+        installed in the running interpreter, matching the historical behaviour.
+        The returned path is the directory containing the package (not the package
+        folder itself), because it is handed to the child as PYTHONPATH.
+        """
+        nml_path = Path(__file__).resolve().parents[2] / "nml"
+
         if nml_path.exists() and nml_path.is_dir():
             logger.info(f"Local instance found, using NML from {nml_path}")
-            sys.path.insert(0, str(nml_path))
-            try:
-                # pyrefly: ignore [missing-import]
-                import nml.main as nmlc
-            except ImportError:
-                logger.warning(f"Could not import NML from local path {nml_path}")
-                nmlc = None
+            return nml_path
 
-        # If local not available, try installed package
-        if nmlc is None:
-            found_nml = util.find_spec("nml")
-            if found_nml is not None:
-                logger.info(f"No NML found in {nml_path}. Trying to use nml from python")
-                # pyrefly: ignore [missing-import]
-                import nml.main as nmlc
-            else:
-                logger.error("nml is not installed. You can get it using 'pip install nml'")
-                return -1
+        found_nml = util.find_spec("nml")
+        if found_nml is None:
+            logger.error("nml is not installed. You can get it using 'pip install nml'")
+            return None
+
+        locations = list(found_nml.submodule_search_locations or [])
+        if not locations and found_nml.origin:
+            locations = [str(Path(found_nml.origin).parent)]
+
+        if not locations:
+            logger.error(f"Could not determine the location of the installed nml package ({found_nml}).")
+            return None
+
+        logger.info(f"No NML found in {nml_path}. Trying to use nml from python")
+        package_dir = Path(locations[0])
+        if package_dir.name == "nml":
+            return package_dir.parent
+        return package_dir
+
+    def compile(self, nml_filepath, lang_folder=None, log_nml_output=False):
+        nml_path = self._resolve_nml()
+        if nml_path is None:
+            return -1
 
         # Prepare parameters
         parameters = [nml_filepath]
@@ -48,23 +61,47 @@ class NmlCompiler:
 
         logger.info(f"Compiling with parameters: {parameters}")
 
+        # nmlc keeps its language, string and constant registries in module-level
+        # globals, so a second in-process compile inherits the first project's state
+        # and aborts with 'String name "..." is used multiple times'. Run each compile
+        # in its own interpreter so one project cannot leak into the next.
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = os.pathsep.join(
+            [str(nml_path), *filter(None, [environment.get("PYTHONPATH")])]
+        )
+        command = [
+            sys.executable,
+            "-c",
+            "import sys; from nml.main import main; sys.exit(main(sys.argv[1:]))",
+            *parameters,
+        ]
+
         # Compile. Log output to file if requested, otherwise just print to console. Always print to console.
+        log_file = open("nmlc.log", "w") if log_nml_output else None
         try:
-            if log_nml_output:
-                with open("nmlc.log", "w") as log_file:
-                    duplicator = StreamDuplicator(sys.stdout, log_file, enable_a=True, enable_b=True)
+            completed = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                env=environment,
+            )
 
-                    with redirect_stdout(duplicator):
-                        nmlc.main(parameters)
+            # nmlc's output is written straight to the console; log files are kept
+            # free of colour escapes by the parent instead of nmlc itself.
+            if log_file is not None:
+                log_file.write(strip_ansi(completed.stdout))
+                log_file.write("NML Finished\n")
 
-                    log_file.write("NML Finished\n")
-            else:
-                nmlc.main(parameters)
+            sys.stdout.write(completed.stdout)
+            sys.stdout.flush()
+        finally:
+            if log_file is not None:
+                log_file.close()
 
-        except SystemExit as e:
-            if e.code != 0:
-                logger.exception(f"NML compilation failed with SystemExit {e}")
-                raise
+        if completed.returncode != 0:
+            logger.error(f"NML compilation failed with exit code {completed.returncode}")
+            raise SystemExit(completed.returncode)
 
         logger.info("Finished compiling grf file")
         return nml_filepath.replace(".nml", ".grf")
