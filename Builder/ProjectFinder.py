@@ -45,6 +45,13 @@ class ProjectFinder:
         if not isinstance(target_folders, list):
             target_folders = []
 
+        # A project palette is relative to the BRBuild checkout so manifests stay portable;
+        # without one, fall back to BRBuild's own palette rather than the caller's CWD.
+        palette_path = Path(project_config.get("palette") or "Sprites/ttd-newgrf-dos.gpl").expanduser()
+        if not palette_path.is_absolute():
+            palette_path = self.project_root / palette_path
+        palette = str(palette_path)
+
         return Project({
             "path": str(p),
             "name": project_config.get("name"),
@@ -52,6 +59,7 @@ class ProjectFinder:
             "targetFolders": target_folders,
             "grfFolder": project_config.get("grf_folder"),
             "soundFolder": project_config.get("sound_folder"),
+            "palette": palette,
         })
 
     def find_projects(self):

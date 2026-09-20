@@ -356,8 +356,17 @@ class Builder:
         if not ctx.pending_sprite_ingests:
             return
 
+        built_vehicles = self._built_vehicle_identifiers(ctx)
+        staging_root = None
         for ingest in ctx.pending_sprite_ingests:
             vehicle = ingest["vehicle"]
+            if built_vehicles is not None and vehicle.identifier not in built_vehicles:
+                logger.warning(
+                    f"Not publishing ingested spritesheet for '{vehicle.identifier}': the build "
+                    f"produced no successful variant for it. The drop stays in 'new/' to retry."
+                )
+                continue
+
             base_path = ingest["base_path"]
             ingested_folder = ingest["ingested_path"].parent
             ingested_folder.mkdir(parents=True, exist_ok=True)
@@ -366,15 +375,37 @@ class Builder:
 
             shutil.copy2(ingest["staging_path"], base_path)
             shutil.move(str(ingest["new_path"]), ingest["ingested_path"])
-            # Clean up the shared staging area used by this build.
-            shutil.rmtree(Path(ingest["staging_path"]).parent.parent, ignore_errors=True)
+            staging_root = Path(ingest["staging_path"]).parent.parent
             logger.info(
                 f"Ingested spritesheet for '{vehicle.identifier}': "
                 f"published '{base_path}' and retained the raw source at "
                 f"'{ingest['ingested_path']}'."
             )
 
+        # The staging folder is shared by every vehicle in the build, so it is only
+        # safe to remove once every staged sheet has been published.
+        if staging_root is not None:
+            shutil.rmtree(staging_root, ignore_errors=True)
+
         ctx.pending_sprite_ingests.clear()
+
+    @staticmethod
+    def _built_vehicle_identifiers(ctx: BuildContext) -> set[str] | None:
+        """Identifiers of vehicles that produced at least one successful variant.
+
+        Returns None when the evidence is unavailable, in which case every staged sheet is
+        published rather than risking a silent no-op.
+        """
+        def identifier(variant) -> str | None:
+            return getattr(getattr(variant, "vehicle", None), "identifier", None)
+
+        successful: set[str] = {name for variant in ctx.successful_variants if (name := identifier(variant))}
+        failed: set[str] = {name for variant in ctx.failed_variants if (name := identifier(variant))}
+
+        if not successful and not failed:
+            return None
+
+        return successful - failed
 
 
     @staticmethod

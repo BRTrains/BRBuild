@@ -33,6 +33,36 @@ def drop_new_sheet(root: Path, name: str, payload: bytes) -> Path:
 
 
 class GraphicsBackupTests(unittest.TestCase):
+    def test_failed_vehicle_is_not_published(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            context = make_context(root)
+            published, failed = root / "Published", root / "Failed"
+            for vehicle_folder, name in ((published, "Published"), (failed, "Failed")):
+                vehicle_folder.mkdir()
+                (vehicle_folder / f"{name}.png").write_bytes(b"old")
+                drop_new_sheet(vehicle_folder, f"{name}_v2.png", name.encode())
+            published_vehicle = make_vehicle(published, identifier="Published")
+            failed_vehicle = make_vehicle(failed, identifier="Failed")
+            Builder._ingest_new_spritesheet(published_vehicle, context)
+            Builder._ingest_new_spritesheet(failed_vehicle, context)
+            context.successful_variants.append(
+                SimpleNamespace(vehicle=SimpleNamespace(identifier="Published"))
+            )
+            context.failed_variants.append(
+                SimpleNamespace(vehicle=SimpleNamespace(identifier="Failed"))
+            )
+
+            Builder()._finalize_sprite_ingests(context)
+
+            self.assertEqual((published / "Published.png").read_bytes(), b"Published")
+            self.assertEqual((published / "ingested" / "Published.png").read_bytes(), b"Published")
+            self.assertEqual(list((published / "new").iterdir()), [])
+            # The failing vehicle keeps its drop and its published sheet.
+            self.assertEqual((failed / "Failed.png").read_bytes(), b"old")
+            self.assertFalse((failed / "ingested").exists())
+            self.assertEqual([path.name for path in (failed / "new").iterdir()], ["Failed_v2.png"])
+
     def test_existing_spritesheet_is_not_normalized_in_place(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -130,6 +160,32 @@ class GraphicsBackupTests(unittest.TestCase):
             self.assertEqual([path.name for path in (root / "ingested").iterdir()], ["Thomas.png"])
             self.assertEqual((root / "ingested" / "Thomas.png").read_bytes(), b"second")
             self.assertEqual(list((root / "new").iterdir()), [])
+
+    def test_multiple_vehicles_are_all_published_in_one_build(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            context = make_context(root)
+            vehicles = []
+            for name in ("Thomas", "Gordon", "Percy"):
+                folder_path = root / name
+                folder_path.mkdir()
+                (folder_path / f"{name}.png").write_bytes(b"old")
+                drop_new_sheet(folder_path, f"{name}_v2.png", name.encode())
+                vehicle = make_vehicle(folder_path, identifier=name)
+                vehicles.append(vehicle)
+                self.assertTrue(Builder._ingest_new_spritesheet(vehicle, context))
+
+            Builder()._finalize_sprite_ingests(context)
+
+            for vehicle in vehicles:
+                name = vehicle.identifier
+                vehicle_folder = root / name
+                self.assertEqual((vehicle_folder / f"{name}.png").read_bytes(), name.encode())
+                self.assertEqual(
+                    (vehicle_folder / "ingested" / f"{name}.png").read_bytes(), name.encode()
+                )
+                self.assertEqual(list((vehicle_folder / "new").iterdir()), [])
+            self.assertFalse((Path(context.nml_output_folder) / "ingest").exists())
 
     def test_publishing_keeps_the_raw_ingested_source(self):
         with tempfile.TemporaryDirectory() as folder:
