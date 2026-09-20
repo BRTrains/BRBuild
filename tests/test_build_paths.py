@@ -579,6 +579,7 @@ class BuildPathTests(unittest.TestCase):
             self._spritesets = {}
             self._template_names = {}
             self._lengths = {}
+            self._definitions = {}
 
         with patch.object(VehicleSpriteAllocator, "__init__", fake_init):
             allocator = VehicleSpriteAllocator(vehicle, [], [])
@@ -672,6 +673,88 @@ class BuildPathTests(unittest.TestCase):
         self.assertTrue(
             any("design speed lower than its service speed" in line for line in captured.output)
         )
+
+    def test_purchase_sprite_crops_to_the_template_box_not_the_measured_content(self):
+        """A pale line below a car must not become a white row in the purchase icon.
+
+        The measured content box can be a row taller than the template when the artist's
+        row edge leaves a non-near-white line below the car; the emitted spriteset tells
+        OpenTTD to read the template box, so the icon has to use the same box.
+        """
+        from unittest.mock import patch
+        from PIL import Image
+        from Sprites.Sprite import Sprite
+        from Sprites.Spriteset import Spriteset
+        from Templates.BoundingBox import BoundingBox
+        from Templates.Template import Template
+        from Templates.TemplateDefinition import TemplateDefinition
+        from Templates.TemplateType import TemplateType
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.VariantSpriteGroups import VehicleSpriteAllocator
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.yaml_path = "/tmp/example/example.yaml"
+        livery = Livery("Default")
+        profile = Profile("Default", num_vehicles=1)
+
+        # The sheet: a car whose content fills rows 0..11 and a pale row at 12.
+        sheet = Image.new("RGB", (64, 40), (255, 255, 255))
+        for y in range(12):
+            for x in range(32):
+                sheet.putpixel((x, y), (0, 0, 255))
+        for x in range(32):
+            sheet.putpixel((x, 12), (224, 244, 252))
+
+        measured = Template(
+            name="measured",
+            sprites=[Sprite(0, 0, 32, 12, 0, 0)] * 6 + [Sprite(0, 0, 32, 13, 0, 0)] + [Sprite(0, 0, 32, 12, 0, 0)],
+        )
+        spriteset = Spriteset("car", "/tmp/example/example.png", measured, 0, 0)
+
+        boxes = [BoundingBox(0, 0, 32, 12, 0, 0, []) for _ in range(8)]
+        definition = TemplateDefinition(
+            name="tmpl_train_8_old",
+            template_type=TemplateType.VEHICLE,
+            bounding_boxes=boxes,
+        )
+
+        from Sprites.PalettedImage import PalettedImage
+
+        palette = PalettedImage.load_palette("/root/BRBuild/Sprites/ttd-newgrf-dos.gpl")
+
+        def fake_init(self, vehicle, palette_arg, definitions):
+            self.vehicle = vehicle
+            self.is_ohle = False
+            self._image = sheet
+            self._palette = palette
+            self.vehicle_rows = []
+            self.cursor = 0
+            self._assigned_rows = {}
+            self._spritesets = {(str(profile.identifier), str(livery.name)): [spriteset]}
+            self._template_names = {(str(profile.identifier), str(livery.name)): ["tmpl_train_8_old"]}
+            self._lengths = {(str(profile.identifier), str(livery.name)): [8]}
+            self._definitions = {(str(profile.identifier), str(livery.name)): [definition]}
+
+        with tempfile.TemporaryDirectory() as folder, patch.object(
+            VehicleSpriteAllocator, "__init__", fake_init
+        ):
+            allocator = VehicleSpriteAllocator(vehicle, palette, [])
+            result = allocator.get_purchase(profile, livery, folder)
+
+            self.assertIsNotNone(result)
+            purchase, template_name = result
+            self.assertEqual(template_name, "tmpl_purchase")
+
+            icon = Image.open(purchase.file).convert("RGB")
+            bottom_row = [icon.getpixel((x, 12)) for x in range(icon.width)]
+            self.assertNotIn(
+                (255, 255, 255),
+                bottom_row,
+                "the pale line below the car must not be cropped into the purchase icon",
+            )
+            self.assertNotIn((224, 244, 252), bottom_row)
 
     def test_variant_groups_liveries_under_profile(self):
         class Profile:

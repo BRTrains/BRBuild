@@ -154,6 +154,7 @@ class VehicleSpriteAllocator:
 		self._spritesets: dict[tuple[str, str], list[Spriteset]] = {}
 		self._template_names: dict[tuple[str, str], list[str]] = {}
 		self._lengths: dict[tuple[str, str], list[int]] = {}
+		self._definitions: dict[tuple[str, str], list[TemplateDefinition]] = {}
 
 	def get(self, profile: Profile, livery: Livery) -> tuple[list[Spriteset], list[str], list[int]]:
 		"""Return the (spritesets, template_names, lengths) for a profile/livery combination.
@@ -191,6 +192,7 @@ class VehicleSpriteAllocator:
 			self._spritesets[key] = [group_slice[position - 1][0] for position in group.pattern]
 			self._template_names[key] = [group_slice[position - 1][1].name for position in group.pattern]
 			self._lengths[key] = [group_slice[position - 1][1].length for position in group.pattern]
+			self._definitions[key] = [group_slice[position - 1][1] for position in group.pattern]
 
 		return self._spritesets[key], self._template_names[key], self._lengths[key]
 
@@ -220,10 +222,21 @@ class VehicleSpriteAllocator:
 
 	def get_purchase(
 		self,
-		spritesets: list[Spriteset],
+		profile: Profile,
+		livery: Livery,
 		output_folder: str,
 	) -> tuple[Spriteset, str] | None:
-		"""Build a 128x13 purchase sprite from the west view of each vehicle part."""
+		"""Build a 128x13 purchase sprite from the west view of each vehicle part.
+
+		Each car is cropped to its template's own west-view box, never to the measured
+		content box, because the template is what the emitted spriteset tells OpenTTD to
+		read. A stray pale line just below a car (a leftover of the artist's row edge,
+		which is not near-white and so counts as content) otherwise inflates the measured
+		box by a row and the icon gains a visible white line under that car.
+		"""
+		key = (str(profile.identifier), str(livery.name))
+		spritesets = self._spritesets.get(key) or []
+		definitions = self._definitions.get(key) or []
 		if not spritesets:
 			return None
 
@@ -232,18 +245,29 @@ class VehicleSpriteAllocator:
 		purchase.putpalette(self._palette)
 		x_cursor = 0
 
-		for spriteset in spritesets:
+		for index, spriteset in enumerate(spritesets):
 			views = spriteset.template.sprites
 			if len(views) <= 6:
 				return None
 
 			view = views[6]
+			left = spriteset.x + view.left_x
+			top = spriteset.y + view.upper_y
+			right = left + view.width
+			bottom = top + view.height
+
+			definition = definitions[index] if index < len(definitions) else None
+			if definition is not None and len(definition.bounding_boxes) > 6:
+				box = definition.bounding_boxes[6]
+				right = min(right, spriteset.x + box.left_x + box.width)
+				bottom = min(bottom, spriteset.y + box.upper_y + box.height)
+
 			crop = self._image.crop(
 				(
-					spriteset.x + view.left_x,
-					spriteset.y + view.upper_y,
-					spriteset.x + view.left_x + view.width,
-					spriteset.y + view.upper_y + view.height,
+					left,
+					top,
+					right,
+					bottom,
 				)
 			)
 			if x_cursor >= purchase.width:

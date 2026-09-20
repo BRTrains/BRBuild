@@ -261,7 +261,9 @@ class Builder:
                         variant.spritesets, variant.sprite_template_names, variant.sprite_lengths = allocator.get(
                             variant.profile, variant.livery
                         )
-                        purchase = allocator.get_purchase(variant.spritesets, ctx.nml_output_folder)
+                        purchase = allocator.get_purchase(
+                            variant.profile, variant.livery, ctx.nml_output_folder
+                        )
                         variant.purchase_spriteset, variant.purchase_template_name = purchase if purchase else (None, None)
                     except Exception as exc:
                         logger.exception(f"Unable to assign sprites for variant {variant}: {exc}")
