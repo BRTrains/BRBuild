@@ -153,7 +153,8 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `weight`: Weight in metric tons (float). Tram weights are converted to NewGRF's quarter-ton units when written.
     *   `length`: Length of the vehicle.
     *   `power`: Power output in hp (integer).
-    *   `speed`: Max speed in mph (integer).
+    *   `speed`: Service speed in mph (integer) — the limit the vehicle normally runs to.
+    *   `design_speed`: Design speed in mph (integer), optional. Set it only where the real design/technical maximum differs from the service limit; with both set, the `param_speed_mode` GRF parameter picks between them (see Design vs service speed below). Accepted on a profile or a livery as well as `stats`.
     *   `tractive_effort`: Tractive effort in kN (integer).
     *   `power_type`: List of traction types (e.g., `[steam, coal]`).
     *   `sound_effect`, `visual_effect`: Override the presentation implied by the traction type (see Traction types below). Also accepted on a profile or a livery.
@@ -224,6 +225,22 @@ difference, and the livery name for a paint/operator difference.
 OpenTTD's purchase list groups a candidate's liveries: the group row shows the vehicle and
 profile ("Class 221 Voyager - 5-Car") and the child rows return the full variant name, so
 the livery only appears on the rows that need it.
+
+#### Design vs service speed
+
+`speed` is the service speed: the limit the vehicle normally runs to. `design_speed` is
+the maximum it is designed for, and is optional — most units have only one published
+figure and need no `design_speed` at all. When a unit has both, BRBuild emits the
+`speed` graphics callback as a selector driven by the project's `param_speed_mode`
+parameter, so the player picks between the two:
+
+* `param_speed_mode: 1` (the usual default) returns the design speed;
+* `param_speed_mode: 0` returns the service speed.
+
+When only one figure is set, both settings resolve to it and the property is written
+plainly with no callback, so a unit without a documented pair is unaffected by the
+parameter. A design speed lower than the service speed is accepted but logged, because
+it normally means the two were swapped.
 
 #### Tilt
 

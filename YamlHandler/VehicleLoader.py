@@ -119,6 +119,7 @@ class VehicleLoader:
 
             power=stats.get("power"),
             speed=stats.get("speed"),
+            design_speed=stats.get("design_speed"),
             tractive_effort=stats.get("tractive_effort"),
             capacity = stats.get("capacity"),
 
@@ -239,6 +240,7 @@ class VehicleLoader:
             sprite_exclude=p.get("sprite_exclude"),
             capacity=p.get("capacity"),
             power=p.get("power"),
+            design_speed=p.get("design_speed"),
             weight=p.get("weight"),
             tilt=p.get("tilt"),
             sound_effect=p.get("sound_effect"),
@@ -265,6 +267,7 @@ class VehicleLoader:
             sprite_exclude=lv.get("sprite_exclude"),
             profiles=lv.get("profiles"),
             power=lv.get("power"),
+            design_speed=lv.get("design_speed"),
             weight=lv.get("weight"),
             tilt=lv.get("tilt"),
             sound_effect=lv.get("sound_effect"),

@@ -494,6 +494,59 @@ class BuildPathTests(unittest.TestCase):
         self.assertIn("0x20 : string(str_example_passenger_blue_train_group_name);", switch)
         self.assertIn("0x120 : string(str_example_passenger_blue_train_name);", switch)
 
+    def test_service_speed_alone_writes_the_property_and_no_callback(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.speed = 100
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Default"), Profile("Default"), VehicleType.TRAIN
+        )
+        variant.process()
+
+        self.assertEqual(variant.speed, 100)
+        self.assertEqual(variant.properties["speed"], "100 mph")
+        self.assertNotIn("speed", variant.callbacks)
+
+    def test_design_and_service_speeds_become_a_parameter_selector(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.speed = 125
+        vehicle.design_speed = 140
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Default"), Profile("Default"), VehicleType.TRAIN
+        )
+        variant.process()
+
+        # The property stays the service figure so the unit is usable without the parameter.
+        self.assertEqual(variant.speed, 125)
+        self.assertEqual(variant.properties["speed"], "125 mph")
+        self.assertEqual(
+            variant.callbacks["speed"],
+            "param_speed_mode == 1 ? 140 : 125",
+        )
+
+    def test_design_speed_alone_is_written_as_the_speed(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.design_speed = 140
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Default"), Profile("Default"), VehicleType.TRAIN
+        )
+        variant.process()
+
+        self.assertEqual(variant.speed, 140)
+        self.assertEqual(variant.properties["speed"], "140 mph")
+        self.assertNotIn("speed", variant.callbacks)
+
     def test_variant_groups_liveries_under_profile(self):
         class Profile:
             def __init__(self, identifier):

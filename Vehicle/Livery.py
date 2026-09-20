@@ -11,6 +11,7 @@ class Livery:
     sprite_exclude: Optional[List[int]] = None
     profiles: Optional[List[str]] = None
     power: Optional[int] = None
+    design_speed: Optional[int] = None
     weight: Optional[float] = None
     tilt: Optional[Union[str, float]] = None
     sound_effect: Optional[str] = None

@@ -203,13 +203,59 @@ class Variant:
             self.properties["length"] = str(length)
 
     def handleSpeed(self):
-        speed = self.get_attr("speed")
-        self.speed = speed
-        if speed is not None:
-            if isinstance(speed, float):
-                self.properties["speed"] = f"{speed:.1f} mph"
-            else:
-                self.properties["speed"] = f"{speed} mph"
+        """Emit the vehicle's speed, and the design/service selector when they differ.
+
+        `speed` is the service speed (the normal limit a train runs to) and
+        `design_speed` is the maximum the vehicle is designed for. When only one is
+        given, both settings of the `param_speed_mode` parameter resolve to it, so the
+        property is written plainly and the callback is not emitted at all. When they
+        differ, the callback becomes the design/service selector, defaulting to the
+        design figure unless the project's parameter says otherwise.
+        """
+        service = self.get_attr("speed")
+        design = self.get_attr("design_speed")
+        self.speed = service if service is not None else design
+        if self.speed is None:
+            return
+
+        self.properties["speed"] = self._format_speed(self.speed)
+        if design is None or service is None or float(design) == float(service):
+            return
+
+        if design < service:
+            logger.warning(
+                "%s has a design speed lower than its service speed (%s < %s mph)",
+                self.identifier,
+                design,
+                service,
+            )
+        self.callbacks["speed"] = self._speed_selector(design, service)
+
+    @staticmethod
+    def _format_speed(value) -> str:
+        if isinstance(value, float):
+            return f"{value:.1f} mph"
+        return f"{value} mph"
+
+    def _speed_selector(self, design, service) -> str:
+        """The design/service speed switch expression for one variant.
+
+        The parameter holds 1 for design speeds (the default) and 0 for service speeds,
+        so the expression is written in that order. Speed units *are* mph in NML, so the
+        callback returns the bare number — `140 mph` is a unit literal, which NML only
+        accepts as a property value, not inside an expression.
+        """
+        return (
+            f"param_speed_mode == 1 ? {self._speed_number(design)} "
+            f": {self._speed_number(service)}"
+        )
+
+    @staticmethod
+    def _speed_number(value) -> str:
+        """Render one speed as the bare number an NML expression takes."""
+        if isinstance(value, float):
+            return f"{value:.1f}"
+        return str(value)
 
     def handleTilt(self):
         """Emit curve_speed_mod and, when the vehicle tilts, the consist tilt flag.

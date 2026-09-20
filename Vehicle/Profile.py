@@ -14,6 +14,7 @@ class Profile:
     sprite_exclude: Optional[List[int]] = None
     capacity: Optional[int] = None
     power: Optional[int] = None
+    design_speed: Optional[int] = None
     weight: Optional[float] = None
     tilt: Optional[Union[str, float]] = None
     sound_effect: Optional[str] = None

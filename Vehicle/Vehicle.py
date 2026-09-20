@@ -32,6 +32,7 @@ class Vehicle:
 
     power: Optional[int] = None
     speed: Optional[int] = None
+    design_speed: Optional[int] = None
     tractive_effort: Optional[int] = None
 
     cargo_classes: Optional[List[str]] = None
