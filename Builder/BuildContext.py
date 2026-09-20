@@ -21,3 +21,4 @@ class BuildContext:
     template_definitions: list | None = None
     sprite_id_registry: Any = None
     release: bool = False
+    pending_sprite_ingests: list = field(default_factory=list)

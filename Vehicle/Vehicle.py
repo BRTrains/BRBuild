@@ -16,6 +16,7 @@ class Vehicle:
     sub_name: Optional[str] = None
 
     yaml_path: Optional[str] = None
+    spritesheet_override: Optional[str] = None
 
     based_on: Optional[str] = None
     operator: Optional[str] = None
@@ -58,6 +59,8 @@ class Vehicle:
     @property
     def spritesheet_path(self) -> Optional[str]:
         """The spritesheet image path: same name as the YAML file, with a .png extension."""
+        if self.spritesheet_override:
+            return self.spritesheet_override
         if not self.yaml_path:
             return None
         return str(Path(self.yaml_path).with_suffix(".png"))

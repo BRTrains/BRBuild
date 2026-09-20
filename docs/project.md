@@ -18,12 +18,20 @@ A BRBuild-compatible project (e.g., `OpenTTE2`, `BRMetro`) should be located as 
 │   └── vehicles/              # Target directory for candidates (referenced in BRBuild.yaml)
 │       └── [VehicleName]/     # Subfolder for a specific vehicle (e.g., Thomas)
 │           ├── [VehicleName].yaml # Vehicle configuration file (e.g., Thomas.yaml)
+│           ├── [VehicleName].png  # The sheet the build reads (normalised, committed)
+│           ├── new/           # Drop folder: replacement artwork goes here
+│           ├── working/       # Latest ingested sheet, kept for debugging (gitignored)
+│           ├── original/      # Last ingested source sheet, used by --reset-graphics
 │           └── [custom].pnml  # Optional raw PNML files containing sprites/custom code
 ```
 
 ### Ingesting new sprites
 
-Place exactly one PNG in a vehicle's `new/` folder. A normal build moves it to `original/[VehicleName].png`, copies it to the vehicle's normal `[VehicleName].png` path, and runs the normal spritesheet conversion pipeline. Reset mode gives this ingest priority; if no new image is available, it restores the archived original instead. The `new/` folder is a working drop location; version control records the archived source revisions.
+Place exactly one PNG in a vehicle's `new/` folder. A build only touches a spritesheet when one is waiting there: the PNG is staged into `working/`, normalised down to the recognised template rows, and used for that build. Once the build succeeds, the normalised sheet is published to the vehicle's `[VehicleName].png`, the ingested source is archived to `original/[VehicleName].png`, and `new/` is emptied so it is obvious where the next drop goes. The staged copy stays in `working/` as the latest ingestion for debugging, including any annotation or notes the artist sent; only that one file is kept, since git holds the version history.
+
+A build with an empty `new/` folder leaves the committed spritesheet untouched and simply reads it, so rebuilds do not churn artwork. Nothing is published if the build fails part-way, and the dropped file stays in `new/` to retry.
+
+Reset mode (`--reset-graphics`) gives `new/` priority; if no new image is available, it restores from `original/`. Because ingesting overwrites `original/`, it holds the most recent ingested source rather than necessarily the earliest one.
 
 ---
 

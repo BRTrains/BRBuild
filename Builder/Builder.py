@@ -51,6 +51,7 @@ class Builder:
             self._collate_nml,
             self._write_language,
             self._compile_newgrf,
+            self._finalize_sprite_ingests,
             self._copy_newgrf,
         ]
 
@@ -228,7 +229,7 @@ class Builder:
                 f"{len(vehicle.profiles)} profiles, and {len(vehicle.liveries)} liveries."
             )
 
-            ingested_new_spritesheet = self._ingest_new_spritesheet(vehicle)
+            ingested_new_spritesheet = self._ingest_new_spritesheet(vehicle, ctx)
             has_spritesheet = bool(vehicle.spritesheet_path) and Path(vehicle.spritesheet_path).is_file()
             allocator = None
             variant_groups = {}
@@ -299,13 +300,19 @@ class Builder:
                 ctx.successful_variants.append(variant)
 
     @staticmethod
-    def _ingest_new_spritesheet(vehicle) -> bool:
-        """Promote one PNG from the vehicle's ``new/`` drop folder."""
+    def _ingest_new_spritesheet(vehicle, ctx: BuildContext) -> bool:
+        """Stage one PNG from the vehicle's ``new/`` drop folder into ``working/``.
+
+        The published spritesheet stays untouched until the build succeeds: the staged
+        copy becomes the sheet this build reads and normalises, and `_finalize_sprite_ingests`
+        publishes it only after the GRF has been compiled.
+        """
         if not vehicle.spritesheet_path:
             return False
 
         base_path = Path(vehicle.spritesheet_path)
-        new_folder = base_path.parent / "new"
+        vehicle_folder = base_path.parent
+        new_folder = vehicle_folder / "new"
         if not new_folder.is_dir():
             return False
 
@@ -317,16 +324,69 @@ class Builder:
         if len(candidates) > 1:
             raise ValueError(f"Expected one PNG in '{new_folder}', found {len(candidates)}.")
 
-        original_folder = base_path.parent / "original"
-        original_folder.mkdir(parents=True, exist_ok=True)
-        original_path = original_folder / base_path.name
-        if original_path.exists():
-            original_path.unlink()
+        working_folder = vehicle_folder / "working"
+        working_folder.mkdir(parents=True, exist_ok=True)
+        working_path = working_folder / base_path.name
 
-        shutil.move(str(candidates[0]), original_path)
-        shutil.copy2(original_path, base_path)
-        logger.info(f"Ingested new spritesheet '{candidates[0]}' as '{original_path}'.")
+        # Only the latest ingestion is kept: git is the version history.
+        for stale in working_folder.iterdir():
+            if stale.is_file() and stale.suffix.lower() == ".png":
+                stale.unlink()
+
+        shutil.copy2(candidates[0], working_path)
+        vehicle.spritesheet_override = str(working_path)
+        ctx.pending_sprite_ingests.append(
+            {"vehicle": vehicle, "new_path": candidates[0], "working_path": working_path}
+        )
+        logger.info(
+            f"Staged new spritesheet '{candidates[0]}' as '{working_path}' for "
+            f"'{vehicle.identifier}'."
+        )
         return True
+
+    def _finalize_sprite_ingests(self, ctx: BuildContext):
+        """Publish staged spritesheets after a successful build.
+
+        The latest ingestion is retained in ``working/`` for debugging (including any
+        annotations or notes the artist sent), and the ``new/`` folder is emptied so it
+        is obvious where replacement artwork goes.
+        """
+        if not ctx.pending_sprite_ingests:
+            return
+
+        for ingest in ctx.pending_sprite_ingests:
+            vehicle = ingest["vehicle"]
+            base_path = Path(vehicle.yaml_path).with_suffix(".png")
+            original_folder = base_path.parent / "original"
+            original_folder.mkdir(parents=True, exist_ok=True)
+
+            shutil.copy2(ingest["working_path"], base_path)
+            shutil.copy2(ingest["new_path"], original_folder / base_path.name)
+            Path(ingest["new_path"]).unlink()
+            self._prune_working_folder(ingest["working_path"])
+            logger.info(
+                f"Ingested spritesheet for '{vehicle.identifier}': "
+                f"published '{base_path}', archived the ingested source to "
+                f"'{original_folder / base_path.name}', and retained '{ingest['working_path']}'."
+            )
+
+        ctx.pending_sprite_ingests.clear()
+
+    @staticmethod
+    def _prune_working_folder(working_path: Path):
+        """Leave only the ingested sheet in ``working/``.
+
+        The normalizer drops its own backup and cache files beside the staged sheet;
+        git already holds the history, so keep the folder readable for artists.
+        """
+        working_folder = working_path.parent
+        for entry in working_folder.iterdir():
+            if entry == working_path:
+                continue
+            if entry.is_dir():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
 
     @staticmethod
     def _vehicle_type_name(vehicle_type) -> str:
