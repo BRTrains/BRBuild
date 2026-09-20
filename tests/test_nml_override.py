@@ -143,8 +143,12 @@ class NmlOverrideTests(unittest.TestCase):
             "a project's custom NML must be collated before the generated item blocks",
         )
 
-    def test_candidate_pnml_is_discovered_and_collated_before_the_generated_item(self):
-        """A candidate's own `.pnml` must also precede its generated item block."""
+    def test_candidate_pnml_is_collated_next_to_its_own_vehicle_only(self):
+        """A candidate's `.pnml` goes immediately before that vehicle's blocks.
+
+        It must not be hoisted above the badge table: a switch holds a concurrent
+        spritegroup slot while in scope, and OpenTTD only allows 255 of those.
+        """
         with tempfile.TemporaryDirectory() as folder:
             project_root = Path(folder)
             candidate = project_root / "Example"
@@ -154,39 +158,55 @@ class NmlOverrideTests(unittest.TestCase):
                 "switch (FEAT_TRAINS, SELF, sw_example_custom, cargo_count) {\n}\n",
                 encoding="utf-8",
             )
+            other = project_root / "Other"
+            other.mkdir()
+            (other / "Other.yaml").write_text(VEHICLE_YAML, encoding="utf-8")
 
             found = CandidateFinder(project_root).find_candidates()
-            self.assertEqual(len(found), 1)
-            self.assertEqual([Path(p).name for p in found[0]["pnml_files"]], ["Example.pnml"])
+            self.assertEqual(len(found), 2)
+            by_name = {c["name"]: c for c in found}
+            self.assertEqual(
+                [Path(p).name for p in by_name["Example"]["pnml_files"]], ["Example.pnml"]
+            )
 
-            item_file = project_root / "WorkingData" / "Example" / "item.gnml"
-            item_file.parent.mkdir(parents=True, exist_ok=True)
-            item_file.write_text("item (FEAT_TRAINS, example) {\n}\n", encoding="utf-8")
+            working = project_root / "WorkingData" / "Example"
+            working.mkdir(parents=True, exist_ok=True)
+            example_item = working / "example_default_default_train.gnml"
+            example_item.write_text("item (FEAT_TRAINS, example) {\n}\n", encoding="utf-8")
+            other_item = working / "other_default_default_train.gnml"
+            other_item.write_text("item (FEAT_TRAINS, other) {\n}\n", encoding="utf-8")
 
             # The builder stages a candidate's own NML into the working folder with its
             # quoted paths made absolute, so it is never compiled in place.
             staged = NmlCollator().copy_supplied_nml(
-                Path(found[0]["pnml_files"][0]),
-                project_root / "WorkingData" / "Example" / "candidate_nml" / "Example.pnml",
+                Path(by_name["Example"]["pnml_files"][0]),
+                working / "candidate_nml" / "Example.pnml",
                 project_root,
             )
 
             collated = NmlCollator().collate(
-                [str(item_file), staged],
+                [str(example_item), str(other_item)],
                 "Example",
                 None,
                 project_root,
                 candidates_root=project_root,
-                staged_candidate_nml=project_root / "WorkingData" / "Example" / "candidate_nml",
+                staged_candidate_nml=working / "candidate_nml",
+                vehicle_nml_files={"example": [staged]},
             )
             text = Path(collated).read_text(encoding="utf-8")
 
+        badge_table = text.index("badgetable {")
         custom_switch = text.index("switch (FEAT_TRAINS, SELF, sw_example_custom,")
-        item_block = text.index("item (FEAT_TRAINS, example) {\n")
-        self.assertLess(
-            custom_switch,
-            item_block,
-            "a candidate's own NML must be collated before its generated item block",
+        example_item_block = text.index("item (FEAT_TRAINS, example) {")
+        other_item_block = text.index("item (FEAT_TRAINS, other) {")
+
+        self.assertLess(badge_table, custom_switch, "the badge table stays before all vehicles")
+        self.assertLess(custom_switch, example_item_block, "vehicle NML precedes its own item")
+        self.assertLess(example_item_block, other_item_block, "variant order is preserved")
+        self.assertEqual(
+            text.count("switch (FEAT_TRAINS, SELF, sw_example_custom,"),
+            1,
+            "the custom switch is written once, not once per variant",
         )
 
 

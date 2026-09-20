@@ -298,7 +298,9 @@ Either way the file is staged into `WorkingData/<project>/` and copied rather th
 spriteset(spriteset_container_0, "Container.png") { tmpl_train_8(0, 0) }
 ```
 
-Collation order is: GRF header and parameters, the `template` blocks, project-level `custom_nml`, candidate `.pnml` files, the badge table, then the generated per-variant blocks. NML resolves identifiers before generating output, so a hand-written file must still declare its own symbols in dependency order (leaves first, entry switch last).
+Collation order is: the GRF header and parameters, the `template` blocks, project-level `custom_nml`, the badge table, then each vehicle's own `.pnml` immediately before that vehicle's generated blocks. NML resolves identifiers before generating output, so a hand-written file must still declare its own symbols in dependency order (leaves first, entry switch last).
+
+Vehicle-level NML is deliberately kept adjacent to its own vehicle rather than hoisted with the GRF-scoped files. A `switch` holds a concurrent spritegroup slot while it is in scope and OpenTTD allows only 255 of them, so keeping each chain next to the item that uses it costs nothing while it is not being built.
 
 ### Pointing a callback at your own NML: `nml_override`
 

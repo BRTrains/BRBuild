@@ -1,5 +1,6 @@
 import time
 import logging
+import re
 import shutil
 from pathlib import Path
 
@@ -219,7 +220,13 @@ class Builder:
 
         for pnml in candidate.get("pnml_files", []):
             logger.debug(f"\tFound manual PNML file: {pnml}")
-            ctx.nml_files.append(self._stage_candidate_nml(pnml, ctx))
+            # Keyed by the candidate folder's identifier form, which is the prefix of its
+            # generated variant filenames, so the collator can write this NML immediately
+            # before the blocks it belongs to.
+            key = re.sub(r"[^a-z0-9_]", "_", str(candidate.get("name", "")).lower())
+            ctx.vehicle_nml_files.setdefault(key, []).append(
+                self._stage_candidate_nml(pnml, ctx)
+            )
 
         for file in candidate.get("files", []):
             logger.debug(f"\tParsing YAML file: {file}")
@@ -510,6 +517,7 @@ class Builder:
             ctx.project.path,
             candidates_root=ctx.project.path,
             staged_candidate_nml=Path(ctx.nml_output_folder) / "candidate_nml",
+            vehicle_nml_files=ctx.vehicle_nml_files,
         )
         logger.info(f"NML collation complete: {ctx.nml_filepath}")
 
