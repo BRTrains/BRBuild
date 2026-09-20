@@ -45,12 +45,7 @@ class VehicleLoader:
         if raw_vehicle_type is None:
             raise ValueError(f"Missing required stat 'vehicle_type' in {path}")
 
-        try:
-            vehicle_type = VehicleType[raw_vehicle_type.upper()]
-        except (KeyError, AttributeError):
-            raise ValueError(
-                f"Invalid value '{raw_vehicle_type}' for 'vehicle_type' in {path}."
-            )
+        vehicle_type = VehicleLoader._parse_vehicle_type(raw_vehicle_type)
         
         raw_train_type = stats.get("train_type", "").upper()
         if raw_train_type == "":
@@ -113,6 +108,15 @@ class VehicleLoader:
         )
 
     @staticmethod
+    def _parse_vehicle_type(raw_vehicle_type: Any) -> VehicleType:
+        try:
+            return VehicleType[str(raw_vehicle_type).upper()]
+        except (KeyError, AttributeError):
+            raise ValueError(
+                f"Invalid value '{raw_vehicle_type}' for vehicle type."
+            )
+
+    @staticmethod
     def _parse_profile(p: Dict[str, Any]) -> Profile:
         identifier = p.get("identifier")
         if identifier is None:
@@ -130,7 +134,10 @@ class VehicleLoader:
             tilt=p.get("tilt"),
             sound_effect=p.get("sound_effect"),
             visual_effect=p.get("visual_effect"),
-            types=p.get("types"),
+            types=[
+                VehicleLoader._parse_vehicle_type(vehicle_type)
+                for vehicle_type in (p.get("types") or [])
+            ] or None,
             special_tags=p.get("special_tags"),
         )
 

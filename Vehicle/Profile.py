@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import List, Optional, Union
 
+from PropertyCalculation.VehicleType import VehicleType
+
 
 @dataclass
 class Profile:
@@ -16,5 +18,5 @@ class Profile:
     tilt: Optional[Union[str, float]] = None
     sound_effect: Optional[str] = None
     visual_effect: Optional[str] = None
-    types: Optional[List[str]] = None
+    types: Optional[List[VehicleType]] = None
     special_tags: Optional[List[str]] = None

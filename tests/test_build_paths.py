@@ -337,6 +337,38 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(vehicle.sound_effect, "SOUND_DEPARTURE_TRAIN")
         self.assertEqual(vehicle.visual_effect, "VISUAL_EFFECT_DISABLE")
 
+    def test_profile_types_are_loaded_as_vehicle_type_enums(self):
+        """Profile type variants must reach the iterator as VehicleType values."""
+        import textwrap
+        from YamlHandler.VehicleLoader import VehicleLoader
+        from Vehicle.VariantIterator import VariantIterator
+
+        document = textwrap.dedent(
+            """
+            info:
+              identifier: example
+              name: Class Example
+            stats:
+              vehicle_type: train
+              train_type: multiple_unit
+            profiles:
+              - identifier: default
+                types: [train, tram]
+            liveries:
+              - name: Blue
+            """
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "Example.yaml"
+            path.write_text(document, encoding="utf-8")
+            vehicle = VehicleLoader.load(str(path))
+
+        variants = list(VariantIterator(vehicle))
+        self.assertEqual(
+            [variant.vehicle_type for variant in variants],
+            [VehicleType.TRAIN, VehicleType.TRAM],
+        )
+
     def test_unusable_sound_effect_is_rejected(self):
         with self.assertRaises(ValueError):
             self._variant(
