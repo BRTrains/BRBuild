@@ -756,6 +756,121 @@ class BuildPathTests(unittest.TestCase):
             )
             self.assertNotIn((224, 244, 252), bottom_row)
 
+    def test_purchase_sprite_aligns_parts_by_their_template_offsets(self):
+        """Parts drawn against different templates must not sit a row apart in the icon.
+
+        The game aligns each part with its template's `offset_y`; a 13px west-view box
+        whose art starts one row down and a 12px box whose art starts at the top are
+        aligned in the consist but land a row apart if every crop is pasted at row 0.
+        """
+        from unittest.mock import patch
+        from PIL import Image
+        from Sprites.PalettedImage import PalettedImage
+        from Sprites.Sprite import Sprite
+        from Sprites.Spriteset import Spriteset
+        from Templates.BoundingBox import BoundingBox
+        from Templates.Template import Template
+        from Templates.TemplateDefinition import TemplateDefinition
+        from Templates.TemplateType import TemplateType
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.VariantSpriteGroups import VehicleSpriteAllocator
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.yaml_path = "/tmp/example/example.yaml"
+        livery = Livery("Default")
+        profile = Profile("Default", num_vehicles=2)
+
+        def west_box(width, height, offset_y):
+            return BoundingBox(0, 0, width, height, 0, offset_y, [])
+
+        def definition(name, width, height, offset_y):
+            return TemplateDefinition(
+                name=name,
+                template_type=TemplateType.VEHICLE,
+                bounding_boxes=[west_box(width, height, offset_y) for _ in range(8)],
+            )
+
+        # Part one: 12px box, art flush to its top, template offset -8.
+        # Part two: 13px box, art one row down (as artists place it for that box),
+        # template offset -9 - so the two are aligned in the consist.
+        palette = PalettedImage.load_palette("/root/BRBuild/Sprites/ttd-newgrf-dos.gpl")
+
+        def palette_index(colour):
+            for index in range(256):
+                if tuple(palette[index * 3:index * 3 + 3]) == colour:
+                    return index
+            raise AssertionError(f"{colour} is not in the palette")
+
+        blue_index = palette_index((0, 0, 255))
+        art_index = next(
+            index
+            for index in range(256)
+            if tuple(palette[index * 3:index * 3 + 3]) not in ((0, 0, 255), (255, 255, 255), (252, 252, 252))
+        )
+
+        sheet = Image.new("P", (64, 60))
+        sheet.putpalette(palette)
+        sheet.paste(palette_index((255, 255, 255)), (0, 0, 64, 60))
+        for y in range(0, 12):
+            for x in range(0, 32):
+                sheet.putpixel((x, y), art_index)
+        for y in range(1, 13):
+            for x in range(32, 64):
+                sheet.putpixel((x, y), art_index)
+
+        measured = Template(
+            name="measured",
+            sprites=[Sprite(0, 0, 32, 12, 0, 0)] * 6 + [Sprite(0, 0, 32, 12, 0, 0)] + [Sprite(0, 0, 32, 12, 0, 0)],
+        )
+        parts = [
+            Spriteset("a", "/tmp/example/example.png", measured, 0, 0),
+            Spriteset("b", "/tmp/example/example.png", measured, 32, 0),
+        ]
+        definitions = [definition("tmpl_12", 32, 12, -8), definition("tmpl_13", 32, 13, -9)]
+
+        key = (str(profile.identifier), str(livery.name))
+
+        def fake_init(self, vehicle, palette_arg, definitions_arg):
+            self.vehicle = vehicle
+            self.is_ohle = False
+            self._image = sheet
+            self._palette = palette
+            self.vehicle_rows = []
+            self.cursor = 0
+            self._assigned_rows = {}
+            self._spritesets = {key: parts}
+            self._template_names = {key: ["tmpl_12", "tmpl_13"]}
+            self._lengths = {key: [8, 8]}
+            self._definitions = {key: definitions}
+
+        with tempfile.TemporaryDirectory() as folder, patch.object(
+            VehicleSpriteAllocator, "__init__", fake_init
+        ):
+            allocator = VehicleSpriteAllocator(vehicle, palette, [])
+            purchase, _ = allocator.get_purchase(profile, livery, folder)
+
+            icon = Image.open(purchase.file)
+            icon.load()
+
+            def first_art_row(x_range):
+                return next(
+                    (y for y in range(icon.height) if any(icon.getpixel((x, y)) == art_index for x in x_range)),
+                    None,
+                )
+
+            first_top = first_art_row(range(0, 32))
+            second_top = first_art_row(range(32, 64))
+
+            self.assertNotEqual(first_top, None)
+            self.assertEqual(
+                first_top,
+                second_top,
+                "a 13px-box car whose art starts one row down must not sit lower than a "
+                "12px-box car drawn flush to its box",
+            )
+
     def test_variant_groups_liveries_under_profile(self):
         class Profile:
             def __init__(self, identifier):

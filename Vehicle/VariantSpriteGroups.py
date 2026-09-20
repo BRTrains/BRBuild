@@ -233,6 +233,12 @@ class VehicleSpriteAllocator:
 		read. A stray pale line just below a car (a leftover of the artist's row edge,
 		which is not near-white and so counts as content) otherwise inflates the measured
 		box by a row and the icon gains a visible white line under that car.
+
+		Cars are then placed by their templates' own `offset_y`, not all at the top of the
+		icon: that offset is what the game uses to align a part vertically, so pasting
+		every crop at row 0 makes parts drawn against different templates (a 13px box
+		whose art sits one row down, against a 12px box whose art starts at the top) sit a
+		row apart in the icon while looking aligned in the consist.
 		"""
 		key = (str(profile.identifier), str(livery.name))
 		spritesets = self._spritesets.get(key) or []
@@ -240,41 +246,50 @@ class VehicleSpriteAllocator:
 		if not spritesets:
 			return None
 
-		blue_index = self._palette_index((0, 0, 255))
-		purchase = Image.new("P", (128, 13), color=blue_index)
-		purchase.putpalette(self._palette)
-		x_cursor = 0
-
+		parts = []
 		for index, spriteset in enumerate(spritesets):
 			views = spriteset.template.sprites
 			if len(views) <= 6:
 				return None
 
+			box = None
+			definition = definitions[index] if index < len(definitions) else None
+			if definition is not None and len(definition.bounding_boxes) > 6:
+				box = definition.bounding_boxes[6]
+
 			view = views[6]
+			offset_y = box.offset_y if box is not None else view.offset_y
+			parts.append((spriteset, view, box, offset_y))
+
+		# The highest part sits at the icon's top row; the rest keep their relative offset.
+		anchor = min(offset_y for _, _, _, offset_y in parts)
+
+		blue_index = self._palette_index((0, 0, 255))
+		purchase = Image.new("P", (128, 13), color=blue_index)
+		purchase.putpalette(self._palette)
+		x_cursor = 0
+
+		for spriteset, view, box, offset_y in parts:
 			left = spriteset.x + view.left_x
 			top = spriteset.y + view.upper_y
 			right = left + view.width
 			bottom = top + view.height
 
-			definition = definitions[index] if index < len(definitions) else None
-			if definition is not None and len(definition.bounding_boxes) > 6:
-				box = definition.bounding_boxes[6]
+			if box is not None:
 				right = min(right, spriteset.x + box.left_x + box.width)
 				bottom = min(bottom, spriteset.y + box.upper_y + box.height)
 
-			crop = self._image.crop(
-				(
-					left,
-					top,
-					right,
-					bottom,
-				)
-			)
+			crop = self._image.crop((left, top, right, bottom))
 			if x_cursor >= purchase.width:
 				break
 
+			paste_y = offset_y - anchor
 			visible_width = min(crop.width, purchase.width - x_cursor)
-			purchase.paste(crop.crop((0, 0, visible_width, min(crop.height, purchase.height))), (x_cursor, 0))
+			visible_height = min(crop.height, purchase.height - paste_y)
+			if visible_height > 0:
+				purchase.paste(
+					crop.crop((0, 0, visible_width, visible_height)), (x_cursor, paste_y)
+				)
 			x_cursor += crop.width
 
 		path = Path(output_folder) / self._purchase_filename(spritesets)
