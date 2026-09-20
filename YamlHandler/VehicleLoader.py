@@ -78,6 +78,7 @@ class VehicleLoader:
             train_type=train_type,
             weight=stats.get("weight"),
             length=stats.get("length"),
+            tilt=stats.get("tilt"),
 
             power=stats.get("power"),
             speed=stats.get("speed"),
@@ -122,6 +123,7 @@ class VehicleLoader:
             capacity=p.get("capacity"),
             power=p.get("power"),
             weight=p.get("weight"),
+            tilt=p.get("tilt"),
             types=p.get("types"),
             special_tags=p.get("special_tags"),
         )
@@ -140,5 +142,6 @@ class VehicleLoader:
             profiles=lv.get("profiles"),
             power=lv.get("power"),
             weight=lv.get("weight"),
+            tilt=lv.get("tilt"),
             special_tags=lv.get("special_tags"),
         )

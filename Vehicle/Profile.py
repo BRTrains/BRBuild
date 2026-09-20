@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Union
 
 
 @dataclass
@@ -13,5 +13,6 @@ class Profile:
     capacity: Optional[int] = None
     power: Optional[int] = None
     weight: Optional[float] = None
+    tilt: Optional[Union[str, float]] = None
     types: Optional[List[str]] = None
     special_tags: Optional[List[str]] = None

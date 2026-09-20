@@ -28,6 +28,7 @@ class Vehicle:
 
     weight: Optional[float] = None
     length: Optional[int] = None
+    tilt: Optional[Union[str, float]] = None
 
     power: Optional[int] = None
     speed: Optional[int] = None

@@ -5,6 +5,7 @@ from Lang.StringRegistry import nml_str
 from PropertyCalculation import CostCalculator, FuelType, Physics, PowerTypeClassifier, TrainType, VehicleType
 
 from Vehicle.Translator.PhysicsRules import PhysicsRules
+from Vehicle.Translator.Tilt import MISC_FLAG_TILT, Tilt, resolve_tilt
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class Variant:
         self.callbacks = dict()
 
         self.spritesets = list()
+        self.misc_flags = set()
         self.sprite_pattern = list()
         self.sprite_template_names = list()
         self.sprite_lengths = list()
@@ -45,6 +47,7 @@ class Variant:
             self.handleArticulated,
             self.handleBasicProperties, # Things that don't need any complicated transformations or calculations
             self.handleSpeed,
+            self.handleTilt,
             self.handleCapacity,
             self.handlePhysics,
             self.handleFuelType,
@@ -52,6 +55,7 @@ class Variant:
             self.handleSpecialTags,
             self.handleAdditionalText,
             self.handleSprites,
+            self.handleMiscFlags,
         ]
 
         for stage in stages:
@@ -128,7 +132,7 @@ class Variant:
 
         v_type = self.vehicle_type
         if getattr(v_type, "name", str(v_type)).upper() == "TRAM":
-            self.properties["misc_flags"] = "bitmask(ROADVEH_FLAG_TRAM)"
+            self.add_misc_flag("ROADVEH_FLAG_TRAM")
 
     ''' Handle some fairly simple properties that don't need complex calculations'''
     def handleBasicProperties(self):
@@ -167,6 +171,39 @@ class Variant:
                 self.properties["speed"] = f"{speed:.1f} mph"
             else:
                 self.properties["speed"] = f"{speed} mph"
+
+    def handleTilt(self):
+        """Emit curve_speed_mod and, when the vehicle tilts, the consist tilt flag.
+
+        `tilt` is a named level or a number (see Vehicle/Translator/Tilt.py). It is
+        resolved profile first, then livery, then vehicle, like the other
+        per-variant statistics, so one formation of a unit can tilt where another
+        does not.
+        """
+        tilt = resolve_tilt(self.get_attr("tilt"))
+        self.tilt = tilt
+        if tilt is None:
+            return
+
+        self.curve_speed_mod = tilt.curve_speed_mod
+        self.properties["curve_speed_mod"] = self._format_number(tilt.curve_speed_mod)
+        if tilt.uses_tilt_flag:
+            self.add_misc_flag(MISC_FLAG_TILT)
+
+    @staticmethod
+    def _format_number(value: float) -> str:
+        """Render a float without a trailing '.0', which NML reads as an integer."""
+        if float(value).is_integer():
+            return str(int(value))
+        return repr(float(value))
+
+    def add_misc_flag(self, flag: str):
+        self.misc_flags.add(flag)
+
+    def handleMiscFlags(self):
+        """Write the accumulated misc_flags bitmask last, so every stage can add to it."""
+        if self.misc_flags:
+            self.properties["misc_flags"] = f"bitmask({', '.join(sorted(self.misc_flags))})"
 
     def handleCapacity(self):
         capacity = self.get_attr("capacity")

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Union
 
 
 @dataclass
@@ -12,4 +12,5 @@ class Livery:
     profiles: Optional[List[str]] = None
     power: Optional[int] = None
     weight: Optional[float] = None
+    tilt: Optional[Union[str, float]] = None
     special_tags: Optional[List[str]] = None

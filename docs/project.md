@@ -167,6 +167,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `capacity`: Cargo capacity.
     *   `power`: Power in hp for this profile; overrides the vehicle-level `stats.power`.
     *   `weight`: Weight in metric tons for this profile; overrides the vehicle-level `stats.weight`.
+    *   `tilt`: Tilt strength for this profile, as a named level or a number.
     *   `special_tags`: List of custom tags triggering special badges for this profile's variants.
     *   `types`: Target vehicle type variants (e.g. `[train, tram]`).
 *   **`liveries`**: Visual variations (liveries) available for the vehicle.
@@ -175,6 +176,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `profiles`: List of profile identifiers this livery applies to.
     *   `power`: Power in hp for this livery; overrides the vehicle default, but not the profile.
     *   `weight`: Weight in metric tons for this livery; overrides the vehicle default, but not the profile.
+    *   `tilt`: Tilt strength for this livery; overrides the vehicle default, but not the profile.
     *   `special_tags`: List of custom tags triggering special badges for this livery's variants.
 *   **Other root fields**:
     *   `classification`: Categorization string.
@@ -187,6 +189,20 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `special_tags`: List of custom tags triggering special badges for all variants (e.g., `["express", "high-speed"]`).
 
 Statistical fields that appear on both a profile and a livery are resolved per variant: the profile wins, then the livery, then the vehicle. Use them when one formation or operator really differs — for example a longer multiple unit whose extra vehicles add power and weight.
+
+#### Tilt
+
+`tilt` may be set on `stats`, a profile or a livery, and is resolved the same way. It accepts a named level or a number, and drives both of OpenTTD's tilting mechanisms:
+
+| Level | `curve_speed_mod` | `TRAIN_FLAG_TILT` |
+|---|---|---|
+| `none` | 0 | no |
+| `basic` | 0.1 | yes |
+| `modest` | 0.2 | yes |
+| `strong` | 0.3 | yes |
+| `extreme` | 0.35 | yes |
+
+Any non-zero value also sets `TRAIN_FLAG_TILT` for that variant. Numbers are accepted directly for units that do not sit on the scale, e.g. `tilt: 0.25`. The flag only takes effect when every vehicle in the consist has it, which is how articulated units are built here anyway. The levels are conventions, not OpenTTD constants: OpenTTD's flag already carries a 20% curve-speed bonus, and whether it stacks with `curve_speed_mod` is not documented, so treat the level names as a project-wide scale rather than a claim that `strong` equals a specific total bonus.
 
 ### Example configuration
 

@@ -103,6 +103,90 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(livery_only.power, 2000)
         self.assertEqual(livery_only.properties["weight"], "200 ton")
 
+    def test_tilt_level_sets_curve_speed_mod_and_flag(self):
+        """A named tilt level drives both curve_speed_mod and TRAIN_FLAG_TILT."""
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+
+        for level, expected in (("modest", "0.2"), ("strong", "0.3"), ("extreme", "0.35")):
+            variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+                vehicle, Livery("Blue", tilt=level), Profile("Default"), VehicleType.TRAIN
+            )
+            variant.process()
+            self.assertEqual(variant.properties["curve_speed_mod"], expected)
+            self.assertEqual(variant.properties["misc_flags"], "bitmask(TRAIN_FLAG_TILT)")
+
+    def test_tilt_none_omits_curve_speed_mod(self):
+        """'none' is a deliberate zero: no modifier, no flag."""
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Blue", tilt="none"), Profile("Default"), VehicleType.TRAIN
+        )
+        variant.process()
+
+        self.assertEqual(variant.properties["curve_speed_mod"], "0")
+        self.assertNotIn("misc_flags", variant.properties)
+
+    def test_tilt_accepts_a_numeric_curve_speed_mod(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Blue", tilt=0.25), Profile("Default"), VehicleType.TRAIN
+        )
+        variant.process()
+
+        self.assertEqual(variant.properties["curve_speed_mod"], "0.25")
+        self.assertEqual(variant.properties["misc_flags"], "bitmask(TRAIN_FLAG_TILT)")
+
+    def test_tilt_is_resolved_profile_first_like_other_statistics(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example", tilt="basic")
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle,
+            Livery("Blue", tilt="strong"),
+            Profile("Default", tilt="modest"),
+            VehicleType.TRAIN,
+        )
+        variant.process()
+
+        self.assertEqual(variant.properties["curve_speed_mod"], "0.2")
+
+    def test_unknown_tilt_level_is_rejected(self):
+        from Vehicle.Translator.Tilt import resolve_tilt
+
+        with self.assertRaises(ValueError):
+            resolve_tilt("very tilty")
+
+    def test_tram_flag_is_kept_when_a_tram_tilts(self):
+        """The tilt handler must not overwrite the tram flag handleBasicProperties set."""
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Example Tram")
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Blue", tilt="modest"), Profile("Default"), VehicleType.TRAM
+        )
+        variant.process()
+
+        self.assertEqual(
+            variant.properties["misc_flags"],
+            "bitmask(ROADVEH_FLAG_TRAM, TRAIN_FLAG_TILT)",
+        )
+
     def test_generated_spriteset_references_existing_png(self):
         with tempfile.TemporaryDirectory() as folder:
             project_root = Path(folder)
