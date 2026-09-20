@@ -150,6 +150,7 @@ class VehicleSpriteAllocator:
 			)
 
 		self.cursor = 0
+		self._assigned_rows: dict[tuple[str, str], list[tuple[Spriteset, TemplateDefinition]]] = {}
 		self._spritesets: dict[tuple[str, str], list[Spriteset]] = {}
 		self._template_names: dict[tuple[str, str], list[str]] = {}
 		self._lengths: dict[tuple[str, str], list[int]] = {}
@@ -162,13 +163,23 @@ class VehicleSpriteAllocator:
 		`tmpl_train_6`) each corresponding spriteset was matched against, for the writer
 		to call verbatim instead of guessing one from an articulation role. `lengths` are
 		the matched templates' own `length` (1-8), for the per-variant `length` callback.
+
+		A profile declaring `sprite_group: <profile identifier>` reuses the rows already
+		assigned to that profile's matching livery instead of consuming its own, so two
+		profiles that differ only in statistics (e.g. a unit whose service speed changed
+		after a modification) need one set of drawings, not two.
 		"""
 		key = (str(profile.identifier), str(livery.name))
 
 		if key not in self._spritesets:
 			group = _build_group(profile, livery, self.vehicle, self.is_ohle)
-			group_slice = self.vehicle_rows[self.cursor:self.cursor + group.group_size]
-			self.cursor += group.group_size
+			source = getattr(profile, "sprite_group", None)
+			if source and str(source) != str(profile.identifier):
+				group_slice = self._shared_rows(profile, livery, source)
+			else:
+				group_slice = self.vehicle_rows[self.cursor:self.cursor + group.group_size]
+				self.cursor += group.group_size
+				self._assigned_rows[key] = group_slice
 
 			if len(group_slice) < group.group_size:
 				raise ValueError(
@@ -182,6 +193,30 @@ class VehicleSpriteAllocator:
 			self._lengths[key] = [group_slice[position - 1][1].length for position in group.pattern]
 
 		return self._spritesets[key], self._template_names[key], self._lengths[key]
+
+	def _shared_rows(self, profile: Profile, livery: Livery, source: str) -> list:
+		"""Return the rows assigned to the profile named by this profile's `sprite_group`."""
+		source_key = (str(source), str(livery.name))
+
+		if source_key not in self._assigned_rows:
+			base = next(
+				(
+					other
+					for other in self.vehicle.profiles
+					if str(other.identifier) == str(source)
+				),
+				None,
+			)
+			if base is None:
+				raise ValueError(
+					f"'{profile.identifier}' declares sprite_group '{source}', which is not a "
+					f"profile of {self.vehicle.identifier}."
+				)
+			# Resolve the source group so its rows exist, whichever order the iterator
+			# asks for the two profiles in.
+			self.get(base, livery)
+
+		return self._assigned_rows[source_key]
 
 	def get_purchase(
 		self,

@@ -222,6 +222,13 @@ class Variant:
         if design is None or service is None or float(design) == float(service):
             return
 
+        if design < service:
+            logger.warning(
+                "%s has a design speed lower than its service speed (%s < %s mph)",
+                self.identifier,
+                design,
+                service,
+            )
         self.callbacks["speed"] = self._speed_selector(design, service)
 
     @staticmethod

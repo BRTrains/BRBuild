@@ -178,7 +178,9 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `size`: Relative length/size modifier.
     *   `capacity`: Cargo capacity.
     *   `power`: Power in hp for this profile; overrides the vehicle-level `stats.power`.
+    *   `speed`, `design_speed`: Speeds in mph for this profile; override the vehicle-level `stats.speed` and `stats.design_speed`.
     *   `weight`: Weight in metric tons for this profile; overrides the vehicle-level `stats.weight`.
+    *   `introduction_date`: Date when this profile becomes available; overrides the vehicle-level `dates.introduction_date`.
     *   `tilt`: Tilt strength for this profile, as a named level or a number.
     *   `cargo`: Cargo preset or classes for this profile, overriding the vehicle's `cargo`.
     *   `special_tags`: List of custom tags triggering special badges for this profile's variants.

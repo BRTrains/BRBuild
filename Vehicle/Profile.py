@@ -12,10 +12,13 @@ class Profile:
     num_vehicles: Optional[int] = None
     sprite_override: Optional[List[int]] = None
     sprite_exclude: Optional[List[int]] = None
+    sprite_group: Optional[str] = None
     capacity: Optional[int] = None
     power: Optional[int] = None
+    speed: Optional[int] = None
     design_speed: Optional[int] = None
     weight: Optional[float] = None
+    introduction_date: Optional[Union[str, int]] = None
     tilt: Optional[Union[str, float]] = None
     sound_effect: Optional[str] = None
     visual_effect: Optional[str] = None

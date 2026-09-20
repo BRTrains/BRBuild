@@ -547,6 +547,86 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(variant.properties["speed"], "140 mph")
         self.assertNotIn("speed", variant.callbacks)
 
+    def test_a_profile_can_share_another_profiles_sprite_rows(self):
+        """`sprite_group` lets two profiles use one set of drawings, not two."""
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        from Vehicle.VariantSpriteGroups import VehicleSpriteAllocator
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.yaml_path = "/tmp/example/example.yaml"
+        livery = Livery("Default")
+        before = Profile("before", num_vehicles=3)
+        after = Profile("after", num_vehicles=3, sprite_group="before")
+        vehicle.profiles = [before, after]
+        vehicle.liveries = [livery]
+
+        rows = [(SimpleNamespace(name=f"row{index}"), SimpleNamespace(name=f"tmpl_train_6", length=4))
+                for index in range(1, 4)]
+
+        def fake_init(self, vehicle, palette, definitions):
+            self.vehicle = vehicle
+            self.is_ohle = False
+            self._image = None
+            self._palette = palette
+            self.vehicle_rows = rows
+            self.cursor = 0
+            self._assigned_rows = {}
+            self._spritesets = {}
+            self._template_names = {}
+            self._lengths = {}
+
+        with patch.object(VehicleSpriteAllocator, "__init__", fake_init):
+            allocator = VehicleSpriteAllocator(vehicle, [], [])
+
+        before_sets, _, _ = allocator.get(before, livery)
+        after_sets, _, _ = allocator.get(after, livery)
+
+        # Same drawings for both, and the sheet was only consumed once.
+        self.assertEqual(before_sets, after_sets)
+        self.assertEqual(allocator.cursor, 3)
+
+    def test_a_profile_can_override_the_introduction_date(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.speed = 75
+        vehicle.introduction_date = "1990-08-01"
+        profile = Profile("late", introduction_date="2010-01-01", speed=90, design_speed=75)
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Default"), profile, VehicleType.TRAIN
+        )
+        variant.process()
+
+        self.assertEqual(variant.properties["introduction_date"], "2010-01-01")
+        self.assertEqual(variant.properties["speed"], "90 mph")
+        self.assertEqual(variant.callbacks["speed"], "param_speed_mode == 1 ? 75 : 90")
+
+    def test_a_design_speed_below_the_service_speed_is_logged(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.speed = 75
+        profile = Profile("late", speed=90, design_speed=75)
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Default"), profile, VehicleType.TRAIN
+        )
+
+        with self.assertLogs("Vehicle.Variant", level="WARNING") as captured:
+            variant.process()
+
+        self.assertTrue(
+            any("design speed lower than its service speed" in line for line in captured.output)
+        )
+
     def test_variant_groups_liveries_under_profile(self):
         class Profile:
             def __init__(self, identifier):
