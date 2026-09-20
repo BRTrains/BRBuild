@@ -15,4 +15,5 @@ class Livery:
     tilt: Optional[Union[str, float]] = None
     sound_effect: Optional[str] = None
     visual_effect: Optional[str] = None
+    nml_override: Optional[dict] = None
     special_tags: Optional[List[str]] = None

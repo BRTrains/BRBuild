@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any, Dict
 
@@ -13,6 +14,41 @@ from Vehicle import Livery, Profile, Vehicle
 
 
 class VehicleLoader:
+    #: Graphics callback names a candidate may point at its own NML. These are the keys
+    #: the collator/`graphics {}` block accepts; an unknown name is a typo that would
+    #: otherwise emit an unrecognised callback and abort the GRF compile much later.
+    NML_OVERRIDE_CALLBACKS = frozenset(
+        {
+            "default",
+            "purchase",
+            "rotor",
+            "random_trigger",
+            "cargo_subtype_text",
+            "additional_text",
+            "colour_mapping",
+            "start_stop",
+            "every_32_days",
+            "sound_effect",
+            "articulated_part",
+            "can_attach_wagon",
+            "refit_cost",
+            "create_effect",
+            "reverse_build_probability",
+            "refit",
+            "loading_speed",
+            "speed",
+            "cost_factor",
+            "running_cost_factor",
+            "cargo_age_period",
+            "cargo_capacity",
+            "passenger_capacity",
+            "mail_capacity",
+            "range",
+            "visual_effect_and_powered",
+            "visual_effect",
+        }
+    )
+
     @staticmethod
     def load(path: str) -> Vehicle:
         with open(path, "r") as f:
@@ -102,10 +138,48 @@ class VehicleLoader:
             engine_class=data.get("engine_class") or stats.get("engine_class"),
 
             special_tags = data.get("special_tags", {}),
+            nml_override=VehicleLoader._parse_nml_override(data.get("nml_override"), path),
 
             profiles=profiles,
             liveries=liveries,
         )
+
+    @staticmethod
+    def _parse_nml_override(raw: Any, where: str) -> Dict[str, str] | None:
+        """Validate an `nml_override` block: graphics callback name -> NML target.
+
+        The value is emitted verbatim as the callback's target, so it is normally the
+        name of a switch declared in the candidate's own `.pnml` file. A typo in the
+        callback name would otherwise produce a silent no-op, so names are checked here
+        and an unknown one fails the load.
+        """
+        if raw is None:
+            return None
+        if not isinstance(raw, dict):
+            raise ValueError(f"'nml_override' in {where} must be a mapping of callback name to NML target")
+
+        parsed: Dict[str, str] = {}
+        for name, value in raw.items():
+            callback = str(name).strip()
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", callback):
+                raise ValueError(f"'nml_override' in {where} has an invalid callback name {name!r}")
+            if callback not in VehicleLoader.NML_OVERRIDE_CALLBACKS:
+                known = ", ".join(sorted(VehicleLoader.NML_OVERRIDE_CALLBACKS))
+                raise ValueError(
+                    f"'nml_override' in {where} sets unknown callback '{callback}'. "
+                    f"Known callbacks: {known}"
+                )
+            if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+                raise ValueError(
+                    f"'nml_override.{callback}' in {where} must be an NML switch or expression, "
+                    f"got {value!r}"
+                )
+            target = str(value).strip()
+            if not target:
+                raise ValueError(f"'nml_override.{callback}' in {where} must not be empty")
+            parsed[callback] = target
+
+        return parsed or None
 
     @staticmethod
     def _parse_vehicle_type(raw_vehicle_type: Any) -> VehicleType:
@@ -138,6 +212,7 @@ class VehicleLoader:
                 VehicleLoader._parse_vehicle_type(vehicle_type)
                 for vehicle_type in (p.get("types") or [])
             ] or None,
+            nml_override=VehicleLoader._parse_nml_override(p.get("nml_override"), f"profile {identifier}"),
             special_tags=p.get("special_tags"),
         )
 
@@ -158,5 +233,6 @@ class VehicleLoader:
             tilt=lv.get("tilt"),
             sound_effect=lv.get("sound_effect"),
             visual_effect=lv.get("visual_effect"),
+            nml_override=VehicleLoader._parse_nml_override(lv.get("nml_override"), f"livery {name}"),
             special_tags=lv.get("special_tags"),
         )

@@ -219,7 +219,7 @@ class Builder:
 
         for pnml in candidate.get("pnml_files", []):
             logger.debug(f"\tFound manual PNML file: {pnml}")
-            ctx.nml_files.append(pnml)
+            ctx.nml_files.append(self._stage_candidate_nml(pnml, ctx))
 
         for file in candidate.get("files", []):
             logger.debug(f"\tParsing YAML file: {file}")
@@ -298,6 +298,18 @@ class Builder:
                     return
 
                 ctx.successful_variants.append(variant)
+
+    @staticmethod
+    def _stage_candidate_nml(pnml_path: str, ctx: BuildContext) -> str:
+        """Copy a candidate's own `.pnml` into the build's working NML folder.
+
+        Hand-written NML refers to images (and other files) relative to itself, so the
+        source file is never compiled in place: a copy is staged beside the generated
+        files with its quoted paths rewritten, exactly as project-level custom NML is.
+        """
+        source = Path(pnml_path)
+        destination = Path(ctx.nml_output_folder) / "candidate_nml" / source.name
+        return NmlCollator().copy_supplied_nml(source, destination, ctx.project.path)
 
     @staticmethod
     def _ingest_new_spritesheet(vehicle, ctx: BuildContext) -> bool:
@@ -496,6 +508,8 @@ class Builder:
             ctx.project.name,
             custom_nml_folder,
             ctx.project.path,
+            candidates_root=ctx.project.path,
+            staged_candidate_nml=Path(ctx.nml_output_folder) / "candidate_nml",
         )
         logger.info(f"NML collation complete: {ctx.nml_filepath}")
 

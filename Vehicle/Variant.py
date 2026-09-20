@@ -43,6 +43,7 @@ class Variant:
         self.length_switch_name = None
         self.articulated_switch_name = None
         self.articulated_count = None
+        self.nml_override: dict = {}
 
         self.identifier = None
         self.nml_filename = None
@@ -66,6 +67,7 @@ class Variant:
             self.handleAdditionalText,
             self.handleSprites,
             self.handleMiscFlags,
+            self.handleNmlOverride,
         ]
 
         for stage in stages:
@@ -377,11 +379,18 @@ class Variant:
         same underlying Spriteset can be reused by multiple variants (e.g. the same
         livery across train/tram types), so names are generated here from this
         variant's own identifier rather than reused from the shared Spriteset objects.
+
+        A callback listed in `nml_override` keeps the candidate's own target instead:
+        the generated switch for it is not emitted, so a unit that supplies its own NML
+        gets its chain referenced rather than shadowed.
         """
         if not self.spritesets:
             return
 
-        self.sprite_switch_name = f"sw_{self.identifier}"
+        overridden = self.nml_override_callbacks()
+
+        if "default" not in overridden:
+            self.sprite_switch_name = f"sw_{self.identifier}"
 
         name_by_spriteset: dict[int, str] = {}
         self.spriteset_names = []
@@ -391,15 +400,42 @@ class Variant:
                 name_by_spriteset[key] = f"spriteset_{self.identifier}_{len(name_by_spriteset)}"
             self.spriteset_names.append(name_by_spriteset[key])
 
-        self.callbacks["default"] = self.sprite_switch_name
+        if "default" not in overridden:
+            self.callbacks["default"] = self.sprite_switch_name
 
-        if self.sprite_lengths:
+        if self.sprite_lengths and "length" not in overridden:
             self.length_switch_name = f"sw_{self.identifier}_length"
             self.callbacks["length"] = self.length_switch_name
 
         if self.purchase_spriteset is not None:
             self.purchase_spriteset_name = f"spriteset_{self.identifier}_purchase"
-            self.callbacks["purchase"] = self.purchase_spriteset_name
+            if "purchase" not in overridden:
+                self.callbacks["purchase"] = self.purchase_spriteset_name
+
+    def nml_override_callbacks(self) -> set[str]:
+        """Callback names this variant's YAML supplies itself, via `nml_override`."""
+        return set(self.resolve_nml_override())
+
+    def resolve_nml_override(self) -> dict:
+        """Merge `nml_override` blocks vehicle first, then profile, then livery.
+
+        Later sources win, matching how per-variant statistics resolve, so a livery can
+        point one of its own variants at a different switch than the profile does.
+        """
+        merged: dict[str, str] = {}
+        for source in (self.vehicle, self.profile, self.livery):
+            merged.update(getattr(source, "nml_override", None) or {})
+        return merged
+
+    def handleNmlOverride(self):
+        """Apply `nml_override` last so a supplied target beats a generated callback.
+
+        The target is emitted verbatim, so this is the "just use this switch and don't
+        generate one" escape hatch for a unit whose graphics chain BRBuild cannot model.
+        """
+        self.nml_override = self.resolve_nml_override()
+        for callback, target in self.nml_override.items():
+            self.callbacks[callback] = target
 
     def handleArticulated(self):
         count = self.get_attr("num_vehicles")

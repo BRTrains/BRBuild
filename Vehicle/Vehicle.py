@@ -55,6 +55,7 @@ class Vehicle:
     engine_class: Optional[str] = None
 
     special_tags: Optional[list] = None
+    nml_override: Optional[dict] = None
 
     profiles: List[Profile] = field(default_factory=list)
     liveries: List[Livery] = field(default_factory=list)

@@ -188,6 +188,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `loading_speed`: Base speed for loading cargo.
     *   `sound effect`: Custom sound effect string.
     *   `special_tags`: List of custom tags triggering special badges for all variants (e.g., `["express", "high-speed"]`).
+    *   `nml_override`: Point one of the vehicle's graphics callbacks at a hand-written switch instead of the generated one (see "Integrating custom NML" below).
 
 Statistical fields that appear on both a profile and a livery are resolved per variant: the profile wins, then the livery, then the vehicle. Use them when one formation or operator really differs — for example a longer multiple unit whose extra vehicles add power and weight.
 
@@ -287,9 +288,33 @@ liveries:
 
 ## 5. Integrating Custom PNML Files
 
-If a vehicle candidate folder contains `.pnml` files (e.g., `Thomas.pnml` alongside `Thomas.yaml`), BRBuild will automatically discover them and prepend them to the generated NML sources (just before the YAML-generated code).
+If a vehicle candidate folder contains `.pnml` files (e.g., `Thomas.pnml` alongside `Thomas.yaml`), BRBuild will automatically discover them and collate them into the generated NML **before** the vehicle's own generated blocks, so the candidate's switches and spritesets are in scope whenever its item references them.
 
-This is useful for writing custom graphics overrides, callbacks, or advanced logic blocks that cannot be fully described in YAML.
+A project can also keep NML that is not tied to a candidate in `<grf_folder>/custom_nml/`; every file below that folder is collated into the same place.
+
+Either way the file is staged into `WorkingData/<project>/` and copied rather than compiled in place, and the quoted paths inside it are rewritten to absolute paths resolved against the file's own folder first, then the project root. That is what lets a candidate `.pnml` address its images the way the artist wrote them:
+
+```nml
+spriteset(spriteset_container_0, "Container.png") { tmpl_train_8(0, 0) }
+```
+
+Collation order is: GRF header and parameters, the `template` blocks, project-level `custom_nml`, candidate `.pnml` files, the badge table, then the generated per-variant blocks. NML resolves identifiers before generating output, so a hand-written file must still declare its own symbols in dependency order (leaves first, entry switch last).
+
+### Pointing a callback at your own NML: `nml_override`
+
+For a unit whose graphics chain the YAML model cannot express — cargo-count or cargo-subtype driven sprites, weighted `random_switch` choices — hand the builder the switch and let it keep out of the way:
+
+```yaml
+nml_override:
+  default: sw_my_unit_root_switch
+```
+
+* The value is emitted verbatim as the callback's target in the item's `graphics {}` block.
+* The callback's own generated switch is **not** generated, so the two cannot shadow each other. Other callbacks (`name`, `length`, `articulated_part`, `purchase`, …) are still generated as usual, and `length`/`articulated_part` can be overridden individually.
+* It may be set on the vehicle, a profile, or a livery; the values merge vehicle first, then profile, then livery, so a livery can point one of its own variants elsewhere.
+* Recognised callback names are validated when the file loads — an unknown or misspelled one fails the build immediately rather than emitting a callback NML will not accept. The keys are the graphics callbacks listed in section 7 (`default`, `purchase`, `colour_mapping`, `cargo_subtype_text`, `create_effect`, `sound_effect`, `refit_cost`, `visual_effect`, …).
+
+This is deliberately an escape hatch, not a second schema: keep the chain in NML, keep the vehicle's data in YAML, and only reach for it when expressing the behaviour as builder fields would not be worth it.
 
 ## 6. Sprite IDs and releases
 
