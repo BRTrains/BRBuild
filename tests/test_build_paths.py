@@ -875,6 +875,83 @@ class BuildPathTests(unittest.TestCase):
                 "12px-box car drawn flush to its box",
             )
 
+    def test_normaliser_lays_views_out_on_the_template_columns(self):
+        """The published sheet must match the template the game reads, not the artist's drift.
+
+        A view drawn 1px off its box, or 1px narrower than it, must not shift the later
+        views in the row: the boxes would then read the 1px white separators and the
+        player sees a white line down one edge.
+        """
+        from types import SimpleNamespace
+        from PIL import Image
+        from Sprites.PalettedImage import PalettedImage
+        from Sprites.Sprite import Sprite
+        from Templates.BoundingBox import BoundingBox
+        from Templates.SpritesheetLegacyConverter import SpritesheetLegacyConverter
+        from Templates.Template import Template
+        from Templates.TemplateDefinition import TemplateDefinition
+        from Templates.TemplateType import TemplateType
+
+        palette = PalettedImage.load_palette("/root/BRBuild/Sprites/ttd-newgrf-dos.gpl")
+
+        def index_of(colour):
+            for index in range(256):
+                if tuple(palette[index * 3:index * 3 + 3]) == colour:
+                    return index
+            raise AssertionError(f"{colour} missing from the palette")
+
+        blue = index_of((0, 0, 255))
+        white = index_of((255, 255, 255))
+
+        # Two views: box 0 is 8 wide, box 1 is 6 wide starting at x=9.
+        boxes = [
+            BoundingBox(0, 0, 8, 10, 0, 0, []),
+            BoundingBox(9, 0, 6, 10, 0, 0, []),
+        ]
+        definition = TemplateDefinition(
+            name="tmpl_two", template_type=TemplateType.VEHICLE, bounding_boxes=boxes
+        )
+
+        # The artist's row: view 0 drawn 1px right of its box and 2px too wide; view 1
+        # 1px narrower than its box.
+        source = Image.new("P", (40, 20))
+        source.putpalette(palette)
+        source.paste(white, (0, 0, 40, 20))
+        for y in range(0, 10):
+            for x in range(1, 10):        # art for view 0, at x=1..9
+                source.putpixel((x, y), index_of((16, 16, 16)))
+            for x in range(11, 16):       # art for view 1, at x=11..15
+                source.putpixel((x, y), index_of((160, 0, 0)))
+
+        row = SimpleNamespace(
+            x=0,
+            y=0,
+            template=Template(
+                name="measured",
+                sprites=[Sprite(1, 0, 9, 10, 0, 0), Sprite(11, 0, 5, 10, 0, 0)],
+            ),
+        )
+        extractor = SimpleNamespace(image=source)
+
+        converted = SpritesheetLegacyConverter([definition], palette)._rebuild_clean_sheet(
+            extractor, [(row, definition)]
+        )
+
+        self.assertEqual(converted.width, 15, "the sheet must be the template's own extent")
+        self.assertEqual(converted.height, 10)
+
+        def is_white(x, y):
+            return all(channel >= 250 for channel in converted.convert("RGB").getpixel((x, y)))
+
+        # No blank column inside either box: the art fills its box from the left edge.
+        for x in (0, 7, 9, 14):
+            self.assertFalse(
+                all(is_white(x, y) for y in range(10)),
+                f"box column x={x} is blank, so the game would draw a white line there",
+            )
+        # The box's trailing column, past the shorter art, is transparent rather than white.
+        self.assertEqual(converted.getpixel((14, 0)), blue)
+
     def test_variant_groups_liveries_under_profile(self):
         class Profile:
             def __init__(self, identifier):
