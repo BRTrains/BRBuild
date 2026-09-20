@@ -187,6 +187,162 @@ class BuildPathTests(unittest.TestCase):
             "bitmask(ROADVEH_FLAG_TRAM, TRAIN_FLAG_TILT)",
         )
 
+    def _variant(self, power_type=None, **kwargs):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example", **kwargs)
+        if power_type is not None:
+            vehicle.power_type = power_type
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Blue"), Profile("Default"), VehicleType.TRAIN
+        )
+        variant.process()
+        return variant
+
+    def test_gas_turbine_is_self_powered_and_quiet(self):
+        """Gas turbine does not exist in OpenTTD: approximated as self-powered diesel."""
+        from Badge import BadgeRegistry
+        from PropertyCalculation.FuelType import FuelType
+        from PropertyCalculation.PowerTypeClassifier import PowerTypeClassifier
+
+        BadgeRegistry().clear()
+        variant = self._variant(power_type=["gas_turbine"], power=2700, speed=152)
+
+        self.assertEqual(variant.fuel_type, FuelType.GAS_TURBINE)
+        self.assertEqual(variant.properties["engine_class"], "ENGINE_CLASS_DIESEL")
+        self.assertEqual(
+            variant.properties["visual_effect_and_powered"],
+            "visual_effect_and_powered(VISUAL_EFFECT_DISABLE, 0, DISABLE_WAGON_POWER)",
+        )
+        self.assertIn("Power/Gas_turbine", BadgeRegistry().badges())
+        # A self-powered unit needs no catenary.
+        self.assertFalse(PowerTypeClassifier.is_ohle(["gas_turbine"]))
+
+    def test_hydrogen_keeps_electric_traction_but_no_particles(self):
+        from PropertyCalculation.FuelType import FuelType
+
+        variant = self._variant(power_type=["hydrogen"], power=1438, speed=75)
+
+        self.assertEqual(variant.fuel_type, FuelType.HYDROGEN)
+        self.assertEqual(variant.properties["engine_class"], "ENGINE_CLASS_ELECTRIC")
+        self.assertEqual(
+            variant.properties["visual_effect_and_powered"],
+            "visual_effect_and_powered(VISUAL_EFFECT_DISABLE, 0, DISABLE_WAGON_POWER)",
+        )
+
+    def test_battery_matches_hydrogen_presentation(self):
+        from PropertyCalculation.FuelType import FuelType
+
+        variant = self._variant(power_type=["battery"], power=1000, speed=75)
+
+        self.assertEqual(variant.fuel_type, FuelType.BATTERY)
+        self.assertEqual(variant.properties["engine_class"], "ENGINE_CLASS_ELECTRIC")
+        self.assertEqual(
+            variant.properties["visual_effect_and_powered"],
+            "visual_effect_and_powered(VISUAL_EFFECT_DISABLE, 0, DISABLE_WAGON_POWER)",
+        )
+
+    def test_ordinary_fuels_get_no_visual_effect_override(self):
+        """Diesel and electric already match their engine class default."""
+        for power_type in (["diesel"], ["electric"], ["steam"]):
+            variant = self._variant(power_type=power_type, power=1000, speed=100)
+            self.assertNotIn(
+                "visual_effect_and_powered",
+                variant.properties,
+                f"{power_type} should not need an override",
+            )
+
+    def test_gas_turbine_costs_more_to_run_than_diesel(self):
+        diesel = self._variant(power_type=["diesel"], power=2700, speed=152)
+        turbine = self._variant(power_type=["gas_turbine"], power=2700, speed=152)
+
+        self.assertGreater(
+            turbine.callbacks["running_cost_factor"], diesel.callbacks["running_cost_factor"]
+        )
+        self.assertGreater(
+            turbine.callbacks["cost_factor"], diesel.callbacks["cost_factor"]
+        )
+
+    def test_explicit_engine_class_wins_over_the_fuel_default(self):
+        variant = self._variant(
+            power_type=["hydrogen"], power=1438, speed=75, engine_class="ENGINE_CLASS_DIESEL"
+        )
+
+        self.assertEqual(variant.properties["engine_class"], "ENGINE_CLASS_DIESEL")
+
+    def test_explicit_sound_and_visual_effect_are_emitted(self):
+        variant = self._variant(
+            power_type=["hydrogen"],
+            power=1438,
+            speed=75,
+            sound_effect="SOUND_DEPARTURE_TRAIN",
+            visual_effect="VISUAL_EFFECT_ELECTRIC",
+        )
+
+        self.assertEqual(variant.callbacks["sound_effect"], "SOUND_DEPARTURE_TRAIN")
+        self.assertEqual(
+            variant.properties["visual_effect_and_powered"],
+            "visual_effect_and_powered(VISUAL_EFFECT_ELECTRIC, 0, DISABLE_WAGON_POWER)",
+        )
+
+    def test_road_vehicle_uses_the_plain_visual_effect_property(self):
+        """Only trains use the _and_powered form of the property."""
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(
+            folder_path=".",
+            identifier="example",
+            name="Example Tram",
+            power_type=["hydrogen"],
+            power=500,
+            speed=45,
+        )
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Blue"), Profile("Default"), VehicleType.TRAM
+        )
+        variant.process()
+
+        self.assertEqual(
+            variant.properties["visual_effect"], "visual_effect(VISUAL_EFFECT_DISABLE, 0)"
+        )
+        self.assertNotIn("visual_effect_and_powered", variant.properties)
+
+    def test_sound_and_effect_are_read_from_the_stats_block_too(self):
+        """Authoring sound_effect under `stats` must still give a vehicle-level value."""
+        import tempfile
+        import textwrap
+        from YamlHandler.VehicleLoader import VehicleLoader
+
+        document = textwrap.dedent(
+            """
+            info:
+              identifier: example
+              name: Class Example
+            stats:
+              vehicle_type: train
+              train_type: multiple_unit
+              sound_effect: SOUND_DEPARTURE_TRAIN
+              visual_effect: VISUAL_EFFECT_DISABLE
+            """
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "Example.yaml"
+            path.write_text(document, encoding="utf-8")
+            vehicle = VehicleLoader.load(str(path))
+
+        self.assertEqual(vehicle.sound_effect, "SOUND_DEPARTURE_TRAIN")
+        self.assertEqual(vehicle.visual_effect, "VISUAL_EFFECT_DISABLE")
+
+    def test_unusable_sound_effect_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self._variant(
+                power_type=["diesel"], power=1000, speed=100, sound_effect="sw_sound steam!"
+            )
+
     def test_generated_spriteset_references_existing_png(self):
         with tempfile.TemporaryDirectory() as folder:
             project_root = Path(folder)

@@ -14,5 +14,7 @@ class Profile:
     power: Optional[int] = None
     weight: Optional[float] = None
     tilt: Optional[Union[str, float]] = None
+    sound_effect: Optional[str] = None
+    visual_effect: Optional[str] = None
     types: Optional[List[str]] = None
     special_tags: Optional[List[str]] = None

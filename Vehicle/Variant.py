@@ -2,7 +2,15 @@ import re
 import logging
 from Badge import BadgeRegistry
 from Lang.StringRegistry import nml_str
-from PropertyCalculation import CostCalculator, FuelType, Physics, PowerTypeClassifier, TrainType, VehicleType
+from PropertyCalculation import (
+    CostCalculator,
+    FuelDefaults,
+    FuelType,
+    Physics,
+    PowerTypeClassifier,
+    TrainType,
+    VehicleType,
+)
 
 from Vehicle.Translator.PhysicsRules import PhysicsRules
 from Vehicle.Translator.Tilt import MISC_FLAG_TILT, Tilt, resolve_tilt
@@ -23,6 +31,7 @@ class Variant:
 
         self.spritesets = list()
         self.misc_flags = set()
+        self.visual_effect = None
         self.sprite_pattern = list()
         self.sprite_template_names = list()
         self.sprite_lengths = list()
@@ -51,6 +60,7 @@ class Variant:
             self.handleCapacity,
             self.handlePhysics,
             self.handleFuelType,
+            self.handleFuelPresentation,
             self.handleCosts,
             self.handleSpecialTags,
             self.handleAdditionalText,
@@ -201,9 +211,24 @@ class Variant:
         self.misc_flags.add(flag)
 
     def handleMiscFlags(self):
-        """Write the accumulated misc_flags bitmask last, so every stage can add to it."""
+        """Write the accumulated misc_flags bitmask and the visual effect last.
+
+        Both are written here so every earlier stage can contribute to them.
+        """
         if self.misc_flags:
             self.properties["misc_flags"] = f"bitmask({', '.join(sorted(self.misc_flags))})"
+
+        if getattr(self, "visual_effect", None):
+            vehicle_type = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
+            if vehicle_type == "TRAIN":
+                # Trains use the _and_powered form, which always takes three arguments.
+                # Wagon power stays off and the effect offset is 0, so the drawn offset
+                # comes from the sprite template.
+                self.properties["visual_effect_and_powered"] = (
+                    f"visual_effect_and_powered({self.visual_effect}, 0, DISABLE_WAGON_POWER)"
+                )
+            else:
+                self.properties["visual_effect"] = f"visual_effect({self.visual_effect}, 0)"
 
     def handleCapacity(self):
         capacity = self.get_attr("capacity")
@@ -273,6 +298,77 @@ class Variant:
 
     def handleFuelType(self):
         PowerTypeClassifier(self).process()
+
+    def handleFuelPresentation(self):
+        """Give the vehicle the sound and visual effect its fuel warrants.
+
+        The novel fuels (hydrogen, battery, gas turbine) have no OpenTTD equivalent, so
+        their presentation is chosen per fuel in `FuelDefaults`. Only a *deviation* from
+        the engine class's own default is emitted, which keeps the property block on
+        ordinary vehicles unchanged and avoids clashing with an `effect_spawn_model`.
+
+        A vehicle, profile or livery can override either field by setting
+        `sound_effect` or `visual_effect`.
+
+        The effect is staged on `self.visual_effect` and written by `handleMiscFlags`,
+        because NML names the property differently per feature (`visual_effect_and_powered`
+        for trains, `visual_effect` for the others).
+        """
+        fuel = getattr(self, "fuel_type", None)
+        if fuel is not None:
+            default_engine_class = FuelDefaults.engine_class(fuel)
+            default_visual_effect = FuelDefaults.visual_effect(fuel)
+            if (
+                default_visual_effect is not None
+                and default_visual_effect != self._effect_for_engine_class(default_engine_class)
+            ):
+                self.visual_effect = default_visual_effect
+
+        visual_effect = self.get_attr("visual_effect")
+        if visual_effect is not None:
+            self.visual_effect = str(visual_effect)
+
+        sound_effect = self.get_attr("sound_effect")
+        if sound_effect is not None:
+            # `sound_effect` is a graphics callback, not a property: the callback returns
+            # the sound to play (a SOUND_* constant, a sound(...) call, or a switch).
+            self.callbacks["sound_effect"] = self._validate_sound_effect(str(sound_effect))
+
+    @staticmethod
+    def _validate_sound_effect(value: str) -> str:
+        """Reject sound values NML cannot parse, before nmlc reports them obscurely.
+
+        A sound may be a built-in `SOUND_*` constant, a `sound(...)`/`import_sound(...)`
+        call, or a callback switch name declared elsewhere in the collated NML (which is
+        what BRMetro does, e.g. `sw_sound_tram_generic`). An unquoted bare word is almost
+        always a legacy name that means nothing here.
+        """
+        text = value.strip()
+        if not text:
+            raise ValueError("sound_effect must not be empty")
+        if re.fullmatch(r"SOUND_[A-Z0-9_]+", text):
+            return text
+        if re.fullmatch(r"(import_)?sound\(.*\)", text):
+            return text
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", text):
+            return text
+        raise ValueError(
+            f"sound_effect '{value}' is not a SOUND_* constant, a sound(...) call or a "
+            "switch name"
+        )
+
+    @staticmethod
+    def _effect_for_engine_class(engine_class: str | None) -> str | None:
+        """The visual effect OpenTTD applies for an engine class when none is set."""
+        if engine_class is None:
+            return None
+        return {
+            "ENGINE_CLASS_STEAM": "VISUAL_EFFECT_STEAM",
+            "ENGINE_CLASS_DIESEL": "VISUAL_EFFECT_DIESEL",
+            "ENGINE_CLASS_ELECTRIC": "VISUAL_EFFECT_ELECTRIC",
+            "ENGINE_CLASS_MONORAIL": "VISUAL_EFFECT_DISABLE",
+            "ENGINE_CLASS_MAGLEV": "VISUAL_EFFECT_DISABLE",
+        }.get(engine_class)
 
     def handleSprites(self):
         """Wire the per-variant sprite switch into graphics{} if sprites were assigned.

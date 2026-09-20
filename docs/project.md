@@ -156,6 +156,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `speed`: Max speed in mph (integer).
     *   `tractive_effort`: Tractive effort in kN (integer).
     *   `power_type`: List of traction types (e.g., `[steam, coal]`).
+    *   `sound_effect`, `visual_effect`: Override the presentation implied by the traction type (see Traction types below). Also accepted on a profile or a livery.
 *   **`cargo`**:
     *   `cargo_classes`: List of cargo classes the vehicle is capable of carrying.
 *   **`dates`**:
@@ -203,6 +204,41 @@ Statistical fields that appear on both a profile and a livery are resolved per v
 | `extreme` | 0.35 | yes |
 
 Any non-zero value also sets `TRAIN_FLAG_TILT` for that variant. Numbers are accepted directly for units that do not sit on the scale, e.g. `tilt: 0.25`. The flag only takes effect when every vehicle in the consist has it, which is how articulated units are built here anyway. The levels are conventions, not OpenTTD constants: OpenTTD's flag already carries a 20% curve-speed bonus, and whether it stacks with `curve_speed_mod` is not documented, so treat the level names as a project-wide scale rather than a claim that `strong` equals a specific total bonus.
+
+#### Traction types
+
+`power_type` takes one token per traction mode. Two or more tokens make the vehicle bi- or
+tri-mode, which is also what selects the bi-mode and tri-mode cost multipliers.
+
+| Token | Engine class | Notes |
+|---|---|---|
+| `steam` | steam | |
+| `diesel`, `diesel_hydraulic`, `diesel_electric`, `diesel_mechanical` | diesel | |
+| `electric`, `ohle`, `overhead`, `third_rail`, `fourth_rail`, `catenary` | electric | supply forms add delivery/voltage badges; they are not separate modes |
+| `hydrogen` | electric | not an OpenTTD concept: electric traction motors, no catenary needed |
+| `battery` | electric | not an OpenTTD concept: as hydrogen |
+| `gas_turbine` | diesel | not an OpenTTD concept: self-powered, so no catenary, but no diesel-like exhaust |
+
+Several of these have no OpenTTD equivalent, so BRBuild approximates them with the
+mechanics OpenTTD does have (see `PropertyCalculation/FuelDefaults.py` and
+`PropertyCalculation/PowerTypeClassifier.py`):
+
+- **Track**: every train currently uses the project's electric railtype. A self-powered
+  type needs no catenary in reality, but BRBuild has no `track_type` field yet, so that
+  distinction is not expressible.
+- **Costs**: the per-fuel multipliers in `PropertyCalculation/FuelType.py` shape purchase
+  and running cost relative to each other. They are BRBuild conventions rather than
+  OpenTTD values, and are expected to be refined.
+- **Sound**: OpenTTD's built-in sound set has no diesel, electric or turbine entry, so no
+  sound is set by default. Set `sound_effect` on the vehicle, profile or livery to a
+  `SOUND_*` constant, a `sound("file")` from this GRF, or a switch name. It is emitted as
+  the `sound_effect` graphics callback.
+- **Visual effect**: emitted only when the fuel's effect differs from what the engine class
+  already gives. Hydrogen, battery and gas turbine get `VISUAL_EFFECT_DISABLE` because
+  OpenTTD has no water-vapour effect and a self-powered unit should not clag like a diesel.
+  Trains emit `visual_effect_and_powered(...)`, other vehicle types `visual_effect(...)`.
+
+### Example configuration
 
 ### Example configuration
 

@@ -1,5 +1,6 @@
 from typing import List, Set, Any
 from Badge import BadgeRegistry
+from PropertyCalculation.FuelDefaults import FuelDefaults
 from PropertyCalculation.FuelType import FuelType
 from PropertyCalculation.VehicleType import VehicleType
 
@@ -34,15 +35,24 @@ class PowerTypeClassifier:
             self._apply_tram_rule()
             return FuelType.UNPOWERED
 
+        # A traction mode is a distinct way the vehicle makes power: steam, diesel,
+        # hydrogen, battery, gas turbine or an electric supply. Two or more modes make
+        # the vehicle bi-/tri-mode. Electric-only supply distinctions (OHLE, third rail)
+        # are not separate modes.
         modes = 0
         detected_fuels: Set[FuelType] = set()
-        engine_class = None
+        # Preferred engine class. An explicit `engine_class` from the YAML always wins, so
+        # it is tracked separately from the per-fuel defaults explored below. It is
+        # emitted only if the vehicle has one traction mode; multi-mode traction relies on
+        # the per-fuel presentation defaults instead.
+        engine_class = self.variant.get_attr("engine_class")
+        explicit_engine_class = engine_class is not None
 
         # 1. STEAM
         if "STEAM" in tokens:
             modes += 1
             detected_fuels.add(FuelType.STEAM)
-            engine_class = "ENGINE_CLASS_STEAM"
+            engine_class = engine_class or FuelDefaults.engine_class(FuelType.STEAM)
             self._add_badge("Power/Steam")
 
         # 2. DIESEL
@@ -63,19 +73,26 @@ class PowerTypeClassifier:
         if "HYDROGEN" in tokens:
             modes += 1
             detected_fuels.add(FuelType.HYDROGEN)
-            if engine_class is None:
-                engine_class = "ENGINE_CLASS_ELECTRIC"
+            engine_class = engine_class or FuelDefaults.engine_class(FuelType.HYDROGEN)
             self._add_badge("Power/Hydrogen")
 
         # 4. BATTERY
         if "BATTERY" in tokens:
             modes += 1
             detected_fuels.add(FuelType.BATTERY)
-            if engine_class is None:
-                engine_class = "ENGINE_CLASS_ELECTRIC"
+            engine_class = engine_class or FuelDefaults.engine_class(FuelType.BATTERY)
             self._add_badge("Power/Battery")
 
-        # 5. ELECTRIC
+        # 5. GAS TURBINE
+        # Not an OpenTTD concept. Approximated as self-powered with no catenary
+        # requirement, which is what the diesel engine class gives.
+        if any(t in ("GAS_TURBINE", "GAS_TURBINE_ELECTRIC", "TURBINE") for t in tokens):
+            modes += 1
+            detected_fuels.add(FuelType.GAS_TURBINE)
+            engine_class = engine_class or FuelDefaults.engine_class(FuelType.GAS_TURBINE)
+            self._add_badge("Power/Gas_turbine")
+
+        # 6. ELECTRIC
         electric_tokens = {"ELECTRIC", "OHLE", "OVERHEAD", "CATENARY", "3RD_RAIL", "THIRD_RAIL", "4TH_RAIL", "FOURTH_RAIL"}
         has_electric = any(t in tokens for t in electric_tokens) or any(t.startswith("OHLE") or "RAIL" in t for t in tokens)
 
@@ -135,7 +152,10 @@ class PowerTypeClassifier:
         else:
             fuel_enum = FuelType.UNPOWERED
 
-        if engine_class:
+        # An explicit engine class is always emitted verbatim; a per-fuel default is only
+        # used for single-mode traction, because multi-mode vehicles take their livery
+        # colouring and effect from the presentation defaults instead.
+        if engine_class and (explicit_engine_class or modes == 1):
             self.variant.properties["engine_class"] = engine_class
 
         self.variant.fuel_type = fuel_enum

@@ -1,6 +1,14 @@
 from enum import Enum
 
-''' Enumeration for different fuel types, each with associated purchase and running cost multipliers. '''
+''' Enumeration for different fuel types, each with associated purchase and running cost multipliers.
+
+The multipliers are BRBuild conventions, not OpenTTD values: they only set the shape of
+the cost model relative to each other, and can be refined freely.
+
+Some of these fuels are not OpenTTD concepts (hydrogen, battery, gas turbine). They are
+approximated with the mechanics described in `FuelDefaults` and `PowerTypeClassifier`:
+a self-powered type behaves as a diesel for track purposes and needs no catenary.
+'''
 class FuelType(Enum):
     STEAM = (
         1.00,   # purchase_multiplier
@@ -34,7 +42,7 @@ class FuelType(Enum):
 
     HYDROGEN = (
         0.66,
-        0.48,
+        0.56,
         "hydrogen",
     )
 
@@ -42,6 +50,14 @@ class FuelType(Enum):
         0.60,
         0.38,
         "battery",
+    )
+
+    # Gas turbine (the APT-E): a one-off specialist machine, so dearer to buy than a
+    # diesel of the same output and appreciably thirstier to run, but cheaper than steam.
+    GAS_TURBINE = (
+        0.62,
+        0.62,
+        "gas_turbine",
     )
 
     UNPOWERED = (

@@ -4,6 +4,7 @@ Expose small helper classes used across the project.
 """
 
 from .CostCalculator import CostCalculator
+from .FuelDefaults import FuelDefaults
 from .FuelType import FuelType
 from .Physics import Physics
 from .PowerTypeClassifier import PowerTypeClassifier
@@ -13,6 +14,7 @@ from .WagonType import WagonType
 
 __all__ = [
 	"CostCalculator",
+	"FuelDefaults",
 	"FuelType",
 	"PowerTypeClassifier",
 	"WagonType",

@@ -51,6 +51,8 @@ class Vehicle:
     cargo_age_period: Optional[int] = None
     loading_speed: Optional[int] = None
     sound_effect: Optional[str] = None
+    visual_effect: Optional[str] = None
+    engine_class: Optional[str] = None
 
     special_tags: Optional[list] = None
 

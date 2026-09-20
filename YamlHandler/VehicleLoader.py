@@ -100,7 +100,11 @@ class VehicleLoader:
             vehicle_life=data.get("vehicle_life"),
             cargo_age_period=data.get("cargo_age_period"),
             loading_speed=data.get("loading_speed"),
-            sound_effect=data.get("sound effect"),
+            # Accept either the root or `stats` block, since authoring one way and
+            # meaning the other is an easy mistake and both are read as vehicle-level.
+            sound_effect=data.get("sound_effect") or stats.get("sound_effect"),
+            visual_effect=data.get("visual_effect") or stats.get("visual_effect"),
+            engine_class=data.get("engine_class") or stats.get("engine_class"),
 
             special_tags = data.get("special_tags", {}),
 
@@ -124,6 +128,8 @@ class VehicleLoader:
             power=p.get("power"),
             weight=p.get("weight"),
             tilt=p.get("tilt"),
+            sound_effect=p.get("sound_effect"),
+            visual_effect=p.get("visual_effect"),
             types=p.get("types"),
             special_tags=p.get("special_tags"),
         )
@@ -143,5 +149,7 @@ class VehicleLoader:
             power=lv.get("power"),
             weight=lv.get("weight"),
             tilt=lv.get("tilt"),
+            sound_effect=lv.get("sound_effect"),
+            visual_effect=lv.get("visual_effect"),
             special_tags=lv.get("special_tags"),
         )
