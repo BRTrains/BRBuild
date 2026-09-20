@@ -40,6 +40,37 @@ class BuildPathTests(unittest.TestCase):
             self.assertTrue(Path(output).is_file())
             self.assertFalse((Path.cwd() / "Build" / "Example.nml").is_file())
 
+    def test_operator_badge_is_declared_in_the_badge_table(self):
+        """info.operator must register its badge string, not just reference it.
+
+        NML only accepts badge literals declared in the badge table, so appending the
+        operator badge without registering it aborts the whole GRF compile.
+        """
+        from Badge import BadgeRegistry
+        from Lang.StringRegistry import _registry
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        BadgeRegistry().clear()
+        vehicle = Vehicle(
+            folder_path=".",
+            identifier="example",
+            name="Class Example",
+            operator="Avanti West Coast",
+        )
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle,
+            Livery("Blue"),
+            Profile("Passenger", name="Passenger"),
+            VehicleType.TRAIN,
+        )
+        variant.process()
+
+        self.assertIn("Operator/Avanti West Coast", BadgeRegistry().badges())
+        self.assertIn("STR_BADGE_OPERATOR_AVANTI_WEST_COAST", _registry)
+        self.assertIn('"Operator/Avanti West Coast"', variant.properties["badges"])
+
     def test_generated_spriteset_references_existing_png(self):
         with tempfile.TemporaryDirectory() as folder:
             project_root = Path(folder)

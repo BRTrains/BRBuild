@@ -224,7 +224,11 @@ class Variant:
 
         operator = self.get_attr("operator")
         if operator:
-            self.badges.append(f"Operator/{operator}")
+            # Route the operator badge through the registry so its name string exists in
+            # the badge table; NML only accepts badge literals declared there.
+            badge = BadgeRegistry().add_badge(f"Operator/{operator}")
+            if badge not in self.badges:
+                self.badges.append(badge)
 
         if self.badges:
             badges_formatted = ", ".join(f'"{b}"' for b in self.badges)
