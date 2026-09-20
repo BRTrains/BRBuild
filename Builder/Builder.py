@@ -1,6 +1,5 @@
 import time
 import logging
-import re
 import shutil
 from pathlib import Path
 
@@ -218,16 +217,6 @@ class Builder:
     def _process_candidate(self, candidate, ctx: BuildContext):
         logger.info(f"Processing candidate: {candidate.get('name')}")
 
-        for pnml in candidate.get("pnml_files", []):
-            logger.debug(f"\tFound manual PNML file: {pnml}")
-            # Keyed by the candidate folder's identifier form, which is the prefix of its
-            # generated variant filenames, so the collator can write this NML immediately
-            # before the blocks it belongs to.
-            key = re.sub(r"[^a-z0-9_]", "_", str(candidate.get("name", "")).lower())
-            ctx.vehicle_nml_files.setdefault(key, []).append(
-                self._stage_candidate_nml(pnml, ctx)
-            )
-
         for file in candidate.get("files", []):
             logger.debug(f"\tParsing YAML file: {file}")
             vehicle = VehicleLoader.load(file)
@@ -235,6 +224,16 @@ class Builder:
                 f"\tLoaded vehicle: {vehicle.name} with identifier {vehicle.identifier}, "
                 f"{len(vehicle.profiles)} profiles, and {len(vehicle.liveries)} liveries."
             )
+
+            # A candidate folder's own NML is keyed by its loaded vehicle identifier (not the
+            # folder name, which need not match it) so the collator can place it immediately
+            # before the blocks of the vehicle that uses it.
+            for pnml in candidate.get("pnml_files", []):
+                logger.debug(f"\tFound manual PNML file: {pnml}")
+                staged = self._stage_candidate_nml(pnml, ctx)
+                files_for_vehicle = ctx.vehicle_nml_files.setdefault(vehicle.identifier, [])
+                if staged not in files_for_vehicle:
+                    files_for_vehicle.append(staged)
 
             ingested_new_spritesheet = self._ingest_new_spritesheet(vehicle, ctx)
             has_spritesheet = bool(vehicle.spritesheet_path) and Path(vehicle.spritesheet_path).is_file()
@@ -292,6 +291,7 @@ class Builder:
                     variant_writer = NmlVariantWriter(variant, ctx.nml_output_folder)
                     nml_file = variant_writer.write()
                     ctx.nml_files.append(nml_file)
+                    ctx.variant_owners[str(nml_file)] = vehicle.identifier
                     ctx.sprite_id_registry.mark_written(assignment)
                     ctx.sprite_id_registry.archive_variant(
                         assignment,
@@ -518,6 +518,7 @@ class Builder:
             candidates_root=ctx.project.path,
             staged_candidate_nml=Path(ctx.nml_output_folder) / "candidate_nml",
             vehicle_nml_files=ctx.vehicle_nml_files,
+            variant_owners=ctx.variant_owners,
         )
         logger.info(f"NML collation complete: {ctx.nml_filepath}")
 

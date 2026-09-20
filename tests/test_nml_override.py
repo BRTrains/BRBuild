@@ -192,6 +192,7 @@ class NmlOverrideTests(unittest.TestCase):
                 candidates_root=project_root,
                 staged_candidate_nml=working / "candidate_nml",
                 vehicle_nml_files={"example": [staged]},
+                variant_owners={str(example_item.resolve()): "example", str(other_item.resolve()): "other"},
             )
             text = Path(collated).read_text(encoding="utf-8")
 

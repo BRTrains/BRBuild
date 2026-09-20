@@ -22,6 +22,7 @@ class NmlCollator:
         candidates_root=None,
         staged_candidate_nml=None,
         vehicle_nml_files=None,
+        variant_owners=None,
     ):
         """Collate every NML block into one file.
 
@@ -105,17 +106,11 @@ class NmlCollator:
 
             # 3. Each vehicle's own NML, immediately before its generated blocks.
             written_vehicle_nml: set[str] = set()
+            owners = {str(Path(path).resolve()): owner for path, owner in (variant_owners or {}).items()}
             for file in variant_files:
-                identifier = Path(file).name.split("_", 1)
-                vehicle_key = None
-                if len(identifier) == 2:
-                    for key in per_vehicle:
-                        if Path(file).name.startswith(f"{key}_"):
-                            vehicle_key = key
-                            break
-
-                if vehicle_key is not None:
-                    for pnml in per_vehicle[vehicle_key]:
+                owner = owners.get(file)
+                if owner is not None:
+                    for pnml in per_vehicle.get(str(owner), []):
                         if pnml in written_vehicle_nml:
                             continue
                         logger.debug(f"Collating vehicle NML file: {pnml}")

@@ -23,3 +23,4 @@ class BuildContext:
     release: bool = False
     pending_sprite_ingests: list = field(default_factory=list)
     vehicle_nml_files: dict[str, list[str]] = field(default_factory=dict)
+    variant_owners: dict[str, str] = field(default_factory=dict)
