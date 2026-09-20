@@ -298,7 +298,7 @@ class Variant:
         capacity = self.get_attr("capacity")
         if capacity is None:
             capacity = 0
-        self.callbacks["cargo_capacity"] = f"{int(capacity)} * param_passenger_multiplier"
+        self.callbacks["cargo_capacity"] = f"{int(capacity)} * param_capacity_scaling"
         self.properties["cargo_capacity"] = 1 # Needed for NML to allow the callback override
 
     def handlePhysics(self):
