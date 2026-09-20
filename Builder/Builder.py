@@ -228,13 +228,13 @@ class Builder:
                 f"{len(vehicle.profiles)} profiles, and {len(vehicle.liveries)} liveries."
             )
 
-            self._ingest_new_spritesheet(vehicle)
+            ingested_new_spritesheet = self._ingest_new_spritesheet(vehicle)
             has_spritesheet = bool(vehicle.spritesheet_path) and Path(vehicle.spritesheet_path).is_file()
             allocator = None
             variant_groups = {}
 
             if has_spritesheet:
-                allocator = self._load_sprite_allocator(vehicle, ctx)
+                allocator = self._load_sprite_allocator(vehicle, ctx, normalize=ingested_new_spritesheet)
                 if allocator is None:
                     logger.error(
                         f"Skipping vehicle '{vehicle.identifier}': unable to confidently identify spritesets "
@@ -363,13 +363,18 @@ class Builder:
             "lengths": lengths,
         }
 
-    def _load_sprite_allocator(self, vehicle, ctx: BuildContext):
+    def _load_sprite_allocator(self, vehicle, ctx: BuildContext, *, normalize: bool = False):
         """Build a sprite allocator for a vehicle's spritesheet.
 
         Returns None if the sheet can't be confidently classified against the known
         templates - the caller treats that as a fatal error for this vehicle.
         """
-        self._convert_spritesheet(vehicle, ctx)
+        if normalize:
+            self._convert_spritesheet(vehicle, ctx)
+        else:
+            logger.debug(
+                f"Using existing spritesheet for '{vehicle.identifier}' without in-place normalization."
+            )
 
         try:
             return VehicleSpriteAllocator(vehicle, ctx.palette, self._get_template_definitions(ctx))
