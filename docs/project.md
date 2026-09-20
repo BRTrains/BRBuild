@@ -157,10 +157,15 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `tractive_effort`: Tractive effort in kN (integer).
     *   `power_type`: List of traction types (e.g., `[steam, coal]`).
     *   `sound_effect`, `visual_effect`: Override the presentation implied by the traction type (see Traction types below). Also accepted on a profile or a livery.
-*   **`cargo`**:
-    *   `cargo_classes`: Cargo classes the vehicle can be refitted to, as a name or a list. Names are the OpenTTD classes (`piece_goods`, `express`, `hazardous`, `refrigerated`, `non_pourable`, `neo_bulk`, `oversized`, `bulk`, `liquid`, `covered`, `passengers`, `mail`, `armoured`, `powderized`, `potable`, `non_potable`, `special`); the `CC_` prefix is optional and case does not matter, so `PIECE_GOODS` and `CC_PIECE_GOODS` both work. `none` means the vehicle carries nothing. An unknown name fails the build, because a silently dropped class means a wagon that cannot be refitted.
-    *   `non_cargo_classes` (alias `non_refittable_cargo_classes`): classes the vehicle can never be refitted to.
-    *   `default_cargo_type`: which cargo a newly bought vehicle carries. Currently only NML's label-free `DEFAULT_CARGO_FIRST_REFITTABLE` is accepted — naming a cargo label such as `GOOD` needs a `cargotable`, which BRBuild does not generate yet, and would abort the compile.
+*   **`cargo`**: what the vehicle can be refitted to, as a preset name, an explicit NML class, or a list of either:
+    *   Presets — `passenger`, `parcels`, `mail`, `containerised`, `bulk`, `tank`, `open_wagon`. These are the project's own names for the bundles each kind of unit actually uses, so `cargo: containerised` beats repeating a seven-class bitmask in every wagon.
+    *   Explicit classes — any OpenTTD class, written `CC_PIECE_GOODS` or `piece_goods` (prefix and case optional). A `CC_` prefix always means that single class, which matters where a preset shares its name: `cargo: bulk` is the hopper recipe, `cargo: CC_BULK` is the bulk class alone.
+    *   `none` — carries nothing. Emitted as an explicit empty class list (`refittable_cargo_classes: 0`) rather than omitted, so "carries nothing" is stated rather than looking like an unconverted vehicle.
+    *   Leaving `cargo` out emits no class property at all.
+    *   An unknown name fails the build and lists the valid names, because a silently dropped class means a vehicle that cannot be refitted.
+    *   Accepted on the vehicle or a profile, resolved profile first, so one candidate can offer both a passenger and a parcels formation.
+*   **`non_cargo_classes`**: classes the vehicle can never be refitted to. Resolves classes only, never presets.
+*   **`default_cargo_type`**: which cargo a newly bought vehicle carries. Currently only NML's label-free `DEFAULT_CARGO_FIRST_REFITTABLE` is accepted — naming a cargo label such as `GOOD` needs a `cargotable`, which BRBuild does not generate yet, and would abort the compile.
 *   **`autorefit`**: `true` sets `TRAIN_FLAG_AUTOREFIT`, so the vehicle adopts the consist's cargo instead of needing its own refit.
 *   **`loading_speed`**: cargo units loaded/unloaded per loading interval.
 *   **`cargo_age_period`**: custom cargo ageing period in ticks.
@@ -174,6 +179,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `power`: Power in hp for this profile; overrides the vehicle-level `stats.power`.
     *   `weight`: Weight in metric tons for this profile; overrides the vehicle-level `stats.weight`.
     *   `tilt`: Tilt strength for this profile, as a named level or a number.
+    *   `cargo`: Cargo preset or classes for this profile, overriding the vehicle's `cargo`.
     *   `special_tags`: List of custom tags triggering special badges for this profile's variants.
     *   `types`: Target vehicle type variants (e.g. `[train, tram]`).
 *   **`liveries`**: Visual variations (liveries) available for the vehicle.

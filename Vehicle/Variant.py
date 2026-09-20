@@ -237,13 +237,18 @@ class Variant:
     def handleCargo(self):
         """Emit the cargo configuration the loader reads.
 
-        `cargo.cargo_classes` was parsed onto the Vehicle and then never written, so every
-        wagon was silently non-refittable and any cargo-driven graphics chain (a wagon that
-        draws an empty flatbed until it is loaded) could never trigger.
+        Three states, all meaningful: unset emits nothing; `cargo: none` emits a deliberate
+        empty class list, so a vehicle that carries nothing says so instead of looking like
+        a conversion that simply forgot; anything else emits the bitmask. Capacity stays 1
+        in the property with the real value in the callback, as the legacy set did.
         """
-        refittable = as_bitmask(self.get_attr("cargo_classes") or [])
-        if refittable:
-            self.properties["refittable_cargo_classes"] = refittable
+        refittable = self.get_attr("cargo_classes")
+        if refittable is None:
+            pass
+        elif not refittable:
+            self.properties["refittable_cargo_classes"] = "0"
+        else:
+            self.properties["refittable_cargo_classes"] = as_bitmask(refittable)
 
         non_refittable = as_bitmask(self.get_attr("non_cargo_classes") or [])
         if non_refittable:

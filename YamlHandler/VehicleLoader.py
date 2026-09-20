@@ -7,7 +7,7 @@ from typing import Any, Dict
 import yaml
 
 from PropertyCalculation import TrainType, VehicleType
-from PropertyCalculation.CargoClasses import parse_cargo_classes
+from PropertyCalculation.CargoClasses import parse_cargo
 from Vehicle import Livery, Profile, Vehicle
 
 # assumes Vehicle, Profile, Livery already defined
@@ -95,9 +95,9 @@ class VehicleLoader:
             # If that fails, try to parse as raw value (e.g., "locomotive" or "freight_wagon")
             train_type = TrainType(raw_train_type)
 
-        cargo_classes = parse_cargo_classes(cargo.get("cargo_classes"))
-        non_cargo_classes = parse_cargo_classes(
-            cargo.get("non_cargo_classes", cargo.get("non_refittable_cargo_classes"))
+        cargo_classes = parse_cargo(data.get("cargo"), f"'cargo' in {path}")
+        non_cargo_classes = parse_cargo(
+            data.get("non_cargo_classes"), f"'non_cargo_classes' in {path}", presets=False
         )
 
         return Vehicle(
@@ -125,7 +125,7 @@ class VehicleLoader:
             cargo_classes=cargo_classes,
             non_cargo_classes=non_cargo_classes,
             default_cargo_type=VehicleLoader._parse_default_cargo_type(
-                cargo.get("default_cargo_type") or data.get("default_cargo_type"), path
+                data.get("default_cargo_type"), path
             ),
             autorefit=data.get("autorefit") or stats.get("autorefit"),
             power_type=stats.get("power_type"),
@@ -247,6 +247,7 @@ class VehicleLoader:
                 VehicleLoader._parse_vehicle_type(vehicle_type)
                 for vehicle_type in (p.get("types") or [])
             ] or None,
+            cargo_classes=parse_cargo(p.get("cargo"), f"'cargo' in profile {identifier}"),
             nml_override=VehicleLoader._parse_nml_override(p.get("nml_override"), f"profile {identifier}"),
             special_tags=p.get("special_tags"),
         )

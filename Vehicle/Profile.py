@@ -19,5 +19,6 @@ class Profile:
     sound_effect: Optional[str] = None
     visual_effect: Optional[str] = None
     types: Optional[List[VehicleType]] = None
+    cargo_classes: Optional[List[str]] = None
     nml_override: Optional[dict] = None
     special_tags: Optional[List[str]] = None
