@@ -234,11 +234,12 @@ class VehicleSpriteAllocator:
 		which is not near-white and so counts as content) otherwise inflates the measured
 		box by a row and the icon gains a visible white line under that car.
 
-		Cars are then placed by their templates' own `offset_y`, not all at the top of the
-		icon: that offset is what the game uses to align a part vertically, so pasting
-		every crop at row 0 makes parts drawn against different templates (a 13px box
-		whose art sits one row down, against a 12px box whose art starts at the top) sit a
-		row apart in the icon while looking aligned in the consist.
+		Cars are then placed on a common bottom/baseline, not all at the top of the icon:
+		units are bottom-aligned in the game and any extra template height is top padding
+		(for example, a pantograph). Pasting every crop at row 0 makes parts drawn against
+		different templates (a 13px box whose art sits one row down, against a 12px box
+		whose art starts at the top) sit a row apart in the icon while looking aligned in
+		the consist.
 		"""
 		key = (str(profile.identifier), str(livery.name))
 		spritesets = self._spritesets.get(key) or []
@@ -258,18 +259,6 @@ class VehicleSpriteAllocator:
 				box = definition.bounding_boxes[6]
 
 			view = views[6]
-			offset_y = box.offset_y if box is not None else view.offset_y
-			parts.append((spriteset, view, box, offset_y))
-
-		# The highest part sits at the icon's top row; the rest keep their relative offset.
-		anchor = min(offset_y for _, _, _, offset_y in parts)
-
-		blue_index = self._palette_index((0, 0, 255))
-		purchase = Image.new("P", (128, 13), color=blue_index)
-		purchase.putpalette(self._palette)
-		x_cursor = 0
-
-		for spriteset, view, box, offset_y in parts:
 			left = spriteset.x + view.left_x
 			top = spriteset.y + view.upper_y
 			right = left + view.width
@@ -279,11 +268,23 @@ class VehicleSpriteAllocator:
 				right = min(right, spriteset.x + box.left_x + box.width)
 				bottom = min(bottom, spriteset.y + box.upper_y + box.height)
 
-			crop = self._image.crop((left, top, right, bottom))
+			parts.append(self._image.crop((left, top, right, bottom)))
+
+		# Units are bottom-aligned: the deepest crop sits on the icon's bottom row and
+		# the rest keep their extra height as padding above, which is what the game does
+		# with a view box that is taller than a neighbour's.
+		baseline = max(crop.height for crop in parts)
+
+		blue_index = self._palette_index((0, 0, 255))
+		purchase = Image.new("P", (128, 13), color=blue_index)
+		purchase.putpalette(self._palette)
+		x_cursor = 0
+
+		for crop in parts:
 			if x_cursor >= purchase.width:
 				break
 
-			paste_y = offset_y - anchor
+			paste_y = baseline - crop.height
 			visible_width = min(crop.width, purchase.width - x_cursor)
 			visible_height = min(crop.height, purchase.height - paste_y)
 			if visible_height > 0:

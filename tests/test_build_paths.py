@@ -820,13 +820,17 @@ class BuildPathTests(unittest.TestCase):
             for x in range(32, 64):
                 sheet.putpixel((x, y), art_index)
 
-        measured = Template(
-            name="measured",
-            sprites=[Sprite(0, 0, 32, 12, 0, 0)] * 6 + [Sprite(0, 0, 32, 12, 0, 0)] + [Sprite(0, 0, 32, 12, 0, 0)],
+        measured_12 = Template(
+            name="measured12",
+            sprites=[Sprite(0, 0, 32, 12, 0, 0)] * 8,
+        )
+        measured_13 = Template(
+            name="measured13",
+            sprites=[Sprite(0, 0, 32, 13, 0, 0)] * 8,
         )
         parts = [
-            Spriteset("a", "/tmp/example/example.png", measured, 0, 0),
-            Spriteset("b", "/tmp/example/example.png", measured, 32, 0),
+            Spriteset("a", "/tmp/example/example.png", measured_12, 0, 0),
+            Spriteset("b", "/tmp/example/example.png", measured_13, 32, 0),
         ]
         definitions = [definition("tmpl_12", 32, 12, -8), definition("tmpl_13", 32, 13, -9)]
 
