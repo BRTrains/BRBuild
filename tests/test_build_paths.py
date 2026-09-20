@@ -426,7 +426,7 @@ class BuildPathTests(unittest.TestCase):
         )
         variant.process()
 
-        self.assertEqual(variant.name, "Passenger - Blue")
+        self.assertEqual(variant.name, "Class Example - Passenger - Blue")
         self.assertEqual(variant.grouped_name, "Class Example - Passenger")
         self.assertEqual(variant.properties["name"], "string(str_example_passenger_blue_train_name)")
         self.assertEqual(variant.callbacks["name"], "sw_example_passenger_blue_train_name")
@@ -441,6 +441,34 @@ class BuildPathTests(unittest.TestCase):
         self.assertIn("0x120 : string(str_example_passenger_blue_train_name);", switch)
         self.assertIn("\tstring(str_example_passenger_blue_train_name);", switch)
         self.assertIn("CB_FAILED;", switch)
+
+    def test_default_profile_and_livery_names_are_omitted(self):
+        """A `Default` profile/livery is a placeholder, so the name is the vehicle's."""
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle,
+            Livery("Default"),
+            Profile("Default", name="Default"),
+            VehicleType.TRAIN,
+        )
+        variant.process()
+
+        self.assertEqual(variant.name, "Class Example")
+        self.assertEqual(variant.grouped_name, "Class Example")
+
+        named_livery = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle,
+            Livery("Blue"),
+            Profile("Default", name="Default"),
+            VehicleType.TRAIN,
+        )
+        named_livery.process()
+
+        self.assertEqual(named_livery.name, "Class Example - Blue")
 
     def test_variant_name_callback_uses_group_name_for_multiple_liveries(self):
         from Vehicle.Livery import Livery

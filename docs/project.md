@@ -203,6 +203,28 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
 
 Statistical fields that appear on both a profile and a livery are resolved per variant: the profile wins, then the livery, then the vehicle. Use them when one formation or operator really differs — for example a longer multiple unit whose extra vehicles add power and weight.
 
+#### Variant names
+
+A variant's name is built from the vehicle's `info.name`, then its profile and its livery.
+A profile or livery called **Default** is treated as "this unit has no separate name" and is
+left out rather than shown as a label, so the purchase list reads as the vehicle itself
+instead of a placeholder:
+
+| Vehicle | Profile | Livery | Name shown |
+|---|---|---|---|
+| Conflat A Container Wagon | Default | Default | Conflat A Container Wagon |
+| Thomas the Tank Engine | Default | Blue | Thomas the Tank Engine - Blue |
+| Class 221 Voyager | 5-Car | Virgin Trains | Class 221 Voyager - 5-Car - Virgin Trains |
+
+That gives three levels of detail without repeating "Default" anywhere: a single-formation
+unit lists under its own name, a named livery disambiguates it, and a multi-formation unit
+also names the formation. The profile name is what a unit uses for a formation or length
+difference, and the livery name for a paint/operator difference.
+
+OpenTTD's purchase list groups a candidate's liveries: the group row shows the vehicle and
+profile ("Class 221 Voyager - 5-Car") and the child rows return the full variant name, so
+the livery only appears on the rows that need it.
+
 #### Tilt
 
 `tilt` may be set on `stats`, a profile or a livery, and is resolved the same way. It accepts a named level or a number, and drives both of OpenTTD's tilting mechanisms:

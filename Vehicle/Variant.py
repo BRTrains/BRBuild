@@ -93,26 +93,48 @@ class Variant:
 
     @property
     def name(self):
-        """Return the purchase-menu name, excluding the vehicle class."""
-        parts = [self._profile_display_name(), self._livery_display_name()]
-        return " - ".join(part for part in parts if part)
+        """Return the purchase-menu name: the vehicle, then its named profile and livery.
+
+        A profile or livery called "Default" carries no information, so it is left out
+        rather than shown as a label: a single-formation unit lists as its own name, one
+        with a named livery lists as "Name - Livery", and a multi-formation unit as
+        "Name - Profile - Livery".
+        """
+        return " - ".join(self._name_parts())
 
     @property
     def grouped_name(self):
         """Return the name used when OpenTTD displays a grouped livery."""
+        return " - ".join(self._name_parts(include_livery=False))
+
+    def _name_parts(self, include_livery: bool = True) -> list[str]:
         parts = [self.vehicle.name, self._profile_display_name()]
-        return " - ".join(part for part in parts if part)
+        if include_livery:
+            parts.append(self._livery_display_name())
+        return [part for part in parts if part]
 
     def _profile_display_name(self):
+        """Return the profile's own name, or "" when the profile is the unnamed `Default`."""
         if not self.profile:
             return ""
         profile_id = str(self.profile.identifier).strip() if self.profile.identifier else ""
         if profile_id.upper() == "DEFAULT":
             return ""
+        name = str(self.profile.name).strip() if self.profile.name else ""
+        if name.upper() == "DEFAULT":
+            return ""
         return self.profile.name or profile_id
 
     def _livery_display_name(self):
-        return self.livery.name if self.livery and self.livery.name else ""
+        """Return the livery's own name, or "" when it is the unnamed `Default` livery.
+
+        `Default` is a placeholder for "this unit has no livery name of its own", so the
+        name falls back to the vehicle's; any other name disambiguates the variant.
+        """
+        if not self.livery or not self.livery.name:
+            return ""
+        name = str(self.livery.name).strip()
+        return "" if name.upper() == "DEFAULT" else name
 
     def __repr__(self):
         return f"Variant(vehicle={self.vehicle.name}, livery={self.livery.name}, profile={self.profile.identifier})"
@@ -138,8 +160,11 @@ class Variant:
         self.properties["name"] = name_ref
         self.name_callback_name = f"sw_{self.identifier}_name"
         self.name_callback_string = nml_str(self.grouped_name, f"{self.identifier}_group_name")
+        single_livery_name = " - ".join(
+            part for part in (self.grouped_name, self._livery_display_name()) if part
+        )
         self.name_callback_single_livery_string = nml_str(
-            f"{self.grouped_name} - {self._livery_display_name()}",
+            single_livery_name,
             f"{self.identifier}_single_livery_name",
         )
         self.callbacks["name"] = self.name_callback_name
