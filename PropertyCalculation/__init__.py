@@ -3,6 +3,7 @@
 Expose small helper classes used across the project.
 """
 
+from .CargoClasses import CARGO_CLASSES, as_bitmask, parse_cargo_classes
 from .CostCalculator import CostCalculator
 from .FuelDefaults import FuelDefaults
 from .FuelType import FuelType
@@ -13,6 +14,7 @@ from .VehicleType import VehicleType
 from .WagonType import WagonType
 
 __all__ = [
+	"CARGO_CLASSES",
 	"CostCalculator",
 	"FuelDefaults",
 	"FuelType",
@@ -21,4 +23,6 @@ __all__ = [
 	"TrainType",
 	"VehicleType",
 	"Physics",
+	"as_bitmask",
+	"parse_cargo_classes",
 ]

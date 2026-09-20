@@ -11,6 +11,7 @@ from PropertyCalculation import (
     TrainType,
     VehicleType,
 )
+from PropertyCalculation.CargoClasses import as_bitmask
 
 from Vehicle.Translator.PhysicsRules import PhysicsRules
 from Vehicle.Translator.Tilt import MISC_FLAG_TILT, Tilt, resolve_tilt
@@ -58,6 +59,7 @@ class Variant:
             self.handleBasicProperties, # Things that don't need any complicated transformations or calculations
             self.handleSpeed,
             self.handleTilt,
+            self.handleCargo,
             self.handleCapacity,
             self.handlePhysics,
             self.handleFuelType,
@@ -231,6 +233,36 @@ class Variant:
                 )
             else:
                 self.properties["visual_effect"] = f"visual_effect({self.visual_effect}, 0)"
+
+    def handleCargo(self):
+        """Emit the cargo configuration the loader reads.
+
+        `cargo.cargo_classes` was parsed onto the Vehicle and then never written, so every
+        wagon was silently non-refittable and any cargo-driven graphics chain (a wagon that
+        draws an empty flatbed until it is loaded) could never trigger.
+        """
+        refittable = as_bitmask(self.get_attr("cargo_classes") or [])
+        if refittable:
+            self.properties["refittable_cargo_classes"] = refittable
+
+        non_refittable = as_bitmask(self.get_attr("non_cargo_classes") or [])
+        if non_refittable:
+            self.properties["non_refittable_cargo_classes"] = non_refittable
+
+        default_cargo = self.get_attr("default_cargo_type")
+        if default_cargo:
+            self.properties["default_cargo_type"] = str(default_cargo).strip().upper()
+
+        loading_speed = self.get_attr("loading_speed")
+        if loading_speed is not None:
+            self.properties["loading_speed"] = str(int(loading_speed))
+
+        cargo_age_period = self.get_attr("cargo_age_period")
+        if cargo_age_period is not None:
+            self.properties["cargo_age_period"] = str(int(cargo_age_period))
+
+        if self.get_attr("autorefit"):
+            self.add_misc_flag("TRAIN_FLAG_AUTOREFIT")
 
     def handleCapacity(self):
         capacity = self.get_attr("capacity")

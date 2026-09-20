@@ -158,7 +158,12 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `power_type`: List of traction types (e.g., `[steam, coal]`).
     *   `sound_effect`, `visual_effect`: Override the presentation implied by the traction type (see Traction types below). Also accepted on a profile or a livery.
 *   **`cargo`**:
-    *   `cargo_classes`: List of cargo classes the vehicle is capable of carrying.
+    *   `cargo_classes`: Cargo classes the vehicle can be refitted to, as a name or a list. Names are the OpenTTD classes (`piece_goods`, `express`, `hazardous`, `refrigerated`, `non_pourable`, `neo_bulk`, `oversized`, `bulk`, `liquid`, `covered`, `passengers`, `mail`, `armoured`, `powderized`, `potable`, `non_potable`, `special`); the `CC_` prefix is optional and case does not matter, so `PIECE_GOODS` and `CC_PIECE_GOODS` both work. `none` means the vehicle carries nothing. An unknown name fails the build, because a silently dropped class means a wagon that cannot be refitted.
+    *   `non_cargo_classes` (alias `non_refittable_cargo_classes`): classes the vehicle can never be refitted to.
+    *   `default_cargo_type`: which cargo a newly bought vehicle carries. Currently only NML's label-free `DEFAULT_CARGO_FIRST_REFITTABLE` is accepted — naming a cargo label such as `GOOD` needs a `cargotable`, which BRBuild does not generate yet, and would abort the compile.
+*   **`autorefit`**: `true` sets `TRAIN_FLAG_AUTOREFIT`, so the vehicle adopts the consist's cargo instead of needing its own refit.
+*   **`loading_speed`**: cargo units loaded/unloaded per loading interval.
+*   **`cargo_age_period`**: custom cargo ageing period in ticks.
 *   **`dates`**:
     *   `introduction_date`: Year when the vehicle is introduced (integer).
 *   **`profiles`**: A list of performance/size variations available for this vehicle.

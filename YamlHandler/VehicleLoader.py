@@ -7,6 +7,7 @@ from typing import Any, Dict
 import yaml
 
 from PropertyCalculation import TrainType, VehicleType
+from PropertyCalculation.CargoClasses import parse_cargo_classes
 from Vehicle import Livery, Profile, Vehicle
 
 # assumes Vehicle, Profile, Livery already defined
@@ -94,6 +95,11 @@ class VehicleLoader:
             # If that fails, try to parse as raw value (e.g., "locomotive" or "freight_wagon")
             train_type = TrainType(raw_train_type)
 
+        cargo_classes = parse_cargo_classes(cargo.get("cargo_classes"))
+        non_cargo_classes = parse_cargo_classes(
+            cargo.get("non_cargo_classes", cargo.get("non_refittable_cargo_classes"))
+        )
+
         return Vehicle(
             folder_path=folder_path,
             identifier=info["identifier"],
@@ -116,7 +122,12 @@ class VehicleLoader:
             tractive_effort=stats.get("tractive_effort"),
             capacity = stats.get("capacity"),
 
-            cargo_classes=cargo.get("cargo_classes"),
+            cargo_classes=cargo_classes,
+            non_cargo_classes=non_cargo_classes,
+            default_cargo_type=VehicleLoader._parse_default_cargo_type(
+                cargo.get("default_cargo_type") or data.get("default_cargo_type"), path
+            ),
+            autorefit=data.get("autorefit") or stats.get("autorefit"),
             power_type=stats.get("power_type"),
 
             size=stats.get("size") or data.get("size"),
@@ -142,6 +153,30 @@ class VehicleLoader:
 
             profiles=profiles,
             liveries=liveries,
+        )
+
+    @staticmethod
+    def _parse_default_cargo_type(raw: Any, where: str) -> str | None:
+        """Validate `default_cargo_type`.
+
+        A cargo *label* (such as `GOOD`) is only a known identifier when the GRF declares a
+        `cargotable`, which BRBuild does not generate yet, so naming one would abort the
+        whole compile with `Unknown identifier 'GOOD'`. Only NML's own label-free constant
+        is accepted for now.
+        """
+        if raw is None:
+            return None
+
+        value = str(raw).strip().upper()
+        if not value:
+            return None
+        if value == "DEFAULT_CARGO_FIRST_REFITTABLE":
+            return value
+
+        raise ValueError(
+            f"'default_cargo_type: {raw}' in {where} names a cargo label, but BRBuild does not "
+            f"generate a cargotable, so only 'DEFAULT_CARGO_FIRST_REFITTABLE' can be used. "
+            f"Refittability comes from the cargo classes."
         )
 
     @staticmethod

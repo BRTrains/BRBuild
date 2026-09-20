@@ -35,6 +35,9 @@ class Vehicle:
     tractive_effort: Optional[int] = None
 
     cargo_classes: Optional[List[str]] = None
+    non_cargo_classes: Optional[List[str]] = None
+    default_cargo_type: Optional[str] = None
+    autorefit: Optional[bool] = None
     power_type: Optional[List[str]] = None
     capacity: Optional[int] = None
 
