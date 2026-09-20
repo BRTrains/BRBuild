@@ -597,16 +597,62 @@ class BuildPathTests(unittest.TestCase):
 
         vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
         vehicle.speed = 75
-        vehicle.introduction_date = "1990-08-01"
-        profile = Profile("late", introduction_date="2010-01-01", speed=90, design_speed=75)
+        vehicle.introduction_date = "date(1990, 8, 1)"
+        profile = Profile("late", introduction_date="date(2010, 1, 1)", speed=90, design_speed=75)
         variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
             vehicle, Livery("Default"), profile, VehicleType.TRAIN
         )
         variant.process()
 
-        self.assertEqual(variant.properties["introduction_date"], "2010-01-01")
+        self.assertEqual(variant.properties["introduction_date"], "date(2010, 1, 1)")
         self.assertEqual(variant.properties["speed"], "90 mph")
         self.assertEqual(variant.callbacks["speed"], "param_speed_mode == 1 ? 75 : 90")
+
+    def test_introduction_date_forms_are_emitted_as_nml_dates(self):
+        from YamlHandler.VehicleLoader import VehicleLoader
+
+        parse = VehicleLoader._parse_introduction_date
+        self.assertEqual(parse(1952, "test"), "date(1952, 1, 1)")
+        self.assertEqual(parse("1952", "test"), "date(1952, 1, 1)")
+        self.assertEqual(parse("1952-04", "test"), "date(1952, 4, 1)")
+        self.assertEqual(parse("1952-04-21", "test"), "date(1952, 4, 21)")
+        self.assertEqual(parse("date(1952, 4, 21)", "test"), "date(1952, 4, 21)")
+        self.assertIsNone(parse(None, "test"))
+
+        # YAML types a bare `1952-04-21` as a date object, which is the common case.
+        from datetime import date
+
+        self.assertEqual(parse(date(1952, 4, 21), "test"), "date(1952, 4, 21)")
+
+        # A bare `1952-04-21` reaching nmlc as an expression was the bug: 1952-4-21.
+        self.assertNotEqual(parse("1952-04-21", "test"), "1952-04-21")
+
+        for bad in ("1952-13-01", "1952-04-45", "not a date", [1952]):
+            with self.assertRaises(ValueError):
+                parse(bad, "test")
+
+    def test_a_document_yaml_date_reaches_the_variant_as_a_date(self):
+        """The loader resolves the authored form, so the variant only writes it."""
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.speed = 100
+        vehicle.introduction_date = "1952-04-21"
+        profile = Profile("Default")
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Default"), profile, VehicleType.TRAIN
+        )
+        # The loader is what resolves the YAML form; a raw value would be arithmetic.
+        from YamlHandler.VehicleLoader import VehicleLoader
+
+        vehicle.introduction_date = VehicleLoader._parse_introduction_date(
+            "1952-04-21", "test"
+        )
+        variant.process()
+
+        self.assertEqual(variant.properties["introduction_date"], "date(1952, 4, 21)")
 
     def test_a_design_speed_below_the_service_speed_is_logged(self):
         from Vehicle.Livery import Livery

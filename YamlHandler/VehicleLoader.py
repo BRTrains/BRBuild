@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date as _date, datetime as _datetime
 from pathlib import Path
 from typing import Any, Dict
 
@@ -15,6 +16,11 @@ from Vehicle import Livery, Profile, Vehicle
 
 
 class VehicleLoader:
+    #: `YYYY`, `YYYY-MM` or `YYYY-MM-DD`, the authoring form for `introduction_date`.
+    #: A bare year may be shorter (`1` is year 1), which is how the family's other
+    #: projects author "available from the start".
+    DATE_PATTERN = re.compile(r"^(\d{1,4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?$")
+
     #: Graphics callback names a candidate may point at its own NML. These are the keys
     #: the collator/`graphics {}` block accepts; an unknown name is a typo that would
     #: otherwise emit an unrecognised callback and abort the GRF compile much later.
@@ -136,7 +142,9 @@ class VehicleLoader:
             sprite_override=data.get("sprite_override"),
             sprite_exclude=data.get("sprite_exclude"),
 
-            introduction_date=dates.get("introduction_date") or data.get("introduction_date"),
+            introduction_date=VehicleLoader._parse_introduction_date(
+                dates.get("introduction_date") or data.get("introduction_date"), path
+            ),
 
             model_life=data.get("model_life"),
             retire_early=data.get("retire_early"),
@@ -154,6 +162,55 @@ class VehicleLoader:
 
             profiles=profiles,
             liveries=liveries,
+        )
+
+    @staticmethod
+    def _parse_introduction_date(raw: Any, where: str) -> str | None:
+        """Render `introduction_date` as the NML date expression it has to be.
+
+        A bare `1990-08-01` is *not* a date to NML: it parses as the arithmetic
+        expression 1990 - 8 - 1 and compiles to 1981 days, i.e. the year 5, so every
+        vehicle authored that way silently becomes available from the start of the
+        game instead of on its introduction date. Accept a year (`1952`), `YYYY-MM`
+        or `YYYY-MM-DD` and emit `date(year, month, day)`; an explicit `date(...)`
+        expression is passed through so a project can still be precise.
+        """
+        if raw is None:
+            return None
+
+        # YAML types a bare `1952-04-21` as a date object, not a string.
+        if isinstance(raw, _datetime):
+            return f"date({raw.year}, {raw.month}, {raw.day})"
+        if isinstance(raw, _date):
+            return f"date({raw.year}, {raw.month}, {raw.day})"
+
+        if isinstance(raw, bool) or not isinstance(raw, (int, str)):
+            raise ValueError(
+                f"'introduction_date: {raw}' in {where} must be a year, "
+                f"'YYYY-MM' or 'YYYY-MM-DD'"
+            )
+
+        text = str(raw).strip()
+        if not text:
+            return None
+
+        match = VehicleLoader.DATE_PATTERN.match(text)
+        if match:
+            year = int(match.group(1))
+            month = int(match.group(2) or 1)
+            day = int(match.group(3) or 1)
+            if not 1 <= month <= 12 or not 1 <= day <= 31:
+                raise ValueError(
+                    f"'introduction_date: {raw}' in {where} is not a valid date"
+                )
+            return f"date({year}, {month}, {day})"
+
+        if re.fullmatch(r"date\s*\(.*\)", text):
+            return text
+
+        raise ValueError(
+            f"'introduction_date: {raw}' in {where} is not understood. Write a year "
+            f"('1952'), 'YYYY-MM-DD' ('1952-04-21'), or an explicit date(...) expression."
         )
 
     @staticmethod
@@ -244,7 +301,9 @@ class VehicleLoader:
             speed=p.get("speed"),
             design_speed=p.get("design_speed"),
             weight=p.get("weight"),
-            introduction_date=p.get("introduction_date"),
+            introduction_date=VehicleLoader._parse_introduction_date(
+                p.get("introduction_date"), f"'introduction_date' in profile {identifier}"
+            ),
             tilt=p.get("tilt"),
             sound_effect=p.get("sound_effect"),
             visual_effect=p.get("visual_effect"),

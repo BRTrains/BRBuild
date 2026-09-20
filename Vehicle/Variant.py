@@ -175,6 +175,12 @@ class Variant:
 
     ''' Handle some fairly simple properties that don't need complex calculations'''
     def handleBasicProperties(self):
+        """Emit the properties that need no calculation: dates, life, length.
+
+        `introduction_date` arrives already resolved to an NML `date(...)` expression by
+        the loader; a raw year is still accepted here so a variant built by hand (a
+        test, or a caller constructing a Variant directly) behaves sensibly.
+        """
         intro_date = self.get_attr("introduction_date")
         if intro_date is not None:
             if isinstance(intro_date, int) or (isinstance(intro_date, str) and intro_date.isdigit()):

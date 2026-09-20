@@ -171,7 +171,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
 *   **`loading_speed`**: cargo units loaded/unloaded per loading interval.
 *   **`cargo_age_period`**: custom cargo ageing period in ticks.
 *   **`dates`**:
-    *   `introduction_date`: Year when the vehicle is introduced (integer).
+    *   `introduction_date`: when the vehicle becomes available. Write a year (`1952`), `YYYY-MM` (`1952-04`) or `YYYY-MM-DD` (`1952-04-21`); it is emitted as an NML `date(...)`, so a bare date is never read as the arithmetic expression it looks like. A profile may set its own `introduction_date` to become available later than the vehicle.
 *   **`profiles`**: A list of performance/size variations available for this vehicle.
     *   `identifier`: Short profile identifier.
     *   `name`: Name of the profile.
