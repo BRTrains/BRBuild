@@ -165,14 +165,17 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `name`: Name of the profile.
     *   `size`: Relative length/size modifier.
     *   `capacity`: Cargo capacity.
+    *   `power`: Power in hp for this profile; overrides the vehicle-level `stats.power`.
+    *   `weight`: Weight in metric tons for this profile; overrides the vehicle-level `stats.weight`.
+    *   `special_tags`: List of custom tags triggering special badges for this profile's variants.
     *   `types`: Target vehicle type variants (e.g. `[train, tram]`).
 *   **`liveries`**: Visual variations (liveries) available for the vehicle.
     *   `name`: Name of the livery.
     *   `sprite_override`: Custom sprite template file to map.
     *   `profiles`: List of profile identifiers this livery applies to.
+    *   `power`: Power in hp for this livery; overrides the vehicle default, but not the profile.
+    *   `weight`: Weight in metric tons for this livery; overrides the vehicle default, but not the profile.
     *   `special_tags`: List of custom tags triggering special badges for this livery's variants.
-  *   **Profile fields**:
-    *   `special_tags`: List of custom tags triggering special badges for this profile's variants.
 *   **Other root fields**:
     *   `classification`: Categorization string.
     *   `model_life`: How long the vehicle remains in the purchase list.
@@ -182,6 +185,8 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `loading_speed`: Base speed for loading cargo.
     *   `sound effect`: Custom sound effect string.
     *   `special_tags`: List of custom tags triggering special badges for all variants (e.g., `["express", "high-speed"]`).
+
+Statistical fields that appear on both a profile and a livery are resolved per variant: the profile wins, then the livery, then the vehicle. Use them when one formation or operator really differs — for example a longer multiple unit whose extra vehicles add power and weight.
 
 ### Example configuration
 

@@ -11,5 +11,7 @@ class Profile:
     sprite_override: Optional[List[int]] = None
     sprite_exclude: Optional[List[int]] = None
     capacity: Optional[int] = None
+    power: Optional[int] = None
+    weight: Optional[float] = None
     types: Optional[List[str]] = None
     special_tags: Optional[List[str]] = None

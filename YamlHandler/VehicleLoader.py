@@ -120,6 +120,8 @@ class VehicleLoader:
             sprite_override=p.get("sprite_override"),
             sprite_exclude=p.get("sprite_exclude"),
             capacity=p.get("capacity"),
+            power=p.get("power"),
+            weight=p.get("weight"),
             types=p.get("types"),
             special_tags=p.get("special_tags"),
         )
@@ -136,5 +138,7 @@ class VehicleLoader:
             sprite_override=lv.get("sprite_override"),
             sprite_exclude=lv.get("sprite_exclude"),
             profiles=lv.get("profiles"),
+            power=lv.get("power"),
+            weight=lv.get("weight"),
             special_tags=lv.get("special_tags"),
         )

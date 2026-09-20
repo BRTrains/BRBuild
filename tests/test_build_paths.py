@@ -72,6 +72,37 @@ class BuildPathTests(unittest.TestCase):
         self.assertIn("STR_BADGE_OPERATOR_AVANTI_WEST_COAST", _registry)
         self.assertIn('"Operator/Avanti West Coast"', variant.properties["badges"])
 
+    def test_profile_and_livery_physics_override_vehicle_defaults(self):
+        """Profile wins over livery, and livery wins over vehicle defaults."""
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(
+            folder_path=".",
+            identifier="example",
+            name="Class Example",
+            weight=100,
+            power=1000,
+        )
+        livery = Livery("Heavy", power=2000, weight=200)
+        profile = Profile("Long", power=3000, weight=300)
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, livery, profile, VehicleType.TRAIN
+        )
+        variant.process()
+
+        self.assertEqual(variant.power, 3000)
+        self.assertEqual(variant.properties["power"], "3000 hp")
+        self.assertEqual(variant.properties["weight"], "300 ton")
+
+        livery_only = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, livery, Profile("Default"), VehicleType.TRAIN
+        )
+        livery_only.process()
+        self.assertEqual(livery_only.power, 2000)
+        self.assertEqual(livery_only.properties["weight"], "200 ton")
+
     def test_generated_spriteset_references_existing_png(self):
         with tempfile.TemporaryDirectory() as folder:
             project_root = Path(folder)
