@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import shutil
 from pathlib import Path
 
 from PIL import Image
@@ -20,9 +19,10 @@ FALLBACK_WHITE_INDEX = 255
 class SpritesheetLegacyConverter:
 	"""Normalises a vehicle's spritesheet down to only its recognised template rows.
 
-	Pipeline: archive the pristine original in an `original/` subfolder (once), force the game palette, extract raw
-	rows, keep only the rows that match a known template (dropping doodles/notes/labels),
-	then rewrite the sheet containing just those rows in a clean canonical layout.
+	Pipeline: force the game palette, extract raw rows, keep only the rows that match a
+	known template (dropping doodles/notes/labels), then rewrite the sheet containing just
+	those rows in a clean canonical layout. The builder only ever points this at a staging
+	copy of a sheet ingested from `new/`, and publishes the result after a successful build.
 	"""
 
 	def __init__(self, definitions: list[TemplateDefinition], palette: list[int]):
@@ -34,8 +34,6 @@ class SpritesheetLegacyConverter:
 		path = Path(png_path)
 		if not path.is_file():
 			raise FileNotFoundError(path)
-
-		self._archive(path)
 
 		extractor = SpritesheetExtractor(str(path), self.palette)
 		raw_rows = extractor.extract_spritesets()
@@ -57,25 +55,6 @@ class SpritesheetLegacyConverter:
 
 		logger.info(f"Converted '{path}': kept {len(kept_rows)}/{len(raw_rows)} row(s)")
 		return kept_rows
-
-	def _archive(self, path: Path):
-		"""Archive the pristine original once in a sibling `original/` folder."""
-		original_folder = path.parent / "original"
-		original_path = original_folder / path.name
-		legacy_path = path.with_name(f"{path.stem}_original.png")
-
-		if original_path.exists():
-			if legacy_path.exists():
-				legacy_path.unlink()
-			return
-
-		original_folder.mkdir(parents=True, exist_ok=True)
-		if legacy_path.exists():
-			shutil.move(legacy_path, original_path)
-			logger.debug(f"Migrated legacy original backup to '{original_path}'")
-		else:
-			shutil.copy2(path, original_path)
-			logger.debug(f"Archived pristine original to '{original_path}'")
 
 	def _rebuild_clean_sheet(self, extractor: SpritesheetExtractor, rows: list[Spriteset]) -> Image.Image:
 		"""Paste only the recognised rows into a new sheet: one row per spriteset,

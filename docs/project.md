@@ -20,18 +20,25 @@ A BRBuild-compatible project (e.g., `OpenTTE2`, `BRMetro`) should be located as 
 │           ├── [VehicleName].yaml # Vehicle configuration file (e.g., Thomas.yaml)
 │           ├── [VehicleName].png  # The sheet the build reads (normalised, committed)
 │           ├── new/           # Drop folder: replacement artwork goes here
-│           ├── working/       # Latest ingested sheet, available for artist edits
-│           ├── original/      # Last ingested source sheet, used by --reset-graphics
+│           ├── ingested/      # Latest ingested source sheet (tracked, artist editable)
 │           └── [custom].pnml  # Optional raw PNML files containing sprites/custom code
 ```
 
 ### Ingesting new sprites
 
-Place exactly one PNG in a vehicle's `new/` folder. A build only touches a spritesheet when one is waiting there: the PNG is staged into `working/`, normalised down to the recognised template rows, and used for that build. Once the build succeeds, the normalised sheet is published to the vehicle's `[VehicleName].png`, the ingested source is archived to `original/[VehicleName].png`, and `new/` is emptied so it is obvious where the next drop goes. The staged copy stays in `working/` as the latest ingestion for artists and debugging, including any annotation or notes the artist sent. Artists can edit the tracked `working/` sheet and copy it into `new/` for the next ingest; only that one working file is kept, since git holds the version history.
+Place exactly one PNG in a vehicle's `new/` folder. A build only touches a spritesheet when one is waiting there: the PNG is staged into `WorkingData/<project>/ingest/` (never inside the source tree), normalised down to the recognised template rows, and used for that build. Once the build succeeds:
 
-A build with an empty `new/` folder leaves the committed spritesheet untouched and simply reads it, so rebuilds do not churn artwork. Nothing is published if the build fails part-way, and the dropped file stays in `new/` to retry.
+- the normalised sheet is published to the vehicle's `[VehicleName].png`, which is what the build reads from then on;
+- the raw ingested source is kept as `ingested/[VehicleName].png`, for artists and debugging, including any annotation or notes the artist sent;
+- `new/` is emptied so it is obvious where the next drop goes, and the staging area is deleted.
 
-Reset mode (`--reset-graphics`) gives `new/` priority; if no new image is available, it restores from `original/`. Because ingesting overwrites `original/`, it holds the most recent ingested source rather than necessarily the earliest one.
+Only the latest ingested source is kept, since git holds the version history. Replacements are not destructive of the published sheet until a build actually succeeds: a failed build publishes nothing and leaves the drop in `new/` to retry.
+
+Artists work from the tracked `ingested/` sheet: edit it, drop the result into `new/`, and the next build normalises and republishes it.
+
+A build with an empty `new/` folder leaves the committed spritesheet untouched and simply reads it, so rebuilds do not churn artwork.
+
+Reset mode (`--reset-graphics`) gives `new/` priority; if no new image is available, it restores the published sheet from `ingested/`. Legacy `original/` folders and `<name>_original.png` siblings are migrated into `ingested/` automatically when encountered.
 
 ---
 

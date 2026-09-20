@@ -42,7 +42,7 @@ def run_build(project_name=None, log_nml_output=False, release=False):
     return True
 
 def reset_graphics(project_name=None):
-    ''' Ingest new spritesheets or restore them from original/ backups. '''
+    ''' Ingest new spritesheets or restore them from ingested/ backups. '''
     finder = ProjectFinder()
 
     if project_name:
@@ -65,19 +65,21 @@ def reset_graphics(project_name=None):
     return True
 
 def reset_project_graphics(project) -> int:
-    ''' Ingest new spritesheets, otherwise restore each sheet from its original/ backup. '''
+    ''' Ingest new spritesheets, otherwise restore each sheet from its ingested/ source. '''
     count = 0
 
-    for working_path in project.path.rglob("*_working.png"):
-        working_path.unlink()
-
-    original_paths = {
-        original_path.parent.parent / original_path.name: original_path
-        for original_path in project.path.rglob("original/*.png")
+    # The latest ingested source for each vehicle, keyed by the vehicle's sheet path.
+    ingested_paths = {
+        ingested_path.parent.parent / ingested_path.name: ingested_path
+        for ingested_path in project.path.rglob("ingested/*.png")
     }
+    # Legacy `original/` folders and `<name>_original.png` siblings predate `ingested/`.
+    for legacy_path in project.path.rglob("original/*.png"):
+        base_path = legacy_path.parent.parent / legacy_path.name
+        ingested_paths.setdefault(base_path, legacy_path)
     for legacy_path in project.path.rglob("*_original.png"):
         base_path = legacy_path.with_name(legacy_path.name.replace("_original.png", ".png"))
-        original_paths.setdefault(base_path, legacy_path)
+        ingested_paths.setdefault(base_path, legacy_path)
 
     new_paths = {}
     for new_folder in project.path.rglob("new"):
@@ -98,42 +100,39 @@ def reset_project_graphics(project) -> int:
             continue
         new_paths[yaml_path.with_suffix(".png")] = candidates[0]
 
-    for legacy_path in project.path.rglob("*_original.png"):
-        base_path = legacy_path.with_name(legacy_path.name.replace("_original.png", ".png"))
-        selected_path = original_paths.get(base_path)
-        if selected_path is not None and selected_path.parent.name == "original":
-            legacy_path.unlink()
-
-    for base_path in sorted(set(original_paths) | set(new_paths)):
+    for base_path in sorted(set(ingested_paths) | set(new_paths)):
         new_path = new_paths.get(base_path)
         if new_path is not None:
-            original_path = base_path.parent / "original" / base_path.name
-            original_path.parent.mkdir(parents=True, exist_ok=True)
-            if original_path.exists():
-                original_path.unlink()
-            shutil.move(new_path, original_path)
+            ingested_path = base_path.parent / "ingested" / base_path.name
+            ingested_path.parent.mkdir(parents=True, exist_ok=True)
+            if ingested_path.exists():
+                ingested_path.unlink()
+            shutil.move(new_path, ingested_path)
             if base_path.exists():
                 base_path.unlink()
-            shutil.copy2(original_path, base_path)
-            logger.info(f"Ingested '{original_path}' from '{new_path.parent}'.")
+            shutil.copy2(ingested_path, base_path)
+            logger.info(f"Ingested '{ingested_path}' from '{new_path.parent}'.")
             count += 1
             continue
 
-        original_path = original_paths[base_path]
-        if original_path.parent.name != "original":
-            migrated_path = original_path.parent / "original" / base_path.name
+        ingested_path = ingested_paths[base_path]
+        if ingested_path.parent.name != "ingested":
+            # Migrate a legacy backup into the ingested/ folder.
+            migrated_path = base_path.parent / "ingested" / base_path.name
             migrated_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(original_path, migrated_path)
-            original_path = migrated_path
+            if migrated_path.exists():
+                migrated_path.unlink()
+            shutil.move(str(ingested_path), str(migrated_path))
+            ingested_path = migrated_path
 
         if base_path.exists():
             base_path.unlink()
 
-        if original_path.is_file():
-            shutil.copy2(original_path, base_path)
+        if ingested_path.is_file():
+            shutil.copy2(ingested_path, base_path)
         else:
             continue
-        logger.info(f"Reset '{base_path}' from '{original_path}'")
+        logger.info(f"Reset '{base_path}' from '{ingested_path}'")
         count += 1
 
     return count
