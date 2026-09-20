@@ -16,6 +16,14 @@ class SpriteIDRegistry:
 
     FIRST_ID = 1001
     STRING_REFERENCE_PATTERN = re.compile(r"\bstring\(([^)]+)\)")
+    #: Identifiers a project renamed after an archived variant was generated. A tombstone
+    #: is copied verbatim from its archive, so a stale symbol would fail the release
+    #: compile with an unknown identifier; rewriting the reference keeps the archived
+    #: definition buildable. Keyed by the project-visible name, so the values are the
+    #: project's own symbols rather than anything BRBuild owns.
+    RENAMED_SYMBOLS: dict[str, str] = {
+        "param_passenger_multiplier": "param_capacity_scaling",
+    }
 
     def __init__(self, yaml_path: str | Path, archive_folder: str | Path, release: bool = False):
         self.yaml_path = Path(yaml_path)
@@ -170,6 +178,8 @@ class SpriteIDRegistry:
 
         target = Path(output_folder) / f"deprecated_{entry['id']}_{source.name}"
         content = source.read_text(encoding="utf-8")
+        for old, new in self.RENAMED_SYMBOLS.items():
+            content = re.sub(rf"\b{re.escape(old)}\b", new, content)
         content = re.sub(
             r"(climates_available\s*:\s*)ALL_CLIMATES(\s*;)",
             r"\1NO_CLIMATE\2",

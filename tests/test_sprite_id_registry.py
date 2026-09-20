@@ -104,6 +104,47 @@ class SpriteIDRegistryTests(unittest.TestCase):
     def _compatibility():
         return {"capacity": 0, "articulated_count": 1, "lengths": [4]}
 
+    def test_deprecated_archive_is_rewritten_for_a_renamed_symbol(self):
+        """A tombstone is copied verbatim, so a renamed project symbol must be updated."""
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            archive = root / "generated_variants"
+            archive.mkdir()
+            (archive / "1001_train_default_blue.gnml").write_text(
+                "item (FEAT_TRAINS, train_default_blue, 1001) {\n"
+                "\tproperty {\n"
+                "\t\tname: string(str_train_default_blue_name);\n"
+                "\t\tclimates_available: ALL_CLIMATES;\n"
+                "\t}\n"
+                "\tgraphics {\n"
+                "\t\tcargo_capacity: 120 * param_passenger_multiplier;\n"
+                "\t}\n"
+                "}\n",
+                encoding="utf-8",
+            )
+            yaml_path = root / "VehicleIDData.yaml"
+            yaml_path.write_text(
+                "variants:\n"
+                "- id: 1001\n"
+                "  vehicle: train\n"
+                "  profile: default\n"
+                "  livery: blue\n"
+                "  vehicle_type: train\n"
+                "  locked: true\n"
+                "  deprecated: true\n"
+                "  archive: generated_variants/1001_train_default_blue.gnml\n",
+                encoding="utf-8",
+            )
+
+            registry = SpriteIDRegistry(yaml_path, archive, release=True)
+            deprecated = registry.finalize(root / "output")
+
+            self.assertEqual(len(deprecated), 1)
+            text = Path(deprecated[0]).read_text(encoding="utf-8")
+            self.assertIn("cargo_capacity: 120 * param_capacity_scaling;", text)
+            self.assertNotIn("param_passenger_multiplier", text)
+            self.assertIn("NO_CLIMATE", text)
+
 
 if __name__ == "__main__":
     unittest.main()
