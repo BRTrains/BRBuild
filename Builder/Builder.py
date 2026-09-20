@@ -361,9 +361,16 @@ class Builder:
         for ingest in ctx.pending_sprite_ingests:
             vehicle = ingest["vehicle"]
             if built_vehicles is not None and vehicle.identifier not in built_vehicles:
+                error_folder = ingest["base_path"].parent / "error"
+                error_folder.mkdir(parents=True, exist_ok=True)
+                for stale in error_folder.glob("*.png"):
+                    stale.unlink()
+                error_path = error_folder / ingest["base_path"].name
+                shutil.move(str(ingest["new_path"]), error_path)
+                staging_root = Path(ingest["staging_path"]).parent.parent
                 logger.warning(
-                    f"Not publishing ingested spritesheet for '{vehicle.identifier}': the build "
-                    f"produced no successful variant for it. The drop stays in 'new/' to retry."
+                    f"Moved errored spritesheet for '{vehicle.identifier}' to '{error_path}': "
+                    f"the build produced no successful variant for it."
                 )
                 continue
 

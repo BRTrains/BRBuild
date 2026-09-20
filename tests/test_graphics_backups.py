@@ -58,10 +58,11 @@ class GraphicsBackupTests(unittest.TestCase):
             self.assertEqual((published / "Published.png").read_bytes(), b"Published")
             self.assertEqual((published / "ingested" / "Published.png").read_bytes(), b"Published")
             self.assertEqual(list((published / "new").iterdir()), [])
-            # The failing vehicle keeps its drop and its published sheet.
+            # The failing vehicle keeps its published sheet, while the drop is retained in error/.
             self.assertEqual((failed / "Failed.png").read_bytes(), b"old")
             self.assertFalse((failed / "ingested").exists())
-            self.assertEqual([path.name for path in (failed / "new").iterdir()], ["Failed_v2.png"])
+            self.assertEqual(list((failed / "new").iterdir()), [])
+            self.assertEqual([path.name for path in (failed / "error").iterdir()], ["Failed.png"])
 
     def test_existing_spritesheet_is_not_normalized_in_place(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -221,6 +222,22 @@ class GraphicsBackupTests(unittest.TestCase):
 
             self.assertEqual(reset_project_graphics(Project()), 1)
             self.assertEqual(image.read_bytes(), b"source")
+
+    def test_errored_sheet_is_available_for_reset(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            image = root / "Thomas.png"
+            image.write_bytes(b"published")
+            errored = root / "error" / "Thomas.png"
+            errored.parent.mkdir()
+            errored.write_bytes(b"failed revision")
+
+            class Project:
+                path = root
+
+            self.assertEqual(reset_project_graphics(Project()), 1)
+            self.assertEqual(image.read_bytes(), b"failed revision")
+            self.assertEqual(errored.read_bytes(), b"failed revision")
 
     def test_reset_prefers_new_spritesheet_over_ingested(self):
         with tempfile.TemporaryDirectory() as folder:

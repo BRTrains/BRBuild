@@ -80,6 +80,10 @@ def reset_project_graphics(project) -> int:
     for legacy_path in project.path.rglob("*_original.png"):
         base_path = legacy_path.with_name(legacy_path.name.replace("_original.png", ".png"))
         ingested_paths.setdefault(base_path, legacy_path)
+    # A sheet that failed to build is kept in `error/`; it is still the newest source we have.
+    for error_path in project.path.rglob("error/*.png"):
+        base_path = error_path.parent.parent / error_path.name
+        ingested_paths.setdefault(base_path, error_path)
 
     new_paths = {}
     for new_folder in project.path.rglob("new"):
@@ -116,8 +120,9 @@ def reset_project_graphics(project) -> int:
             continue
 
         ingested_path = ingested_paths[base_path]
-        if ingested_path.parent.name != "ingested":
-            # Migrate a legacy backup into the ingested/ folder.
+        # An errored sheet stays in error/ as the record of the failed attempt; only a legacy
+        # backup is migrated, so a reset does not quietly reclassify it as a good ingestion.
+        if ingested_path.parent.name not in {"ingested", "error"}:
             migrated_path = base_path.parent / "ingested" / base_path.name
             migrated_path.parent.mkdir(parents=True, exist_ok=True)
             if migrated_path.exists():

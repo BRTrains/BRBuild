@@ -21,6 +21,7 @@ A BRBuild-compatible project (e.g., `OpenTTE2`, `BRMetro`) should be located as 
 │           ├── [VehicleName].png  # The sheet the build reads (normalised, committed)
 │           ├── new/           # Drop folder: replacement artwork goes here
 │           ├── ingested/      # Latest ingested source sheet (tracked, artist editable)
+│           ├── error/         # Drops from units that failed to build (tracked)
 │           └── [custom].pnml  # Optional raw PNML files containing sprites/custom code
 ```
 
@@ -32,7 +33,7 @@ Place exactly one PNG in a vehicle's `new/` folder. A build only touches a sprit
 - the raw ingested source is kept as `ingested/[VehicleName].png`, for artists and debugging, including any annotation or notes the artist sent;
 - `new/` is emptied so it is obvious where the next drop goes, and the staging area is deleted.
 
-If a vehicle fails to build, its staged sheet is *not* published: the drop stays in `new/`, the published `[VehicleName].png` and `ingested/` copy are left alone, and the failure is logged. That keeps a partially working project from silently adopting artwork it could not build.
+If a vehicle fails to build, its staged sheet is *not* published. The drop is moved to `error/[VehicleName].png` instead — kept and committed so the failed revision is on record, but out of `new/` so it is obvious the folder is for a fresh drop. The published `[VehicleName].png` and `ingested/` copy are left alone, and the failure is logged. That keeps a partly working project from silently adopting artwork it could not build.
 
 Only the latest ingested source is kept, since git holds the version history. Replacements are not destructive of the published sheet until a build actually succeeds: a failed build publishes nothing and leaves the drop in `new/` to retry.
 
