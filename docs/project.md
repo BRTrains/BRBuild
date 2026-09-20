@@ -36,6 +36,8 @@ Only the latest ingested source is kept, since git holds the version history. Re
 
 Artists work from the tracked `ingested/` sheet: edit it, drop the result into `new/`, and the next build normalises and republishes it.
 
+This applies to every replacement sheet, not just hand-drawn revisions: a directly copied legacy sheet, a PNML-derived extraction, and a generated composite are all migrated through `new/`. Nothing should be written straight to the published `[VehicleName].png` or into `ingested/`, so `ingested/` is always the current working copy.
+
 A build with an empty `new/` folder leaves the committed spritesheet untouched and simply reads it, so rebuilds do not churn artwork.
 
 Reset mode (`--reset-graphics`) gives `new/` priority; if no new image is available, it restores the published sheet from `ingested/`. Legacy `original/` folders and `<name>_original.png` siblings are migrated into `ingested/` automatically when encountered.
