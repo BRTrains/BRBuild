@@ -10,6 +10,42 @@ class PowerTypeClassifier:
     badges, multi-mode classifications, and FuelType enums.
     """
 
+    #: Tokens that name a self-powered traction mode: these run on any rail.
+    SELF_POWERED_TOKENS = frozenset(
+        {
+            "STEAM",
+            "DIESEL",
+            "DIESEL_HYDRAULIC",
+            "DIESEL_ELECTRIC",
+            "DIESEL_MECHANICAL",
+            "HYDRAULIC",
+            "MECHANICAL",
+            "HYDROGEN",
+            "BATTERY",
+            "GAS_TURBINE",
+            "GAS_TURBINE_ELECTRIC",
+            "TURBINE",
+        }
+    )
+
+    #: Tokens naming an overhead (catenary) supply.
+    OHLE_TOKENS = frozenset({"OHLE", "OHLE_25KV", "OVERHEAD", "CATENARY", "DUAL", "DUAL_VOLTAGE"})
+
+    #: Tokens naming a third-rail supply.
+    THIRD_RAIL_TOKENS = frozenset(
+        {"THIRD_RAIL", "THIRD", "3RD_RAIL", "3RD", "BR_3RDR", "3RDR", "BR_3RDC", "3RDC", "DUAL", "DUAL_VOLTAGE"}
+    )
+
+    #: Tokens naming a fourth-rail supply.
+    FOURTH_RAIL_TOKENS = frozenset(
+        {"FOURTH_RAIL", "FOURTH", "4TH_RAIL", "4TH", "4RDR"}
+    )
+
+    #: Any token that implies an externally electrified supply.
+    ELECTRIC_TOKENS = frozenset(
+        {"ELECTRIC", "OHLE", "OVERHEAD", "CATENARY", "3RD_RAIL", "THIRD_RAIL", "4TH_RAIL", "FOURTH_RAIL"}
+    )
+
     def __init__(self, variant: Any):
         self.variant = variant
 
@@ -93,7 +129,7 @@ class PowerTypeClassifier:
             self._add_badge("Power/Gas_turbine")
 
         # 6. ELECTRIC
-        electric_tokens = {"ELECTRIC", "OHLE", "OVERHEAD", "CATENARY", "3RD_RAIL", "THIRD_RAIL", "4TH_RAIL", "FOURTH_RAIL"}
+        electric_tokens = self.ELECTRIC_TOKENS
         has_electric = any(t in tokens for t in electric_tokens) or any(t.startswith("OHLE") or "RAIL" in t for t in tokens)
 
         if has_electric:
@@ -107,23 +143,20 @@ class PowerTypeClassifier:
             self._add_badge("Power/Electric")
 
             voltages = 0
-            ohle_types = {"OHLE", "OHLE_25KV", "OVERHEAD", "CATENARY", "DUAL", "DUAL_VOLTAGE"}
-            if any(t in ohle_types for t in tokens):
+            if any(t in self.OHLE_TOKENS for t in tokens):
                 self.variant.is_ohle = True
                 self._add_badge("Power/delivery/OHLE")
                 self._add_badge("Power/current/AC")
                 voltages += 1
 
-            third_rail_types = {"THIRD_RAIL", "THIRD", "3RD_RAIL", "3RD", "BR_3RDR", "3RDR", "BR_3RDC", "3RDC", "DUAL", "DUAL_VOLTAGE"}
-            if any(t in third_rail_types for t in tokens):
+            if any(t in self.THIRD_RAIL_TOKENS for t in tokens):
                 self.variant.is_third_rail = True
                 self._add_badge("Power/delivery/3rd_Rail")
                 self._add_badge("Power/voltage/750V")
                 self._add_badge("Power/current/DC")
                 voltages += 1
 
-            fourth_rail_types = {"FOURTH_RAIL", "FOURTH", "4TH_RAIL", "4TH", "4RDR"}
-            if any(t in fourth_rail_types for t in tokens):
+            if any(t in self.FOURTH_RAIL_TOKENS for t in tokens):
                 self.variant.is_fourth_rail = True
                 self._add_badge("Power/delivery/4th_Rail")
                 self._add_badge("Power/voltage/650V")
@@ -159,8 +192,40 @@ class PowerTypeClassifier:
             self.variant.properties["engine_class"] = engine_class
 
         self.variant.fuel_type = fuel_enum
+        self.variant.default_track_types = self.track_types(tokens)
         self._apply_tram_rule()
         return fuel_enum
+
+    def track_types(self, tokens: List[str]) -> List[str]:
+        """The project track types this traction implies, in preference order.
+
+        Used only when the variant itself names no `track_type`, so the mapping is a
+        default rather than a decision: an explicit value always wins. Self-powered
+        traction runs on any rail, so it asks for `RAIL`; each electric supply asks for
+        the track type that supplies it, and a multi-system unit gets the union, best
+        first (fourth rail, third rail, overhead).
+        """
+        track_types: List[str] = []
+        self_powered = any(t in self.SELF_POWERED_TOKENS for t in tokens)
+        # "ELECTRIC" alone means "an electric unit, supply unspecified", which is the
+        # overhead case: third and fourth rail both have tokens of their own.
+        overhead = any(t in self.OHLE_TOKENS for t in tokens) or "ELECTRIC" in tokens
+        third = any(t in self.THIRD_RAIL_TOKENS for t in tokens)
+        fourth = any(t in self.FOURTH_RAIL_TOKENS for t in tokens)
+
+        if self_powered:
+            track_types.append("RAIL")
+        if fourth:
+            track_types.append("FOURTH")
+        if third:
+            track_types.append("THIRD")
+        if overhead and not (third or fourth):
+            # An AC-only unit has no DC supply to fall back on, so it asks for overhead
+            # electric in its own right. A unit that also has third or fourth rail
+            # already reaches overhead track through that railtype's own fallback list.
+            track_types.append("ELRL")
+
+        return track_types or ["RAIL"]
 
     def _extract_tokens(self, raw: Any) -> List[str]:
         return self._tokenize(raw)

@@ -20,6 +20,7 @@ class Profile:
     weight: Optional[float] = None
     introduction_date: Optional[Union[str, int]] = None
     tilt: Optional[Union[str, float]] = None
+    track_type: Optional[List[str]] = None
     sound_effect: Optional[str] = None
     visual_effect: Optional[str] = None
     types: Optional[List[VehicleType]] = None

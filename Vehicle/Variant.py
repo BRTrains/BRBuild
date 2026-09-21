@@ -1,6 +1,7 @@
 import re
 import logging
 from Badge import BadgeRegistry
+from Grf.RailTypeTable import RailTypeTable
 from Lang.StringRegistry import nml_str
 from PropertyCalculation import (
     CostCalculator,
@@ -20,11 +21,24 @@ logger = logging.getLogger(__name__)
 
 
 class Variant:
-    def __init__(self, vehicle, livery, profile, vehicleType=None):
+    #: The BRTrains track types, used when a candidate set does not provide its own
+    #: `RailTypes.yaml`. Candidates normally take this: the fallbacks are about
+    #: interoperability with track sets, which is not a per-unit decision.
+    DEFAULT_RAILTYPE_TABLE = RailTypeTable(
+        entries={
+            "RAIL": ["RAIL"],
+            "ELRL": ["SAAA", "SAAE", "ELRL"],
+            "THIRD": ["SAA3", "3RDR", "ELRL"],
+            "FOURTH": ["SAA4", "SAA3", "4RDR", "ELRL"],
+        }
+    )
+
+    def __init__(self, vehicle, livery, profile, vehicleType=None, rail_type_table=None):
         self.vehicle = vehicle
         self.livery = livery
         self.profile = profile
         self.vehicle_type = vehicleType if vehicleType is not None else vehicle.vehicle_type
+        self.rail_type_table = rail_type_table or self.DEFAULT_RAILTYPE_TABLE
 
         self.badges = list()
         self.properties = dict()
@@ -33,6 +47,9 @@ class Variant:
         self.spritesets = list()
         self.misc_flags = set()
         self.visual_effect = None
+        self.track_types = list()
+        #: Track types implied by the vehicle's traction, unless it names its own.
+        self.default_track_types = None
         self.sprite_pattern = list()
         self.sprite_template_names = list()
         self.sprite_lengths = list()
@@ -63,6 +80,7 @@ class Variant:
             self.handleCapacity,
             self.handlePhysics,
             self.handleFuelType,
+            self.handleTrackType,
             self.handleFuelPresentation,
             self.handleCosts,
             self.handleSpecialTags,
@@ -84,8 +102,10 @@ class Variant:
         return max(smallest, min(n, largest))
 
     def get_attr(self, attr):
-        # Check profile first, then livery, then vehicle, returning the first non-None value
-        for obj in (self.profile, self.livery, self.vehicle):
+        # Check livery first, then profile, then vehicle, returning the first non-None
+        # value: the narrowest statement wins, so one livery of a unit can override the
+        # profile's own value.
+        for obj in (self.livery, self.profile, self.vehicle):
             val = getattr(obj, attr, None)
             if val is not None:
                 return val
@@ -414,6 +434,38 @@ class Variant:
 
     def handleFuelType(self):
         PowerTypeClassifier(self).process()
+
+    def handleTrackType(self):
+        """Emit the track types the vehicle can use, as NML railtype indices.
+
+        The value is a list of the project's logical track types, resolved livery →
+        profile → vehicle, so a dual-voltage formation can live in the same candidate as
+        a single-system one. When none of the three names one, the vehicle's `power_type`
+        decides (see `PowerTypeClassifier.track_types`): a self-powered unit gets `RAIL`,
+        an overhead electric unit `ELRL`, third rail `THIRD`, fourth rail `FOURTH`, and a
+        multi-system unit the union of its systems. The explicit field always wins, so a
+        vehicle never has to accept the mapping the classifier would infer.
+
+        Only trains have `track_type` in NML: a road vehicle's running gear is
+        `road_type` or `tram_type` instead, so trams and road vehicles are left alone.
+        """
+        vehicle_type = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
+        if vehicle_type != "TRAIN":
+            return
+
+        track_types = None
+        for source in (self.livery, self.profile, self.vehicle):
+            value = getattr(source, "track_type", None)
+            if value:
+                track_types = value
+                break
+        if not track_types:
+            track_types = getattr(self, "default_track_types", None) or ["RAIL"]
+        if isinstance(track_types, str):
+            track_types = [track_types]
+
+        self.track_types = list(track_types)
+        self.properties["track_type"] = self.rail_type_table.lookup_many(self.track_types)
 
     def handleFuelPresentation(self):
         """Give the vehicle the sound and visual effect its fuel warrants.

@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 from Badge import BadgeRegistry
+from Grf.RailTypeTable import RailTypeTable
 from Lang.StringRegistry import _registry
 from Lang.StringWriter import StringWriter
 from NmlWriter import NmlGrfWriter, NmlVariantWriter, NmlCollator, NmlCompiler
@@ -11,7 +12,7 @@ from Project import Project
 from Sprites.PalettedImage import PalettedImage
 from Templates.SpritesheetLegacyConverter import SpritesheetLegacyConverter
 from Templates.TemplateLoaderNML import TemplateLoaderNML
-from Vehicle import VariantIterator, VehicleSpriteAllocator
+from Vehicle import Variant, VariantIterator, VehicleSpriteAllocator
 from YamlHandler import VehicleLoader, GrfLoader
 from .BuildContext import BuildContext
 from .CandidateFinder import CandidateFinder
@@ -42,6 +43,7 @@ class Builder:
             self._validate_project_path,
             self._load_sprite_id_registry,
             self._load_grf,
+            self._load_railtypes,
             self._load_palette,
             self._write_templates,
             self._discover_candidates,
@@ -102,6 +104,33 @@ class Builder:
         writer = NmlGrfWriter(grf)
         output_path = Path(ctx.nml_output_folder) / "GRF.gnml"
         ctx.nml_files.append(writer.write_grf_gnml(output_path))
+
+    def _load_railtypes(self, ctx: BuildContext):
+        """Load the project's `RailTypes.yaml`, if it has one, and emit it as NML.
+
+        The table maps each logical track type a vehicle can name onto the real
+        railtype labels it resolves to. Its NML is collated before every vehicle block,
+        because the constants it declares are what a `track_type` property references.
+
+        A project without the file keeps NML's default table and ordinary rail.
+        """
+        path = ctx.project.path / ctx.project.grfFolder / "RailTypes.yaml"
+        if path.is_file():
+            ctx.rail_type_table = RailTypeTable.load(path)
+            logger.info(
+                f"Loaded railtype table with {len(ctx.rail_type_table.keys())} track type(s) "
+                f"from {path}."
+            )
+        else:
+            ctx.rail_type_table = Variant.DEFAULT_RAILTYPE_TABLE
+            logger.debug(
+                f"No RailTypes.yaml in '{ctx.project.path / ctx.project.grfFolder}'; "
+                f"using the default railtype table."
+            )
+
+        output_path = Path(ctx.nml_output_folder) / "RailTypes.gnml"
+        NmlGrfWriter(None).write_railtype_table(ctx.rail_type_table, output_path)
+        ctx.nml_files.append(str(output_path))
 
     def _load_palette(self, ctx: BuildContext):
         ctx.palette = PalettedImage.load_palette(ctx.project.palette)
@@ -220,6 +249,7 @@ class Builder:
         for file in candidate.get("files", []):
             logger.debug(f"\tParsing YAML file: {file}")
             vehicle = VehicleLoader.load(file)
+            vehicle.rail_type_table = ctx.rail_type_table
             logger.debug(
                 f"\tLoaded vehicle: {vehicle.name} with identifier {vehicle.identifier}, "
                 f"{len(vehicle.profiles)} profiles, and {len(vehicle.liveries)} liveries."

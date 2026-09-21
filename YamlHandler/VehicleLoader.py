@@ -136,6 +136,9 @@ class VehicleLoader:
             ),
             autorefit=data.get("autorefit") or stats.get("autorefit"),
             power_type=stats.get("power_type"),
+            track_type=VehicleLoader._parse_track_type(
+                stats.get("track_type") or data.get("track_type"), f"'track_type' in {path}"
+            ),
 
             size=stats.get("size") or data.get("size"),
             num_vehicles=stats.get("num_vehicles") or data.get("num_vehicles"),
@@ -238,6 +241,43 @@ class VehicleLoader:
         )
 
     @staticmethod
+    def _parse_track_type(raw: Any, where: str) -> list[str] | None:
+        """Validate `track_type`: a list of the project's logical track types.
+
+        The values are names into the project's `RailTypes.yaml` (`RAIL`, `ELRL`,
+        `THIRD`, `FOURTH`), not railtype labels: which real label each one resolves to
+        depends on the track sets loaded. A single name is accepted as a one-entry
+        list so a simple vehicle does not need the brackets.
+        """
+        if raw is None:
+            return None
+
+        if isinstance(raw, str):
+            values = [raw]
+        elif isinstance(raw, (list, tuple)):
+            values = list(raw)
+        else:
+            raise ValueError(
+                f"'track_type: {raw}' in {where} must be a track type or list of them"
+            )
+
+        parsed: list[str] = []
+        for value in values:
+            name = str(value).strip()
+            if not name:
+                raise ValueError(f"'track_type' in {where} contains an empty track type")
+            if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", name):
+                raise ValueError(
+                    f"'track_type: {name}' in {where} is not a track type name. Use the "
+                    f"project's logical names (e.g. RAIL, ELRL, THIRD, FOURTH), with the "
+                    f"railtype labels themselves listed in RailTypes.yaml."
+                )
+            if name not in parsed:
+                parsed.append(name)
+
+        return parsed or None
+
+    @staticmethod
     def _parse_nml_override(raw: Any, where: str) -> Dict[str, str] | None:
         """Validate an `nml_override` block: graphics callback name -> NML target.
 
@@ -305,6 +345,9 @@ class VehicleLoader:
                 p.get("introduction_date"), f"'introduction_date' in profile {identifier}"
             ),
             tilt=p.get("tilt"),
+            track_type=VehicleLoader._parse_track_type(
+                p.get("track_type"), f"'track_type' in profile {identifier}"
+            ),
             sound_effect=p.get("sound_effect"),
             visual_effect=p.get("visual_effect"),
             types=[
@@ -333,6 +376,9 @@ class VehicleLoader:
             design_speed=lv.get("design_speed"),
             weight=lv.get("weight"),
             tilt=lv.get("tilt"),
+            track_type=VehicleLoader._parse_track_type(
+                lv.get("track_type"), f"'track_type' in livery {name}"
+            ),
             sound_effect=lv.get("sound_effect"),
             visual_effect=lv.get("visual_effect"),
             nml_override=VehicleLoader._parse_nml_override(lv.get("nml_override"), f"livery {name}"),

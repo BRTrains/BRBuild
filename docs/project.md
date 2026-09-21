@@ -69,6 +69,11 @@ project:
 
 The `GRF.yaml` file configures the overall metadata of the compiled `.grf` file. This includes properties of the GRF block, customizable UI parameters, and global action/switch rules.
 
+Two optional files sit beside it in the same folder:
+
+*   **`RailTypes.yaml`** — the project's logical track types and the railtype labels they fall back to (see Track types above). Declaring it replaces NML's default railtype table.
+*   **`<name>.pnml`** — hand-written NML the project needs beyond what the vehicle YAML can express, collated with the generated files.
+
 ### Structure & Fields
 
 *   **`grf`**:
@@ -157,6 +162,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `design_speed`: Design speed in mph (integer), optional. Set it only where the real design/technical maximum differs from the service limit; with both set, the `param_speed_mode` GRF parameter picks between them (see Design vs service speed below). Accepted on a profile or a livery as well as `stats`.
     *   `tractive_effort`: Tractive effort in kN (integer).
     *   `power_type`: List of traction types (e.g., `[steam, coal]`).
+    *   `track_type`: List of the project's logical track types the train can use (see Track types below). Defaults to `RAIL`; trains only.
     *   `sound_effect`, `visual_effect`: Override the presentation implied by the traction type (see Traction types below). Also accepted on a profile or a livery.
 *   **`cargo`**: what the vehicle can be refitted to, as a preset name, an explicit NML class, or a list of either:
     *   Presets — `passenger`, `parcels`, `mail`, `containerised`, `bulk`, `tank`, `open_wagon`. These are the project's own names for the bundles each kind of unit actually uses, so `cargo: containerised` beats repeating a seven-class bitmask in every wagon.
@@ -182,6 +188,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `weight`: Weight in metric tons for this profile; overrides the vehicle-level `stats.weight`.
     *   `introduction_date`: Date when this profile becomes available; overrides the vehicle-level `dates.introduction_date`.
     *   `tilt`: Tilt strength for this profile, as a named level or a number.
+    *   `track_type`: Track types for this profile (see Track types below), e.g. a dual-voltage formation alongside a single-system one.
     *   `cargo`: Cargo preset or classes for this profile, overriding the vehicle's `cargo`.
     *   `special_tags`: List of custom tags triggering special badges for this profile's variants.
     *   `types`: Target vehicle type variants (e.g. `[train, tram]`).
@@ -192,6 +199,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `power`: Power in hp for this livery; overrides the vehicle default, but not the profile.
     *   `weight`: Weight in metric tons for this livery; overrides the vehicle default, but not the profile.
     *   `tilt`: Tilt strength for this livery; overrides the vehicle default, but not the profile.
+    *   `track_type`: Track types for this livery; overrides both profile and vehicle (see Track types below).
     *   `special_tags`: List of custom tags triggering special badges for this livery's variants.
 *   **Other root fields**:
     *   `classification`: Categorization string.
@@ -204,7 +212,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `special_tags`: List of custom tags triggering special badges for all variants (e.g., `["express", "high-speed"]`).
     *   `nml_override`: Point one of the vehicle's graphics callbacks at a hand-written switch instead of the generated one (see "Integrating custom NML" below).
 
-Statistical fields that appear on both a profile and a livery are resolved per variant: the profile wins, then the livery, then the vehicle. Use them when one formation or operator really differs — for example a longer multiple unit whose extra vehicles add power and weight.
+Statistical fields that appear on both a profile and a livery are resolved per variant: the livery wins, then the profile, then the vehicle. The narrowest statement wins, so one livery of a unit can override its profile — use them when one formation or operator really differs, for example a longer multiple unit whose extra vehicles add power and weight.
 
 #### Variant names
 
@@ -276,9 +284,6 @@ Several of these have no OpenTTD equivalent, so BRBuild approximates them with t
 mechanics OpenTTD does have (see `PropertyCalculation/FuelDefaults.py` and
 `PropertyCalculation/PowerTypeClassifier.py`):
 
-- **Track**: every train currently uses the project's electric railtype. A self-powered
-  type needs no catenary in reality, but BRBuild has no `track_type` field yet, so that
-  distinction is not expressible.
 - **Costs**: the per-fuel multipliers in `PropertyCalculation/FuelType.py` shape purchase
   and running cost relative to each other. They are BRBuild conventions rather than
   OpenTTD values, and are expected to be refined.
@@ -290,6 +295,64 @@ mechanics OpenTTD does have (see `PropertyCalculation/FuelDefaults.py` and
   already gives. Hydrogen, battery and gas turbine get `VISUAL_EFFECT_DISABLE` because
   OpenTTD has no water-vapour effect and a self-powered unit should not clag like a diesel.
   Trains emit `visual_effect_and_powered(...)`, other vehicle types `visual_effect(...)`.
+
+#### Track types
+
+`track_type` says which infrastructure a train can use. It is a list of the project's
+*logical* track types, not railtype labels, and is resolved livery → profile → vehicle.
+Trains only: a road vehicle's running gear is `road_type`/`tram_type`, so a tram ignores it.
+
+```yaml
+stats:
+  power_type: [electric, third_rail]
+  track_type: [THIRD]          # third rail only: `THIRD` may fall back to ELRL
+
+# Dual-voltage in one file: the profile carries the extra system.
+profiles:
+  - identifier: third_rail
+    track_type: [THIRD]
+  - identifier: dual_voltage
+    track_type: [THIRD, ELRL]  # can use overhead electric regardless of fallbacks
+```
+
+Left unset, the vehicle's `power_type` decides, so most candidates need to say nothing:
+
+| `power_type` | Track types |
+|---|---|
+| `steam`, `diesel`, `hydrogen`, `battery`, `gas_turbine`, unpowered stock | `[RAIL]` |
+| `electric`, `ohle`, `overhead`, `catenary` | `[ELRL]` |
+| `electric` + `third_rail` | `[THIRD]` |
+| `electric` + `fourth_rail` | `[FOURTH]` |
+| self-powered + `electric` (bi-mode) | `[RAIL, ELRL]` |
+| self-powered + `third_rail` | `[RAIL, THIRD]` |
+| `fourth_rail` + `third_rail` (two systems, not two rails) | `[FOURTH, THIRD]` |
+
+`RAIL` is compatible with electrified track too, which is why a self-powered unit asks for
+it: a diesel can use overhead-wired or third-rail track without needing any electric
+supply of its own. The explicit field always wins, so a vehicle is never stuck with what
+the classifier inferred.
+
+What each logical type resolves to is a property of the set, not of the unit, and lives in
+`src/grf/RailTypes.yaml`. When a candidate set does not provide that file it gets the
+BRTrains table:
+
+```yaml
+RAIL: [RAIL]                      # unelectrified: the plain rail label
+ELRL: [SAAA, SAAE, ELRL]          # overhead electric
+THIRD: [SAA3, 3RDR, ELRL]         # third rail, then older labels, then overhead
+FOURTH: [SAA4, SAA3, 4RDR, ELRL]  # fourth rail, then third, then overhead
+```
+
+- The list is an ordered preference: the first label some loaded track set defines is the
+  one used, so a unit stays available when no track set defines its own supply.
+- `SAA3`/`SAAE`/`SAA4` are [Standardized Railtype
+  Scheme](https://newgrf-specs.tt-wiki.net/wiki/Standardized_Railtype_Scheme) labels:
+  `S` standard gauge, `A` the train-set speed class, `A` the axle-load class, then the
+  energy source (`N` none, `E` overhead, `3` third rail, `4` fourth rail).
+- A type with a single label is written as that label; nmlc rejects an empty fallback
+  list. A label that is not a bare identifier (`3RDR`, `4RDR`) is quoted.
+- Declaring the file replaces NML's default table, so every standard label the project
+  still uses has to be listed in it.
 
 ### Example configuration
 

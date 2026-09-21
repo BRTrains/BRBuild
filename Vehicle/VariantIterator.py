@@ -55,4 +55,5 @@ class VariantIterator:
                 livery,
                 profile,
                 vehicleType=vehicle_type,
+                rail_type_table=getattr(self.vehicle, "rail_type_table", None),
             )

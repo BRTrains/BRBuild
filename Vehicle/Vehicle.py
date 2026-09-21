@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Union
 
+from Grf.RailTypeTable import RailTypeTable
 from Vehicle.Livery import Livery
 from Vehicle.Profile import Profile
 
@@ -40,6 +41,7 @@ class Vehicle:
     default_cargo_type: Optional[str] = None
     autorefit: Optional[bool] = None
     power_type: Optional[List[str]] = None
+    track_type: Optional[List[str]] = None
     capacity: Optional[int] = None
 
     size: Optional[int] = None
@@ -63,6 +65,10 @@ class Vehicle:
 
     profiles: List[Profile] = field(default_factory=list)
     liveries: List[Livery] = field(default_factory=list)
+
+    #: The project's logical track types; set by the builder so variants can resolve
+    #: `track_type` names into railtype indices.
+    rail_type_table: Optional[RailTypeTable] = None
 
     @property
     def spritesheet_path(self) -> Optional[str]:

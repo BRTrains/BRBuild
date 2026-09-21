@@ -20,6 +20,7 @@ class BuildContext:
     palette: list | None = None
     template_definitions: list | None = None
     sprite_id_registry: Any = None
+    rail_type_table: Any = None
     release: bool = False
     pending_sprite_ingests: list = field(default_factory=list)
     vehicle_nml_files: dict[str, list[str]] = field(default_factory=dict)

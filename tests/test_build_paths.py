@@ -72,8 +72,8 @@ class BuildPathTests(unittest.TestCase):
         self.assertIn("STR_BADGE_OPERATOR_AVANTI_WEST_COAST", _registry)
         self.assertIn('"Operator/Avanti West Coast"', variant.properties["badges"])
 
-    def test_profile_and_livery_physics_override_vehicle_defaults(self):
-        """Profile wins over livery, and livery wins over vehicle defaults."""
+    def test_livery_and_profile_physics_override_vehicle_defaults(self):
+        """Livery wins over profile, and profile wins over vehicle defaults."""
         from Vehicle.Livery import Livery
         from Vehicle.Profile import Profile
         from Vehicle.Vehicle import Vehicle
@@ -92,16 +92,269 @@ class BuildPathTests(unittest.TestCase):
         )
         variant.process()
 
-        self.assertEqual(variant.power, 3000)
-        self.assertEqual(variant.properties["power"], "3000 hp")
-        self.assertEqual(variant.properties["weight"], "300 ton")
+        self.assertEqual(variant.power, 2000)
+        self.assertEqual(variant.properties["power"], "2000 hp")
+        self.assertEqual(variant.properties["weight"], "200 ton")
 
-        livery_only = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
-            vehicle, livery, Profile("Default"), VehicleType.TRAIN
+        profile_only = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Default"), profile, VehicleType.TRAIN
         )
-        livery_only.process()
-        self.assertEqual(livery_only.power, 2000)
-        self.assertEqual(livery_only.properties["weight"], "200 ton")
+        profile_only.process()
+        self.assertEqual(profile_only.power, 3000)
+        self.assertEqual(profile_only.properties["weight"], "300 ton")
+
+    def test_railtype_table_loads_ordered_fallbacks_and_writes_nml(self):
+        """The project's logical track types resolve to ordered real railtype labels."""
+        import textwrap
+        from Grf.RailTypeTable import RailTypeTable
+        from NmlWriter.NmlGrfWriter import NmlGrfWriter
+
+        document = textwrap.dedent(
+            """
+            RAIL: [RAIL]
+            ELRL: [SAAA, SAAE, ELRL]
+            THIRD: [SAA3, 3RDR, ELRL]
+            FOURTH: [SAA4, SAA3, 4RDR, ELRL]
+            """
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "RailTypes.yaml"
+            path.write_text(document, encoding="utf-8")
+            table = RailTypeTable.load(path)
+
+            self.assertEqual(table.lookup_order("THIRD"), ["SAA3", "3RDR", "ELRL"])
+            self.assertEqual(table.lookup_order("FOURTH"), ["SAA4", "SAA3", "4RDR", "ELRL"])
+            # A type with no fallbacks of its own still resolves to itself.
+            self.assertEqual(table.lookup_order("RAIL"), ["RAIL"])
+
+            output = Path(folder) / "RailTypes.gnml"
+            NmlGrfWriter(None).write_railtype_table(table, output)
+            written = output.read_text(encoding="utf-8")
+
+        self.assertIn("railtypetable {", written)
+        # The list form is used even for one label: `RAIL: RAIL` is a syntax error.
+        self.assertIn("RAIL: [RAIL]", written)
+        # A label starting with a digit is not a bare identifier to nmlc.
+        self.assertIn('THIRD: [SAA3, "3RDR", ELRL]', written)
+        self.assertIn('FOURTH: [SAA4, SAA3, "4RDR", ELRL]', written)
+        # Vehicles name a constant, not a table entry, so the property is an index.
+        self.assertIn("const railtype_THIRD = THIRD;", written)
+
+    def test_a_railtype_table_entry_without_fallbacks_is_still_declared(self):
+        """A single-label entry assigns directly; nmlc rejects an empty list."""
+        import textwrap
+        from Grf.RailTypeTable import RailTypeTable
+        from NmlWriter.NmlGrfWriter import NmlGrfWriter
+
+        document = textwrap.dedent(
+            """
+            RAIL: []
+            THIRD: [SAA3]
+            """
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "RailTypes.yaml"
+            path.write_text(document, encoding="utf-8")
+            table = RailTypeTable.load(path)
+            output = Path(folder) / "RailTypes.gnml"
+            NmlGrfWriter(None).write_railtype_table(table, output)
+            written = output.read_text(encoding="utf-8")
+
+        # An empty fallback list means "this is the label", so emit the label itself
+        # in the list form nmlc requires.
+        self.assertIn("RAIL: [RAIL]", written)
+        self.assertNotIn("[]", written)
+
+    def test_unknown_railtype_key_is_rejected(self):
+        """A vehicle naming a track type the project does not define must fail loudly."""
+        import textwrap
+        from Grf.RailTypeTable import RailTypeTable
+
+        document = textwrap.dedent(
+            """
+            RAIL: [RAIL]
+            THIRD: [SAA3, ELRL]
+            """
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "RailTypes.yaml"
+            path.write_text(document, encoding="utf-8")
+            table = RailTypeTable.load(path)
+
+        self.assertEqual(table.lookup("THIRD"), "railtype_THIRD")
+        with self.assertRaises(ValueError):
+            table.lookup("FIFTH")
+
+    def test_a_train_emits_its_resolved_track_types(self):
+        """`track_type` is a list of logical project keys, written as railtype indices."""
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(
+            folder_path=".", identifier="example", name="Class Example", track_type=["RAIL"]
+        )
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle,
+            Livery("Blue"),
+            Profile("Dual", track_type=["THIRD", "ELRL"]),
+            VehicleType.TRAIN,
+            rail_type_table=self._railtype_table(),
+        )
+        variant.process()
+
+        self.assertEqual(
+            variant.properties["track_type"], "railtype_THIRD + railtype_ELRL"
+        )
+
+    def _railtype_table(self):
+        """A stand-in project table: the four logical types BRTrains uses."""
+        from Grf.RailTypeTable import RailTypeTable
+
+        return RailTypeTable(
+            entries={
+                "RAIL": ["RAIL"],
+                "ELRL": ["SAAA", "SAAE", "ELRL"],
+                "THIRD": ["SAA3", "3RDR", "ELRL"],
+                "FOURTH": ["SAA4", "SAA3", "4RDR", "ELRL"],
+            }
+        )
+
+    def test_track_type_uses_livery_then_profile_then_vehicle(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(
+            folder_path=".", identifier="example", name="Class Example", track_type=["FOURTH"]
+        )
+        # Ordinary resolution: the profile and livery override, livery first.
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle,
+            Livery("Blue", track_type=["ELRL"]),
+            Profile("Dual", track_type=["THIRD", "ELRL"]),
+            VehicleType.TRAIN,
+            rail_type_table=self._railtype_table(),
+        )
+        variant.process()
+        self.assertEqual(variant.properties["track_type"], "railtype_ELRL")
+
+        profile_only = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle,
+            Livery("Default"),
+            Profile("Dual", track_type=["THIRD", "ELRL"]),
+            VehicleType.TRAIN,
+            rail_type_table=self._railtype_table(),
+        )
+        profile_only.process()
+        self.assertEqual(
+            profile_only.properties["track_type"], "railtype_THIRD + railtype_ELRL"
+        )
+
+        # The vehicle's own value is the fallback for both.
+        vehicle_only = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle,
+            Livery("Default"),
+            Profile("Default"),
+            VehicleType.TRAIN,
+            rail_type_table=self._railtype_table(),
+        )
+        vehicle_only.process()
+        self.assertEqual(vehicle_only.properties["track_type"], "railtype_FOURTH")
+
+    def test_track_type_defaults_to_rail(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Default"), Profile("Default"), VehicleType.TRAIN
+        )
+        variant.process()
+        self.assertEqual(variant.properties["track_type"], "railtype_RAIL")
+
+    def test_power_type_selects_the_track_types_by_default(self):
+        """Traction decides the track types when the vehicle does not name any."""
+        cases = (
+            (["diesel"], "railtype_RAIL"),
+            (["steam"], "railtype_RAIL"),
+            (["hydrogen"], "railtype_RAIL"),
+            (["battery"], "railtype_RAIL"),
+            (["gas_turbine"], "railtype_RAIL"),
+            (["electric"], "railtype_ELRL"),
+            (["electric", "ohle"], "railtype_ELRL"),
+            (["electric", "third_rail"], "railtype_THIRD"),
+            (["electric", "fourth_rail"], "railtype_FOURTH"),
+            # A dual-voltage unit keeps overhead reach through THIRD's own fallbacks.
+            (["electric", "third_rail", "ohle"], "railtype_THIRD"),
+            (["diesel", "electric"], "railtype_RAIL + railtype_ELRL"),
+            (["diesel", "electric", "third_rail"], "railtype_RAIL + railtype_THIRD"),
+        )
+        for power_type, expected in cases:
+            variant = self._variant(
+                power_type=power_type, power=1000, speed=100,
+                rail_type_table=self._railtype_table(),
+            )
+            self.assertEqual(
+                variant.properties["track_type"], expected, f"power_type {power_type}"
+            )
+
+    def test_explicit_track_type_overrides_what_traction_implies(self):
+        """A vehicle that names its own track type is never second-guessed."""
+        variant = self._variant(
+            power_type=["diesel", "electric"],
+            power=1000,
+            speed=100,
+            track_type=["THIRD"],
+            rail_type_table=self._railtype_table(),
+        )
+        self.assertEqual(variant.properties["track_type"], "railtype_THIRD")
+
+    def test_track_type_is_read_from_yaml_and_defaults_absent(self):
+        """`track_type` is authored as project track types, from `stats` or the root."""
+        import textwrap
+        from YamlHandler.VehicleLoader import VehicleLoader
+
+        document = textwrap.dedent(
+            """
+            info:
+              identifier: example
+              name: Class Example
+            stats:
+              vehicle_type: train
+              train_type: multiple_unit
+              track_type: [THIRD, ELRL]
+            """
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "Example.yaml"
+            path.write_text(document, encoding="utf-8")
+            vehicle = VehicleLoader.load(str(path))
+
+            self.assertEqual(vehicle.track_type, ["THIRD", "ELRL"])
+            self.assertEqual(vehicle.profiles, [])
+
+            # A railtype *label* is the RailTypes.yaml's business, not the vehicle's:
+            # the loader only guards the name's shape, and the table rejects what it
+            # does not define.
+            document = document.replace("[THIRD, ELRL]", '"4RDR"')
+            path.write_text(document, encoding="utf-8")
+            with self.assertRaises(ValueError):
+                VehicleLoader.load(str(path))
+
+    def test_road_vehicles_keep_their_own_track_property(self):
+        """A tram's running gear is `tram_type`, not `track_type`."""
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Example Tram")
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Default"), Profile("Default"), VehicleType.TRAM
+        )
+        variant.process()
+        self.assertNotIn("track_type", variant.properties)
 
     def test_tilt_level_sets_curve_speed_mod_and_flag(self):
         """A named tilt level drives both curve_speed_mod and TRAIN_FLAG_TILT."""
@@ -148,7 +401,7 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(variant.properties["curve_speed_mod"], "0.25")
         self.assertEqual(variant.properties["misc_flags"], "bitmask(TRAIN_FLAG_TILT)")
 
-    def test_tilt_is_resolved_profile_first_like_other_statistics(self):
+    def test_tilt_is_resolved_livery_first_like_other_statistics(self):
         from Vehicle.Livery import Livery
         from Vehicle.Profile import Profile
         from Vehicle.Vehicle import Vehicle
@@ -162,7 +415,7 @@ class BuildPathTests(unittest.TestCase):
         )
         variant.process()
 
-        self.assertEqual(variant.properties["curve_speed_mod"], "0.2")
+        self.assertEqual(variant.properties["curve_speed_mod"], "0.3")
 
     def test_unknown_tilt_level_is_rejected(self):
         from Vehicle.Translator.Tilt import resolve_tilt
@@ -187,7 +440,7 @@ class BuildPathTests(unittest.TestCase):
             "bitmask(ROADVEH_FLAG_TRAM, TRAIN_FLAG_TILT)",
         )
 
-    def _variant(self, power_type=None, **kwargs):
+    def _variant(self, power_type=None, rail_type_table=None, **kwargs):
         from Vehicle.Livery import Livery
         from Vehicle.Profile import Profile
         from Vehicle.Vehicle import Vehicle
@@ -196,7 +449,11 @@ class BuildPathTests(unittest.TestCase):
         if power_type is not None:
             vehicle.power_type = power_type
         variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
-            vehicle, Livery("Blue"), Profile("Default"), VehicleType.TRAIN
+            vehicle,
+            Livery("Blue"),
+            Profile("Default"),
+            VehicleType.TRAIN,
+            rail_type_table=rail_type_table,
         )
         variant.process()
         return variant

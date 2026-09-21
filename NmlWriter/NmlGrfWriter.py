@@ -61,6 +61,25 @@ class NmlGrfWriter(BaseNmlWriter):
             logger.info(f"GRF GNML written to {output_path}")
             return output_path
 
+    def write_railtype_table(self, table, output_path):
+        """Write the project's railtype table and the constants vehicles name.
+
+        Emitted as its own collated file before the vehicle blocks, because the
+        constants must exist by the time a `track_type` property is parsed.
+        """
+        output_path = pathlib.Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            self.writeline(
+                f, "// Logical track types and the railtype labels they fall back to", indent=0
+            )
+            table.write_nml(f)
+            self.writeline(f, "", indent=0)
+
+        logger.info(f"Railtype table written to {output_path}")
+        return output_path
+
     def write_vehicle_switches(self, f):
         nmlSwitchWriter = NmlSwitchWriter()
 
