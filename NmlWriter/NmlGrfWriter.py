@@ -57,6 +57,7 @@ class NmlGrfWriter(BaseNmlWriter):
             self.writeline(f, "}\n\n", indent=0)
 
             self.write_vehicle_switches(f)
+            self.write_global_actions(f)
 
             logger.info(f"GRF GNML written to {output_path}")
             return output_path
@@ -79,6 +80,18 @@ class NmlGrfWriter(BaseNmlWriter):
 
         logger.info(f"Railtype table written to {output_path}")
         return output_path
+
+    def write_global_actions(self, f):
+        """Write parameter-controlled top-level NML actions."""
+        for action in self.config.global_actions:
+            self.writeline(f, f"if ({action['condition']})", indent=0)
+            self.writeline(f, "{", indent=0)
+            statement = str(action["action"]).strip()
+            if not statement.endswith(";"):
+                statement += ";"
+            self.writeline(f, statement, indent=1)
+            self.writeline(f, "}", indent=0)
+            self.writeline(f, "", indent=0)
 
     def write_vehicle_switches(self, f):
         nmlSwitchWriter = NmlSwitchWriter()

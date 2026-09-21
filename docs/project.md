@@ -99,6 +99,7 @@ Two optional files sit beside it in the same folder:
     *   `name`: Name of the switch.
     *   `expression`: The variable or expression evaluated (e.g., `param_disable_steam`).
     *   `values`: Key-value map (or list) representing the cases and return values.
+*   **`global_actions`**: List of parameter-controlled NML actions that run at GRF scope. Each action requires `condition` and `action`; for example, `condition: param_disable_default_vehicles == 1` and `action: disable_item(FEAT_TRAINS)`.
 
 ### Example configuration
 

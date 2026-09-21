@@ -11,3 +11,4 @@ class Grf:
     compatible_version: str
     params: list = field(default_factory=list)
     global_vehicle_switches: list = field(default_factory=list)
+    global_actions: list = field(default_factory=list)
