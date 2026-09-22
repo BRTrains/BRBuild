@@ -15,6 +15,9 @@ from Sprites.Sprite import Sprite
 from Sprites.Spriteset import Spriteset
 from Templates.Template import Template
 
+#: Root of the BRBuild checkout, so tests never depend on a machine-specific absolute path.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 class BuildPathTests(unittest.TestCase):
     def test_working_data_root_is_project_relative(self):
@@ -979,7 +982,7 @@ class BuildPathTests(unittest.TestCase):
 
         from Sprites.PalettedImage import PalettedImage
 
-        palette = PalettedImage.load_palette("/root/BRBuild/Sprites/ttd-newgrf-dos.gpl")
+        palette = PalettedImage.load_palette(str(REPO_ROOT / "Sprites" / "ttd-newgrf-dos.gpl"))
 
         def fake_init(self, vehicle, palette_arg, definitions):
             self.vehicle = vehicle
@@ -1052,7 +1055,7 @@ class BuildPathTests(unittest.TestCase):
         # Part one: 12px box, art flush to its top, template offset -8.
         # Part two: 13px box, art one row down (as artists place it for that box),
         # template offset -9 - so the two are aligned in the consist.
-        palette = PalettedImage.load_palette("/root/BRBuild/Sprites/ttd-newgrf-dos.gpl")
+        palette = PalettedImage.load_palette(str(REPO_ROOT / "Sprites" / "ttd-newgrf-dos.gpl"))
 
         def palette_index(colour):
             for index in range(256):
@@ -1149,7 +1152,7 @@ class BuildPathTests(unittest.TestCase):
         from Templates.TemplateDefinition import TemplateDefinition
         from Templates.TemplateType import TemplateType
 
-        palette = PalettedImage.load_palette("/root/BRBuild/Sprites/ttd-newgrf-dos.gpl")
+        palette = PalettedImage.load_palette(str(REPO_ROOT / "Sprites" / "ttd-newgrf-dos.gpl"))
 
         def index_of(colour):
             for index in range(256):
