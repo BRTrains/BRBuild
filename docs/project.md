@@ -406,7 +406,7 @@ liveries:
 
 If a vehicle candidate folder contains `.pnml` files (e.g., `Thomas.pnml` alongside `Thomas.yaml`), BRBuild will automatically discover them and collate them into the generated NML **before** the vehicle's own generated blocks, so the candidate's switches and spritesets are in scope whenever its item references them.
 
-A project can also keep NML that is not tied to a candidate in `<grf_folder>/custom_nml/`; every file below that folder is collated into the same place.
+A project can also keep NML that is not tied to a candidate in `<grf_folder>/custom_nml/`; every file below that folder is collated into the same place. Files below `<grf_folder>/custom_nml/append/` are collated after all generated vehicle blocks, for declarations such as purchase-list sort blocks that refer to generated item symbols.
 
 Either way the file is staged into `WorkingData/<project>/` and copied rather than compiled in place, and the quoted paths inside it are rewritten to absolute paths resolved against the file's own folder first, then the project root. That is what lets a candidate `.pnml` address its images the way the artist wrote them:
 

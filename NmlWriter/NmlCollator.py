@@ -39,16 +39,24 @@ class NmlCollator:
         custom_nml_output = project_root / "WorkingData" / project_name / "custom_nml"
         Path(self.output_file).parent.mkdir(parents=True, exist_ok=True)
         custom_nml_files = []
+        trailing_nml_files = []
 
         if custom_nml_folder:
             custom_nml_source = Path(custom_nml_folder)
             if custom_nml_source.is_dir():
                 for source_file in sorted(path for path in custom_nml_source.rglob("*") if path.is_file()):
-                    destination_file = custom_nml_output / source_file.relative_to(custom_nml_source)
+                    relative_path = source_file.relative_to(custom_nml_source)
+                    destination_file = custom_nml_output / relative_path
                     destination_file.parent.mkdir(parents=True, exist_ok=True)
                     self._copy_custom_nml_file(source_file, destination_file, project_path)
-                    custom_nml_files.append(destination_file)
-                logger.info(f"Copied {len(custom_nml_files)} custom NML file(s) to {custom_nml_output}")
+                    if relative_path.parts and relative_path.parts[0] == "append":
+                        trailing_nml_files.append(destination_file)
+                    else:
+                        custom_nml_files.append(destination_file)
+                logger.info(
+                    f"Copied {len(custom_nml_files) + len(trailing_nml_files)} custom NML file(s) "
+                    f"to {custom_nml_output}"
+                )
             else:
                 logger.debug(f"No custom NML folder found at '{custom_nml_source}'.")
 
@@ -120,6 +128,15 @@ class NmlCollator:
                         written_vehicle_nml.add(pnml)
 
                 logger.debug(f"Collating variant file: {file}")
+                with open(file, "r", encoding="utf-8") as infile:
+                    f.write(f"\n\n// File: {file}\n")
+                    f.write(infile.read())
+
+            # 4. Files under custom_nml/append are deliberately last.  This is useful
+            # for GRF-level declarations such as purchase-list sort blocks that refer
+            # to generated item symbols.
+            for file in trailing_nml_files:
+                logger.debug(f"Collating trailing custom NML file: {file}")
                 with open(file, "r", encoding="utf-8") as infile:
                     f.write(f"\n\n// File: {file}\n")
                     f.write(infile.read())

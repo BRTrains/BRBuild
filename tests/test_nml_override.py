@@ -143,8 +143,28 @@ class NmlOverrideTests(unittest.TestCase):
             "a project's custom NML must be collated before the generated item blocks",
         )
 
+    def test_project_append_nml_is_collated_after_generated_items(self):
+        with tempfile.TemporaryDirectory() as folder:
+            project_root = Path(folder)
+            custom_nml = project_root / "src" / "grf" / "custom_nml"
+            append_nml = custom_nml / "append"
+            append_nml.mkdir(parents=True)
+            (append_nml / "sortpurchase.pnml").write_text(
+                "sort(FEAT_TRAINS, [example]);\n", encoding="utf-8"
+            )
+            item_file = project_root / "WorkingData" / "Example" / "item.gnml"
+            item_file.parent.mkdir(parents=True, exist_ok=True)
+            item_file.write_text("item (FEAT_TRAINS, example) {\n}\n", encoding="utf-8")
+
+            collated = NmlCollator().collate(
+                [str(item_file)], "Example", custom_nml, project_root
+            )
+            text = Path(collated).read_text(encoding="utf-8")
+
+        self.assertLess(text.index("item (FEAT_TRAINS, example)"), text.index("sort(FEAT_TRAINS"))
+
     def test_candidate_pnml_is_collated_next_to_its_own_vehicle_only(self):
-        """A candidate's `.pnml` goes immediately before that vehicle's blocks.
+        """A candidate's `.pnml` goes immediately before its own vehicle blocks.
 
         It must not be hoisted above the badge table: a switch holds a concurrent
         spritegroup slot while in scope, and OpenTTD only allows 255 of those.
