@@ -12,3 +12,6 @@ class Grf:
     params: list = field(default_factory=list)
     global_vehicle_switches: list = field(default_factory=list)
     global_actions: list = field(default_factory=list)
+    #: How the purchase list is ordered: `none` (vehicle-ID order, the default),
+    #: `date`, or `grouped` (see `Vehicle/PurchaseList.py`).
+    purchase_list_order: str = "none"

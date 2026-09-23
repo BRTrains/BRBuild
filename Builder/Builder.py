@@ -12,7 +12,7 @@ from Project import Project
 from Sprites.PalettedImage import PalettedImage
 from Templates.SpritesheetLegacyConverter import SpritesheetLegacyConverter
 from Templates.TemplateLoaderNML import TemplateLoaderNML
-from Vehicle import Variant, VariantIterator, VehicleSpriteAllocator
+from Vehicle import PurchaseList, Variant, VariantIterator, VehicleSpriteAllocator
 from YamlHandler import VehicleLoader, GrfLoader
 from .BuildContext import BuildContext
 from .CandidateFinder import CandidateFinder
@@ -101,6 +101,7 @@ class Builder:
     def _load_grf(self, ctx: BuildContext):
         loader = GrfLoader(ctx.project.path / ctx.project.grfFolder / "GRF.yaml")
         grf = loader.load()
+        ctx.grf = grf
         writer = NmlGrfWriter(grf)
         output_path = Path(ctx.nml_output_folder) / "GRF.gnml"
         ctx.nml_files.append(writer.write_grf_gnml(output_path))
@@ -551,8 +552,30 @@ class Builder:
             staged_candidate_nml=Path(ctx.nml_output_folder) / "candidate_nml",
             vehicle_nml_files=ctx.vehicle_nml_files,
             variant_owners=ctx.variant_owners,
+            generated_trailing_nml=self._purchase_list_blocks(ctx),
         )
         logger.info(f"NML collation complete: {ctx.nml_filepath}")
+
+    @staticmethod
+    def _purchase_list_blocks(ctx: BuildContext) -> list:
+        """Render the project's purchase-list `sort` blocks, if it asked for them.
+
+        A `sort` block names the generated items, so it can only be written once the
+        variants exist; the blocks go after every item and before any hand-written
+        `custom_nml/append` file.
+        """
+        grf = getattr(ctx, "grf", None)
+        order = getattr(grf, "purchase_list_order", PurchaseList.NONE)
+        if order == PurchaseList.NONE:
+            return []
+
+        blocks = PurchaseList.build_blocks(ctx.successful_variants, order)
+        if blocks:
+            logger.info(
+                f"Purchase-list order '{order}': wrote {len(blocks)} sort block(s) "
+                f"for {len(ctx.successful_variants)} variant(s)."
+            )
+        return blocks
 
     def _finalize_sprite_ids(self, ctx: BuildContext):
         deprecated_files = ctx.sprite_id_registry.finalize(ctx.nml_output_folder)

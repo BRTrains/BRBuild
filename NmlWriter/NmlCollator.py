@@ -23,12 +23,15 @@ class NmlCollator:
         staged_candidate_nml=None,
         vehicle_nml_files=None,
         variant_owners=None,
+        generated_trailing_nml=None,
     ):
         """Collate every NML block into one file.
 
         Order: the GRF header and project-level custom NML first (they are GRF-scoped),
         then the badge table, then each vehicle's own `.pnml` immediately before that
-        vehicle's generated blocks.
+        vehicle's generated blocks, then GRF-level blocks the caller generated once the
+        items existed (a purchase-list `sort` block names item symbols), then any
+        `custom_nml/append` files.
 
         Vehicle NML is deliberately *not* hoisted to the top: a switch costs a concurrent
         spritegroup slot while it is in scope, and OpenTTD only allows 255 of those, so
@@ -132,9 +135,15 @@ class NmlCollator:
                     f.write(f"\n\n// File: {file}\n")
                     f.write(infile.read())
 
-            # 4. Files under custom_nml/append are deliberately last.  This is useful
-            # for GRF-level declarations such as purchase-list sort blocks that refer
-            # to generated item symbols.
+            # 4. GRF-level NML the builder generated after the items existed.
+            for text in (generated_trailing_nml or []):
+                banner = self._generated_banner(text)
+                logger.debug(f"Collating generated trailing NML block: {banner}")
+                f.write(f"\n\n// File: generated/{banner}\n")
+                f.write(text.rstrip("\n") + "\n")
+
+            # 5. Files under custom_nml/append are deliberately last, so a project can
+            # still add a GRF-level declaration after everything generated.
             for file in trailing_nml_files:
                 logger.debug(f"Collating trailing custom NML file: {file}")
                 with open(file, "r", encoding="utf-8") as infile:
@@ -143,6 +152,12 @@ class NmlCollator:
 
         logger.info(f"Collated NML written to {self.output_file}")
         return self.output_file
+
+    @staticmethod
+    def _generated_banner(text: str) -> str:
+        """Name a generated trailing block after the feature it sorts."""
+        match = re.search(r"sort\(\s*([A-Z_]+)", text)
+        return f"purchase_list_{match.group(1).lower()}.pnml" if match else "generated.pnml"
 
     @staticmethod
     def _template_sources(input_files) -> list:

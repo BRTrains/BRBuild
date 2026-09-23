@@ -4,6 +4,7 @@ from pathlib import Path
 import yaml
 
 from Grf import Grf
+from Vehicle.PurchaseList import parse_order
 
 
 class GrfLoader:
@@ -16,6 +17,13 @@ class GrfLoader:
 
         grf_data = data.get("grf", {}) or {}
         versioning_data = data.get("versioning", {}) or {}
+        purchase_list = data.get("purchase_list") or {}
+        if not isinstance(purchase_list, dict):
+            raise ValueError(
+                f"'purchase_list' in {self.yaml_path} must be a mapping with an 'order' key"
+            )
+
+        purchase_list_order = parse_order(purchase_list.get("order"))
 
         logging.getLogger(__name__).debug(f"Loaded GRF data from {self.yaml_path}")
 
@@ -29,4 +37,5 @@ class GrfLoader:
             params = data.get("params", []),
             global_vehicle_switches = data.get("global_vehicle_switches", []),
             global_actions = data.get("global_actions", []),
+            purchase_list_order = purchase_list_order,
         )

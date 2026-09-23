@@ -5,6 +5,7 @@ Export the core classes used by other packages. Keep imports lightweight.
 
 from .Livery import Livery
 from .Profile import Profile
+from .PurchaseList import PurchaseListEntry, VehicleFacts, build_blocks, facts_from_variant
 from .SpriteSizeTemplate import standard_pattern
 from .Variant import Variant
 from .VariantIterator import VariantIterator
@@ -21,6 +22,10 @@ __all__ = [
 	"Variant",
 	"VariantIterator",
 	"Profile",
+	"PurchaseListEntry",
+	"VehicleFacts",
+	"build_blocks",
+	"facts_from_variant",
 	"Livery",
 	"VariantNmlModel",
 	"SpriteGroup",

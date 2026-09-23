@@ -100,6 +100,13 @@ Two optional files sit beside it in the same folder:
     *   `expression`: The variable or expression evaluated (e.g., `param_disable_steam`).
     *   `values`: Key-value map (or list) representing the cases and return values.
 *   **`global_actions`**: List of parameter-controlled NML actions that run at GRF scope. Each action requires `condition` and `action`; for example, `condition: param_disable_default_vehicles == 1` and `action: disable_item(FEAT_TRAINS)`.
+*   **`purchase_list`**: How the purchase list is ordered. Optional; without it vehicles appear in vehicle-ID order, which is an accident of the ID registry.
+    *   `order`: `none` (the default), `date`, or `grouped`.
+    *   `date` puts every vehicle in introduction-date order.
+    *   `grouped` is four groups, in this order: (1) everything else by introduction date — this is where BR Standard classes land, because their names start `Standard Class` rather than `Class <number>`; (2) the BR/privatisation class grouping, a name starting `Class <number>[/<subclass>]`, ordered by class then subclass; (3) coaches (`train_type: coach`); (4) wagons (`train_type: wagon`).
+    *   Road vehicles (trams) are always ordered by introduction date, whatever the setting.
+    *   Vehicles of one candidate stay contiguous and keep the order the variant iterator produced (profile-outer, livery-inner), so a unit's liveries never interleave with another unit's.
+    *   The builder emits one `sort(<feature>, [...])` block per feature, after every generated item and before any `custom_nml/append` file, so the block can name the item symbols the build produced. A feature with fewer than two vehicles gets no block.
 
 ### Example configuration
 
@@ -137,6 +144,9 @@ global_vehicle_switches:
       1: 100
       2: 150
       default: 100
+
+purchase_list:
+  order: "grouped"
 ```
 
 ---
