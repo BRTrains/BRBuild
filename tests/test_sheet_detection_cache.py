@@ -187,5 +187,30 @@ class SheetDetectionCacheTests(unittest.TestCase):
             [(spriteset.y, definition.name) for spriteset, definition in first.vehicle_rows],
         )
 
+    def test_generated_sprites_are_only_rewritten_when_they_change(self):
+        from Vehicle.VariantSpriteGroups import VehicleSpriteAllocator
+
+        target = self.root / "purchase.png"
+        first = Image.new("P", (128, 13), color=3)
+        first.putpalette(PALETTE)
+        VehicleSpriteAllocator._write_if_changed(target, first)
+
+        stat = target.stat()
+        original = target.read_bytes()
+
+        same = Image.new("P", (128, 13), color=3)
+        same.putpalette(PALETTE)
+        VehicleSpriteAllocator._write_if_changed(target, same)
+
+        self.assertEqual(target.read_bytes(), original)
+        self.assertEqual(target.stat().st_mtime_ns, stat.st_mtime_ns, "an unchanged sprite was rewritten")
+
+        changed = Image.new("P", (128, 13), color=7)
+        changed.putpalette(PALETTE)
+        VehicleSpriteAllocator._write_if_changed(target, changed)
+
+        self.assertNotEqual(target.read_bytes(), original)
+
+
 if __name__ == "__main__":
     unittest.main()

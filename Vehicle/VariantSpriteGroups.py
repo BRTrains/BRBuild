@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -320,13 +321,34 @@ class VehicleSpriteAllocator:
 
 		path = Path(output_folder) / self._purchase_filename(spritesets)
 		path.parent.mkdir(parents=True, exist_ok=True)
-		purchase.save(path)
+		self._write_if_changed(path, purchase)
 
 		template = Template(
 			name="generated_purchase",
 			sprites=[Sprite(0, 0, 128, 13, -25, -8)],
 		)
 		return Spriteset("generated_purchase", str(path.resolve()), template), "tmpl_purchase"
+
+	@staticmethod
+	def _write_if_changed(path: Path, image: Image.Image) -> None:
+		"""Write a generated sprite only when its bytes differ from the file on disk.
+
+		The icon is otherwise rewritten on every build, which gives it a fresh mtime: nmlc
+		keeps its encoded sprites in a `.png.cache` beside each image and drops any entry
+		whose source file is newer, so rewriting an icon that did not change costs an
+		encode for nothing. An identical icon is left completely alone.
+		"""
+		buffer = io.BytesIO()
+		image.save(buffer, format="PNG")
+		data = buffer.getvalue()
+
+		try:
+			if path.is_file() and path.read_bytes() == data:
+				return
+		except OSError:
+			pass
+
+		path.write_bytes(data)
 
 	def _palette_index(self, colour: tuple[int, int, int]) -> int:
 		for index in range(256):
