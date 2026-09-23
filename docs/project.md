@@ -273,6 +273,12 @@ plainly with no callback, so a unit without a documented pair is unaffected by t
 parameter. A design speed lower than the service speed is accepted but logged, because
 it normally means the two were swapped.
 
+Both figures stay in mph in the YAML: the property is written as an `mph` literal, which
+nmlc converts, and the callback carries the converted number because a callback result is
+an expression — NML takes no unit literal there and converts nothing. The conversion lives
+in `Vehicle/Translator/Speed.py` and reproduces nmlc's own mph handling exactly, so that
+the two settings of the parameter read back as the figures that were authored.
+
 #### Tilt
 
 `tilt` may be set on `stats`, a profile or a livery, and is resolved the same way. It accepts a named level or a number, and drives both of OpenTTD's tilting mechanisms:

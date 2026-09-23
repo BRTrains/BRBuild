@@ -15,6 +15,7 @@ from PropertyCalculation import (
 from PropertyCalculation.CargoClasses import as_bitmask
 
 from Vehicle.Translator.PhysicsRules import PhysicsRules
+from Vehicle.Translator.Speed import speed_field
 from Vehicle.Translator.Tilt import MISC_FLAG_TILT, Tilt, resolve_tilt
 
 logger = logging.getLogger(__name__)
@@ -267,21 +268,16 @@ class Variant:
         """The design/service speed switch expression for one variant.
 
         The parameter holds 1 for design speeds (the default) and 0 for service speeds,
-        so the expression is written in that order. Speed units *are* mph in NML, so the
-        callback returns the bare number — `140 mph` is a unit literal, which NML only
-        accepts as a property value, not inside an expression.
+        so the expression is written in that order. Both figures are converted out of mph
+        into the value the speed field takes (`Vehicle/Translator/Speed.py`): a callback
+        is an expression, so NML accepts no unit literal here and does not convert the
+        result, while the property it stands in for carries `mph` and is converted by
+        nmlc.
         """
         return (
-            f"param_speed_mode == 1 ? {self._speed_number(design)} "
-            f": {self._speed_number(service)}"
+            f"param_speed_mode == 1 ? {speed_field(design)} "
+            f": {speed_field(service)}"
         )
-
-    @staticmethod
-    def _speed_number(value) -> str:
-        """Render one speed as the bare number an NML expression takes."""
-        if isinstance(value, float):
-            return f"{value:.1f}"
-        return str(value)
 
     def handleTilt(self):
         """Emit curve_speed_mod and, when the vehicle tilts, the consist tilt flag.

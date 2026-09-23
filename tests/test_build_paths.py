@@ -786,10 +786,28 @@ class BuildPathTests(unittest.TestCase):
         # The property stays the service figure so the unit is usable without the parameter.
         self.assertEqual(variant.speed, 125)
         self.assertEqual(variant.properties["speed"], "125 mph")
+        # The callback carries speed field values, not mph: 140 mph is 224 there.
         self.assertEqual(
             variant.callbacks["speed"],
-            "param_speed_mode == 1 ? 140 : 125",
+            "param_speed_mode == 1 ? 224 : 200",
         )
+
+    def test_speed_field_conversion_matches_nmls_own_mph_handling(self):
+        """A callback value has to equal what nmlc compiles `speed: N mph` to."""
+        from Vehicle.Translator.Speed import displayed_mph, speed_field
+
+        self.assertEqual(speed_field(125), 200)
+        self.assertEqual(speed_field(140), 224)
+        self.assertEqual(speed_field(155), 248)
+        # 62 mph is 100, not the 99 that 62 * 1.6 rounds to: 99 reads back as 61 mph.
+        self.assertEqual(speed_field(62), 100)
+        self.assertEqual(displayed_mph(99), 61)
+
+    def test_every_authored_mph_figure_reads_back_unchanged(self):
+        from Vehicle.Translator.Speed import displayed_mph, speed_field
+
+        for mph in range(1, 501):
+            self.assertEqual(displayed_mph(speed_field(mph)), mph)
 
     def test_design_speed_alone_is_written_as_the_speed(self):
         from Vehicle.Livery import Livery
@@ -867,7 +885,7 @@ class BuildPathTests(unittest.TestCase):
 
         self.assertEqual(variant.properties["introduction_date"], "date(2010, 1, 1)")
         self.assertEqual(variant.properties["speed"], "90 mph")
-        self.assertEqual(variant.callbacks["speed"], "param_speed_mode == 1 ? 75 : 90")
+        self.assertEqual(variant.callbacks["speed"], "param_speed_mode == 1 ? 120 : 144")
 
     def test_introduction_date_forms_are_emitted_as_nml_dates(self):
         from YamlHandler.VehicleLoader import VehicleLoader
