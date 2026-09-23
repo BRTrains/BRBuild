@@ -104,6 +104,38 @@ class SpriteIDRegistryTests(unittest.TestCase):
     def _compatibility():
         return {"capacity": 0, "articulated_count": 1, "lengths": [4]}
 
+    def test_the_registry_is_written_once_at_the_end_of_a_build(self):
+        """`_save()` only marks the registry dirty; `flush()` does the writing.
+
+        Serialising the registry per variant cost a 175-variant build 23 of its 29 seconds,
+        so the write is deferred to `finalize()`. Nothing reads the file mid-build, and a
+        build that never reaches `finalize()` must leave the file as it found it.
+        """
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            yaml_path = root / "VehicleIDData.yaml"
+
+            registry = SpriteIDRegistry(yaml_path, root / "generated_variants")
+            registry.mark_written(registry.resolve("train", "default", "blue", "train", self._compatibility()))
+            self.assertFalse(yaml_path.exists(), "the registry was written before the build finished")
+
+            registry.finalize(root / "output")
+            self.assertTrue(yaml_path.exists())
+            written = yaml_path.read_text(encoding="utf-8")
+
+            # A build that never finalises leaves the previous contents alone...
+            abandoned = SpriteIDRegistry(yaml_path, root / "generated_variants")
+            abandoned.resolve("train", "default", "red", "train", self._compatibility())
+            self.assertEqual(yaml_path.read_text(encoding="utf-8"), written)
+
+            # ...and an explicit flush writes the pending change, once.
+            abandoned.flush()
+            flushed = yaml_path.read_text(encoding="utf-8")
+            self.assertIn("livery: red", flushed)
+
+            abandoned.flush()
+            self.assertEqual(yaml_path.read_text(encoding="utf-8"), flushed)
+
     def test_deprecated_archive_is_rewritten_for_a_renamed_symbol(self):
         """A tombstone is copied verbatim, so a renamed project symbol must be updated."""
         with tempfile.TemporaryDirectory() as folder:
