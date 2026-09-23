@@ -43,6 +43,15 @@ This applies to every replacement sheet, not just hand-drawn revisions: a direct
 
 A build with an empty `new/` folder leaves the committed spritesheet untouched and simply reads it, so rebuilds do not churn artwork.
 
+#### Derived metadata beside a spritesheet
+
+A build writes two kinds of derived file next to each spritesheet, both of which belong in the project's `.gitignore` and neither of which is a build input:
+
+- `<sheet>.png.cache` / `<sheet>.png.cacheindex` — nmlc's own cache of the sprites encoded from that image. Rewriting an image gives it a newer mtime than the cache and throws its entries away, so BRBuild only rewrites a generated sprite (a purchase icon) when its bytes actually changed.
+- `<sheet>.png.sheetcache.json` — the sprite rows detected in that sheet, with the hash of the sheet, the palette, the template definitions and the vehicle type they were detected against. Row detection scans every pixel and is the most expensive part of a rebuild, so it is skipped whenever all four still match. Editing a sheet, the palette or a template invalidates the cache automatically; deleting the file just forces one rebuild to detect again.
+
+Neither file is read from anywhere else, and both are safe to delete at any time.
+
 Reset mode (`--reset-graphics`) gives `new/` priority; if no new image is available, it restores the published sheet from `ingested/`. Legacy `original/` folders and `<name>_original.png` siblings are migrated into `ingested/` automatically when encountered.
 
 ---

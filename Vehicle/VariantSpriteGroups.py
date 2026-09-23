@@ -7,6 +7,7 @@ import re
 from PIL import Image
 
 from PropertyCalculation.PowerTypeClassifier import PowerTypeClassifier
+from Sprites.SheetDetectionCache import SheetDetectionCache
 from Sprites.Sprite import Sprite
 from Sprites.Spriteset import Spriteset
 from Sprites.SpritesheetExtractor import SpritesheetExtractor
@@ -110,10 +111,12 @@ class VehicleSpriteAllocator:
 
 	Extracts the vehicle's spritesheet once and classifies every detected row against the
 	project's known NML templates (see `Templates.TemplateMatcher.classify_row`), keeping
-	only the confidently-identified rows. Doodles/notes/labels and anything else that
-	doesn't match a known template are dropped rather than guessed at. Confirmed vehicle
-	rows are then consumed from the sheet only as new (profile, livery) combinations are
-	first requested, advancing an internal cursor.
+	only the confidently-identified rows. Detection is the expensive part of a build and is
+	reused from the sheet's own cache (`Sprites.SheetDetectionCache`) whenever the sheet,
+	palette, template definitions and vehicle type are unchanged. Doodles/notes/labels and
+	anything else that doesn't match a known template are dropped rather than guessed at.
+	Confirmed vehicle rows are then consumed from the sheet only as new (profile, livery)
+	combinations are first requested, advancing an internal cursor.
 	"""
 
 	def __init__(self, vehicle: Vehicle, palette: list[int], definitions: list[TemplateDefinition]):
@@ -129,10 +132,37 @@ class VehicleSpriteAllocator:
 		extractor = SpritesheetExtractor(vehicle.spritesheet_path, palette)
 		self._image = extractor.image
 		self._palette = palette
+
+		# Detecting rows is the build's most expensive step and answers the same question
+		# for an unchanged sheet, so the result is cached beside the sheet and reused while
+		# the sheet bytes, palette, template definitions and vehicle type all match.
+		cache = SheetDetectionCache(vehicle.spritesheet_path, palette, definitions, vehicle_type_str)
+		rows = cache.load()
+		if rows is None:
+			rows = self._match_vehicle_rows(extractor, vehicle_type_str, definitions)
+			cache.store(rows)
+
+		self.vehicle_rows: list[tuple[Spriteset, TemplateDefinition]] = rows
+
+		self.cursor = 0
+		self._assigned_rows: dict[tuple[str, str], list[tuple[Spriteset, TemplateDefinition]]] = {}
+		self._spritesets: dict[tuple[str, str], list[Spriteset]] = {}
+		self._template_names: dict[tuple[str, str], list[str]] = {}
+		self._lengths: dict[tuple[str, str], list[int]] = {}
+		self._definitions: dict[tuple[str, str], list[TemplateDefinition]] = {}
+
+	@staticmethod
+	def _match_vehicle_rows(extractor: SpritesheetExtractor, vehicle_type_str: str, definitions: list[TemplateDefinition]):
+		"""Detect the sheet's rows and keep the ones that match a known vehicle template.
+
+		Rows that match nothing (doodles, notes, labels) and legacy purchase remnants are
+		dropped rather than guessed at. This is the expensive path: its result is what
+		`SheetDetectionCache` stores, so an unchanged sheet never reaches it again.
+		"""
 		raw_rows = extractor.extract_spritesets()
 
 		# Rows that match a known VEHICLE template, in sheet order, ready to be consumed per group.
-		self.vehicle_rows: list[tuple[Spriteset, TemplateDefinition]] = []
+		vehicle_rows: list[tuple[Spriteset, TemplateDefinition]] = []
 		for row in raw_rows:
 			match = classify_row(row.template.sprites, vehicle_type_str, definitions)
 			if match is None:
@@ -141,20 +171,15 @@ class VehicleSpriteAllocator:
 			if match.template_type == TemplateType.PURCHASE:
 				continue
 
-			self.vehicle_rows.append((row, match))
+			vehicle_rows.append((row, match))
 
-		if not self.vehicle_rows:
+		if not vehicle_rows:
 			raise ValueError(
-				f"No recognised vehicle spritesets found in '{vehicle.spritesheet_path}' "
+				f"No recognised vehicle spritesets found in '{extractor.filename}' "
 				f"(checked {len(raw_rows)} detected row(s))."
 			)
 
-		self.cursor = 0
-		self._assigned_rows: dict[tuple[str, str], list[tuple[Spriteset, TemplateDefinition]]] = {}
-		self._spritesets: dict[tuple[str, str], list[Spriteset]] = {}
-		self._template_names: dict[tuple[str, str], list[str]] = {}
-		self._lengths: dict[tuple[str, str], list[int]] = {}
-		self._definitions: dict[tuple[str, str], list[TemplateDefinition]] = {}
+		return vehicle_rows
 
 	def get(self, profile: Profile, livery: Livery) -> tuple[list[Spriteset], list[str], list[int]]:
 		"""Return the (spritesets, template_names, lengths) for a profile/livery combination.
