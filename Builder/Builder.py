@@ -543,6 +543,7 @@ class Builder:
             raise RuntimeError("No NML files available for collation.")
 
         custom_nml_folder = ctx.project.path / ctx.project.grfFolder / "custom_nml"
+        purchase_list_blocks, skipped_custom_nml = self._purchase_list_nml(ctx)
         ctx.nml_filepath = self.nmlCollator.collate(
             ctx.nml_files,
             ctx.project.name,
@@ -552,22 +553,41 @@ class Builder:
             staged_candidate_nml=Path(ctx.nml_output_folder) / "candidate_nml",
             vehicle_nml_files=ctx.vehicle_nml_files,
             variant_owners=ctx.variant_owners,
-            generated_trailing_nml=self._purchase_list_blocks(ctx),
+            generated_trailing_nml=purchase_list_blocks,
+            skip_custom_nml=skipped_custom_nml,
         )
         logger.info(f"NML collation complete: {ctx.nml_filepath}")
 
     @staticmethod
-    def _purchase_list_blocks(ctx: BuildContext) -> list:
-        """Render the project's purchase-list `sort` blocks, if it asked for them.
+    def _purchase_list_nml(ctx: BuildContext) -> tuple[list, list]:
+        """Return the project's purchase-list NML, and any file it replaces.
 
         A `sort` block names the generated items, so it can only be written once the
         variants exist; the blocks go after every item and before any hand-written
         `custom_nml/append` file.
+
+        `purchase_list.file` names a manual NML file the project maintains itself
+        (relative to the GRF folder). Its contents are returned as a generated block,
+        and the path is returned as well so the collator does not compile the same
+        file a second time from its `custom_nml` folder.
         """
         grf = getattr(ctx, "grf", None)
+        manual_file = getattr(grf, "purchase_list_file", None)
+        if manual_file:
+            path = (ctx.project.path / ctx.project.grfFolder / manual_file).resolve()
+            grf_root = (ctx.project.path / ctx.project.grfFolder).resolve()
+            if grf_root not in path.parents:
+                raise ValueError(
+                    f"'purchase_list.file' must stay inside the GRF folder: {manual_file}"
+                )
+            if not path.is_file():
+                raise FileNotFoundError(f"Purchase-list file not found: {path}")
+            logger.info(f"Using manual purchase-list NML file: {path}")
+            return [path.read_text(encoding="utf-8")], [path]
+
         order = getattr(grf, "purchase_list_order", PurchaseList.NONE)
         if order == PurchaseList.NONE:
-            return []
+            return [], []
 
         blocks = PurchaseList.build_blocks(ctx.successful_variants, order)
         if blocks:
@@ -575,7 +595,7 @@ class Builder:
                 f"Purchase-list order '{order}': wrote {len(blocks)} sort block(s) "
                 f"for {len(ctx.successful_variants)} variant(s)."
             )
-        return blocks
+        return blocks, []
 
     def _finalize_sprite_ids(self, ctx: BuildContext):
         deprecated_files = ctx.sprite_id_registry.finalize(ctx.nml_output_folder)

@@ -24,6 +24,17 @@ class GrfLoader:
             )
 
         purchase_list_order = parse_order(purchase_list.get("order"))
+        purchase_list_file = purchase_list.get("file")
+        if purchase_list_file is not None:
+            if not isinstance(purchase_list_file, str) or not purchase_list_file.strip():
+                raise ValueError(
+                    f"'purchase_list.file' in {self.yaml_path} must be a non-empty relative path"
+                )
+            purchase_list_file = purchase_list_file.strip()
+            if Path(purchase_list_file).is_absolute():
+                raise ValueError(
+                    f"'purchase_list.file' in {self.yaml_path} must be relative to the GRF folder"
+                )
 
         logging.getLogger(__name__).debug(f"Loaded GRF data from {self.yaml_path}")
 
@@ -38,4 +49,5 @@ class GrfLoader:
             global_vehicle_switches = data.get("global_vehicle_switches", []),
             global_actions = data.get("global_actions", []),
             purchase_list_order = purchase_list_order,
+            purchase_list_file = purchase_list_file,
         )

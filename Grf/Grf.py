@@ -15,3 +15,6 @@ class Grf:
     #: How the purchase list is ordered: `none` (vehicle-ID order, the default),
     #: `date`, or `grouped` (see `Vehicle/PurchaseList.py`).
     purchase_list_order: str = "none"
+    #: Optional manual NML file, relative to the project's GRF folder. When set it
+    #: replaces the generated purchase-list blocks.
+    purchase_list_file: str | None = None

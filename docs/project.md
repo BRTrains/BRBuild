@@ -102,6 +102,7 @@ Two optional files sit beside it in the same folder:
 *   **`global_actions`**: List of parameter-controlled NML actions that run at GRF scope. Each action requires `condition` and `action`; for example, `condition: param_disable_default_vehicles == 1` and `action: disable_item(FEAT_TRAINS)`.
 *   **`purchase_list`**: How the purchase list is ordered. Optional; without it vehicles appear in vehicle-ID order, which is an accident of the ID registry.
     *   `order`: `none` (the default), `date`, or `grouped`.
+    *   `file` *(optional)*: A manual NML file, relative to the project's `grf_folder`. When set, its contents are used instead of generated sort blocks; this is useful when the list needs explicit headers or an order the built-in grouping does not express. The file is collated after all generated items, so it may name their symbols.
     *   `date` puts every vehicle in introduction-date order.
     *   `grouped` is four groups, in this order: (1) everything else by introduction date — this is where BR Standard classes land, because their names start `Standard Class` rather than `Class <number>`; (2) the BR/privatisation class grouping, a name starting `Class <number>[/<subclass>]`, ordered by class then subclass; (3) coaches (`train_type: coach`); (4) wagons (`train_type: wagon`).
     *   Road vehicles (trams) are always ordered by introduction date, whatever the setting.

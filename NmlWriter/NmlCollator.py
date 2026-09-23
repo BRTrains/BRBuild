@@ -24,6 +24,7 @@ class NmlCollator:
         vehicle_nml_files=None,
         variant_owners=None,
         generated_trailing_nml=None,
+        skip_custom_nml=None,
     ):
         """Collate every NML block into one file.
 
@@ -43,6 +44,7 @@ class NmlCollator:
         Path(self.output_file).parent.mkdir(parents=True, exist_ok=True)
         custom_nml_files = []
         trailing_nml_files = []
+        skipped = {Path(path).expanduser().resolve() for path in (skip_custom_nml or [])}
 
         if custom_nml_folder:
             custom_nml_source = Path(custom_nml_folder)
@@ -52,6 +54,13 @@ class NmlCollator:
                     destination_file = custom_nml_output / relative_path
                     destination_file.parent.mkdir(parents=True, exist_ok=True)
                     self._copy_custom_nml_file(source_file, destination_file, project_path)
+                    # A GRF may name a file under custom_nml/append as its manual
+                    # purchase list. The builder also supplies that file's contents as
+                    # a generated trailing block, so it is written once, from the
+                    # generated copy, and skipped here.
+                    if source_file.resolve() in skipped:
+                        logger.debug(f"Skipping custom NML file named by the GRF: {source_file}")
+                        continue
                     if relative_path.parts and relative_path.parts[0] == "append":
                         trailing_nml_files.append(destination_file)
                     else:

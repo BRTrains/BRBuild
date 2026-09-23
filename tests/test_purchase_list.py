@@ -158,6 +158,19 @@ class PurchaseListOrderValidationTests(unittest.TestCase):
 
         self.assertEqual(grf.purchase_list_order, GROUPED)
 
+    def test_loader_reads_a_manual_purchase_list_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "GRF.yaml"
+            path.write_text(
+                "grf:\n  grfid: TEST\n  short_name: Test\n  name: Test\n  description: Test\n"
+                "versioning:\n  version: 1\n  compatible_version: 1\n"
+                "purchase_list:\n  file: custom_nml/append/sortpurchase.pnml\n",
+                encoding="utf-8",
+            )
+            grf = GrfLoader(path).load()
+
+        self.assertEqual(grf.purchase_list_file, "custom_nml/append/sortpurchase.pnml")
+
     def test_loader_defaults_to_no_sorting(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "GRF.yaml"
@@ -226,6 +239,30 @@ class PurchaseListCollationTests(unittest.TestCase):
             text = Path(collated).read_text(encoding="utf-8")
 
         self.assertLess(text.index("sort(FEAT_TRAINS"), text.index("hand written last word"))
+
+    def test_named_manual_append_file_is_not_compiled_twice(self):
+        with tempfile.TemporaryDirectory() as folder:
+            project_root = Path(folder)
+            custom_nml = project_root / "src" / "grf" / "custom_nml"
+            (custom_nml / "append").mkdir(parents=True)
+            manual = "sort(FEAT_TRAINS, [example]);\n"
+            manual_path = custom_nml / "append" / "sortpurchase.pnml"
+            manual_path.write_text(manual, encoding="utf-8")
+            item_file = project_root / "WorkingData" / "Example" / "example.gnml"
+            item_file.parent.mkdir(parents=True, exist_ok=True)
+            item_file.write_text("item (FEAT_TRAINS, example) {\n}\n", encoding="utf-8")
+
+            collated = NmlCollator().collate(
+                [str(item_file)],
+                "Example",
+                custom_nml,
+                project_root,
+                generated_trailing_nml=[manual],
+                skip_custom_nml=[manual_path],
+            )
+            text = Path(collated).read_text(encoding="utf-8")
+
+        self.assertEqual(text.count("sort(FEAT_TRAINS, [example]);"), 1)
 
 
 class _Stub:
