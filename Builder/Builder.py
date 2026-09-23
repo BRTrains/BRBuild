@@ -290,7 +290,7 @@ class Builder:
                 if allocator is not None:
                     try:
                         variant.spritesets, variant.sprite_template_names, variant.sprite_lengths = allocator.get(
-                            variant.profile, variant.livery
+                            variant.profile, variant.livery, variant.vehicle_type
                         )
                         purchase = allocator.get_purchase(
                             variant.profile, variant.livery, ctx.nml_output_folder

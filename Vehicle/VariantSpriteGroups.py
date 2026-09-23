@@ -93,6 +93,40 @@ def _build_group(profile: Profile, livery: Livery, vehicle: Vehicle, is_ohle: bo
 	return SpriteGroup(profile=profile, livery=livery, pattern=pattern, group_size=group_size)
 
 
+#: A vehicle template is named `tmpl_<vehicle_type>_<length>[_<tags>]`, so a counterpart for
+#: another feature carries the same length and tags under that feature's vehicle type.
+TRAM_VEHICLE_TYPE = "tram"
+ROAD_VEHICLE_FEATURE = "FEAT_ROADVEHS"
+
+
+def tram_template_index(definitions: list[TemplateDefinition]) -> dict[tuple, str]:
+	"""Index the tram templates by (length, tags), the key a train template is looked up with.
+
+	The two sets are deliberately the same shape — same columns, same view boxes — and differ
+	only in the offsets, so a train template's counterpart is the tram template with the same
+	length and the same tags (`_old`, `_reversed`, `_tall`, ...).
+	"""
+	return {
+		(definition.length, tuple(definition.variant_tags)): definition.name
+		for definition in definitions
+		if definition.template_type == TemplateType.VEHICLE
+		and definition.vehicle_type == TRAM_VEHICLE_TYPE
+	}
+
+
+def road_vehicle_template_name(definition: TemplateDefinition, tram_templates: dict) -> str:
+	"""The template a road vehicle is drawn with, given the one its sheet row matched.
+
+	OpenTTD places a tram from the tram template's offsets, which differ from the train
+	template's by up to 9px in the diagonal views, while the view boxes are identical. A row
+	that matched a train template therefore needs no re-matching to be drawn as a tram: only
+	the template name changes. Anything without a counterpart — a train template with no tram
+	twin — keeps the template it matched.
+	"""
+	key = (definition.length, tuple(definition.variant_tags))
+	return tram_templates.get(key, definition.name)
+
+
 def build_sprite_groups(vehicle: Vehicle) -> list[SpriteGroup]:
 	"""Build the ordered list of sprite groups for a vehicle's profile/livery combinations.
 
@@ -145,6 +179,12 @@ class VehicleSpriteAllocator:
 
 		self.vehicle_rows: list[tuple[Spriteset, TemplateDefinition]] = rows
 
+		# Rows are matched against the vehicle's own type, so a candidate authored as a train
+		# matches train templates even where a profile is also emitted as a road vehicle. The
+		# tram counterparts are indexed up front so those variants can be drawn with the right
+		# offsets without re-matching anything (see `road_vehicle_template_name`).
+		self._tram_templates = tram_template_index(definitions)
+
 		self.cursor = 0
 		self._assigned_rows: dict[tuple[str, str], list[tuple[Spriteset, TemplateDefinition]]] = {}
 		self._spritesets: dict[tuple[str, str], list[Spriteset]] = {}
@@ -182,7 +222,7 @@ class VehicleSpriteAllocator:
 
 		return vehicle_rows
 
-	def get(self, profile: Profile, livery: Livery) -> tuple[list[Spriteset], list[str], list[int]]:
+	def get(self, profile: Profile, livery: Livery, vehicle_type=None) -> tuple[list[Spriteset], list[str], list[int]]:
 		"""Return the (spritesets, template_names, lengths) for a profile/livery combination.
 
 		Consumes new confidently-identified rows from the sheet only the first time this
@@ -190,6 +230,12 @@ class VehicleSpriteAllocator:
 		`tmpl_train_6`) each corresponding spriteset was matched against, for the writer
 		to call verbatim instead of guessing one from an articulation role. `lengths` are
 		the matched templates' own `length` (1-8), for the per-variant `length` callback.
+
+		`vehicle_type` is the feature the variant is being emitted for. Rows are matched once
+		per candidate against the vehicle's own type, so a variant emitted as a road vehicle
+		names the tram counterpart of each matched template instead (`road_vehicle_template_name`)
+		— same geometry, road placement. The rows themselves, and their positions, are
+		unchanged, so both features share one set of sprites.
 
 		A profile declaring `sprite_group: <profile identifier>` reuses the rows already
 		assigned to that profile's matching livery instead of consuming its own, so two
@@ -220,7 +266,14 @@ class VehicleSpriteAllocator:
 			self._lengths[key] = [group_slice[position - 1][1].length for position in group.pattern]
 			self._definitions[key] = [group_slice[position - 1][1] for position in group.pattern]
 
-		return self._spritesets[key], self._template_names[key], self._lengths[key]
+		names = self._template_names[key]
+		if getattr(vehicle_type, "nml_feature", None) == ROAD_VEHICLE_FEATURE:
+			names = [
+				road_vehicle_template_name(definition, self._tram_templates)
+				for definition in self._definitions[key]
+			]
+
+		return self._spritesets[key], names, self._lengths[key]
 
 	def _shared_rows(self, profile: Profile, livery: Livery, source: str) -> list:
 		"""Return the rows assigned to the profile named by this profile's `sprite_group`."""

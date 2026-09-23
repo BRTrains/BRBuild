@@ -212,7 +212,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `track_type`: Track types for this profile (see Track types below), e.g. a dual-voltage formation alongside a single-system one.
     *   `cargo`: Cargo preset or classes for this profile, overriding the vehicle's `cargo`.
     *   `special_tags`: List of custom tags triggering special badges for this profile's variants.
-    *   `types`: Target vehicle type variants (e.g. `[train, tram]`).
+    *   `types`: Target vehicle type variants (e.g. `[train, tram]`). Rows are matched once per vehicle, against the vehicle's own `stats.vehicle_type`, so a variant emitted as a road vehicle is drawn with the `tmpl_tram_*` twin of whichever template its row matched: the twins are deliberately the same shape as the train templates and differ only in the offsets that place a tram on the road. Both variants of a profile therefore share one set of sprites, with different placement.
 *   **`liveries`**: Visual variations (liveries) available for the vehicle.
     *   `name`: Name of the livery.
     *   `sprite_override`: Custom sprite template file to map.
