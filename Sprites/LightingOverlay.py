@@ -109,15 +109,19 @@ class Detection:
 		self.assumed_from = self.assumed_from or other.assumed_from
 
 	def serialise(self) -> dict:
-		return {
+		payload = {
 			"pixels": [[x, y, value] for (x, y), value in sorted(self.pixels.items())],
 			"rows": sorted(self.rows),
 			"flags": sorted(self.flags),
 			"pairs": self.pairs,
 			"rejected": self.rejected,
 			"view_mapping": self.view_mapping,
-			"assumed_from": self.assumed_from,
 		}
+		if self.assumed_from:
+			# Only written when set, so `grep assumed <sheet>.lightcache.json` lists the sheet's
+			# guesses and nothing else.
+			payload["assumed_from"] = self.assumed_from
+		return payload
 
 	@classmethod
 	def deserialise(cls, payload: dict) -> "Detection":
