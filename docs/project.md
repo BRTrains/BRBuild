@@ -553,12 +553,15 @@ misc flag `TRAIN_FLAG_SPRITE_STACK` is added to any variant that gets an overlay
 - **The trailing-lamp rule, for driving cars only.** A driving vehicle (`has_cab`) draws its lamps
   *red*: a DVT's cab faces away from the train in the normal state, so the art shows the tail lamps and
   has no white counterpart anywhere for the rule above to pair with — which would leave its lamps red
-  while the train drives backwards. For those vehicles, and only those, a **pair of isolated bright-red
-  pixels (`B6`, `B7`) on an end-on face, mirrored about the centreline and within the six-lamp cap**, is
-  accepted as a lamp and repainted white (`0F`). Both end-on faces carrying a red pair is left to a
-  human (the drawing is not a single-cab vehicle), and scanning the end-on views only is what keeps a
-  livery's red out — a livery red runs in strokes of a dozen pixels or more. A locomotive or multiple
-  unit never reaches this rule: it already pairs, and its `has_cab` is unset.
+  while the train drives backwards. For those vehicles, and only those, an **end is recognised by an
+  end-on face whose isolated bright-red pixels (`B6`, `B7`) mirror about its own centreline, or by the
+  diagonal pair that mirrors across the box width** — the diagonals are where a train on diagonal track
+  is drawn, and they still identify the lamps on a drawing whose end-on pair the livery's red band
+  swamps. The side pair is taken too when it mirrors. Kept pixels are capped at the six-lamp limit and
+  repainted white (`0F`), the state the lamps take while the train drives backwards. Lamps on **both**
+  ends of a drawing is ambiguous about which end trails and is left to a human; so is a view over the
+  cap. A locomotive or multiple unit never reaches this rule: it already pairs, and its `has_cab` is
+  unset.
 
 The overlay paints the counterpart's own value at the lamp pixel, so the shade is reciprocated rather
 than replaced; the trailing-lamp rule paints the white the lamps take when the train drives backwards.

@@ -57,10 +57,20 @@ TRAILING_LAMP_RED = frozenset({0xB6, 0xB7})
 TRAILING_LAMP_LIT = 0x0F
 
 #: Bump when the rules above change, so every cache is re-derived.
-RULES_VERSION = 3
+RULES_VERSION = 5
 
 #: End-on views, where lamps are mirror-symmetric about the box centreline.
 END_ON_VIEWS = (0, 4)
+
+#: The views that show one end of a vehicle, per end: the end-on view, the diagonal pair that
+#: mirrors across the box width, and the side pair. A lamp appears in both views of a pair, mirrored;
+#: a livery's own red dashes do not, which is what tells them apart (see `mirror_pair_lamps`). A
+#: train on diagonal track is drawn in the diagonal pair, so a trailing rule that covered only the
+#: end-on view leaves its lamps red in most of what a player sees.
+END_VIEWS = {
+	0: {"end_on": 0, "diagonals": (1, 7), "sides": (2, 6)},  # lamps at the north end: N, NE/NW, E/W
+	4: {"end_on": 4, "diagonals": (3, 5), "sides": (2, 6)},  # lamps at the south end: S, SE/SW, E/W
+}
 
 #: A variant's `lighting` setting, accepted at vehicle, profile and livery level (livery wins):
 #: `auto` detects and fills an unreadable livery in from its siblings, `exact` trusts only what the
@@ -378,58 +388,123 @@ def _paired_detection(image, parts: list[Part]) -> Detection:
 	return detect_between_rows(image, first.row_y, first.boxes, last.row_y, last.boxes)
 
 
+def _isolated_reds(image, box: tuple[int, int, int, int], row_y: int) -> set[tuple[int, int]]:
+	"""Red lamp candidates in one view: the brightest reds, no more than two pixels in a cluster.
+
+	A livery's own red runs in strokes and dashes of three pixels or more, so this keeps only pixels
+	that could be a lamp and leaves the mirror-pair test below to confirm them.
+	"""
+	left, top, width, height = box
+	reds = {
+		(x, y)
+		for x in range(width)
+		for y in range(height)
+		if image.getpixel((left + x, row_y + top + y)) in TRAILING_LAMP_RED
+	}
+	return {pixel for cluster in _clusters(reds) if len(cluster) <= 2 for pixel in cluster}
+
+
+def mirror_pair_lamps(image, row_y: int, boxes, pair: tuple[int, int]) -> dict[tuple[int, int], int]:
+	"""Lamps drawn in both views of a mirror pair: pixels whose counterpart is mirrored in the other.
+
+	The two views show the same end of the vehicle from either side, so a lamp's pixels mirror each
+	other across the box width (`x` becomes `width - 1 - x` at the same height). A livery's red dashes
+	have no such counterpart, which is what separates them from a lamp — on the Mk3 DVT's NE view a
+	seven-pixel livery stripe sits beside the two real lamps, and only the lamps mirror into NW.
+	"""
+	found: dict[tuple[int, int], int] = {}
+	for index, view in enumerate(pair):
+		other = pair[1 - index]
+		if len(boxes[view]) != 4 or len(boxes[other]) != 4:
+			continue
+		left, top, width, height = boxes[view]
+		other_left, other_top, other_width, other_height = boxes[other]
+		if width != other_width or height != other_height:
+			continue
+		candidates = _isolated_reds(image, boxes[view], row_y)
+		partners = _isolated_reds(image, boxes[other], row_y)
+		for x, y in candidates:
+			if (width - 1 - x, y) not in partners:
+				continue
+			found[(left + x, row_y + top + y)] = TRAILING_LAMP_LIT
+	return found
+
+
+def _end_on_lamps(image, row_y: int, boxes, view: int, detection: Detection) -> dict[tuple[int, int], int]:
+	"""Lamps on one end-on face: isolated reds mirrored about the box's own centreline.
+
+	Flags what it will not use — a face over the lamp cap, or one whose reds are not symmetric.
+	"""
+	left, top, width, height = boxes[view]
+	lamps = _isolated_reds(image, boxes[view], row_y)
+	if not lamps:
+		return {}
+	if len(lamps) > MAX_LAMPS_PER_VIEW:
+		detection.flags.append(
+			f"view {view} of row y={row_y} has {len(lamps)} red pixels "
+			f"(cap {MAX_LAMPS_PER_VIEW}): not automated"
+		)
+		return {}
+	if not mirror_symmetric([(x, y, 0, 0) for x, y in lamps], width):
+		detection.flags.append(
+			f"red pixels at view {view} of row y={row_y} are not mirror-symmetric: not automated"
+		)
+		return {}
+	return {(left + x, row_y + top + y): TRAILING_LAMP_LIT for x, y in lamps}
+
+
 def detect_trailing_only(image, rows: list[tuple[int, tuple]]) -> Detection:
-	"""Lamps drawn only in their trailing state: a red pair on an end-on face, no white anywhere.
+	"""Lamps drawn only in their trailing state: red on the end faces, no white anywhere.
 
 	Driving vehicles draw their lamps red, because a DVT's cab faces away from the train in the
 	normal state (that is what `has_cab` marks), and their art carries no white counterpart to pair
 	with — so the ordinary rule finds nothing and the lamps never flip while the train drives
-	backwards. This rule accepts the red pair instead, and paints it white.
+	backwards. This rule accepts the red lamps instead, and paints them white.
 
-	Searching only the end-on views is what keeps a livery's own red out: the Royal Mail PCV and the
-	TPO body are drawn mostly in red, as is a Class 60's livery, and a livery red runs in strokes of
-	a dozen pixels or more while a lamp is one or two isolated pixels mirrored about the centreline.
-	The caller decides *whether* to ask (it passes `has_cab`); this function decides whether what it
-	finds is a lamp.
+	Searching only the views a lamp is actually drawn in is what keeps a livery's own red out: the
+	Royal Mail PCV is drawn mostly in red, as is a Class 60's livery, and a livery red runs in
+	strokes of a dozen pixels or more while a lamp is one or two isolated pixels mirrored about the
+	centreline. An end is recognised by **either** its end-on face's symmetric pair **or** the
+	diagonal pair that mirrors across the box width — the diagonals are where a train on diagonal
+	track is drawn, and they still identify the lamps on a drawing whose end-on pair the livery's own
+	red band swamps (the Mk4 DVT's Virgin East Coast row). Lamps on both ends is ambiguous about
+	which end trails, and is left to a human. The caller decides *whether* to ask (it passes
+	`has_cab`); this function decides whether what it finds is a lamp.
 	"""
 	detection = Detection()
 	for row_y, boxes in rows:
 		found: dict[tuple[int, int], int] = {}
 		ends_with_lamps = 0
-		for view in END_ON_VIEWS:
-			left, top, width, height = boxes[view]
-			reds = {
-				(x, y)
-				for x in range(width)
-				for y in range(height)
-				if image.getpixel((left + x, row_y + top + y)) in TRAILING_LAMP_RED
-			}
-			# A lamp is one or two pixels; anything larger is a stroke of livery.
-			lamps = {pixel for cluster in _clusters(reds) if len(cluster) <= 2 for pixel in cluster}
-			if not lamps:
-				continue
-			if len(lamps) > MAX_LAMPS_PER_VIEW:
+		for end_on in sorted(END_VIEWS):
+			views = END_VIEWS[end_on]
+			lamps = _end_on_lamps(image, row_y, boxes, views["end_on"], detection)
+
+			diagonals = mirror_pair_lamps(image, row_y, boxes, views["diagonals"])
+			if len(diagonals) > MAX_LAMPS_PER_VIEW:
 				detection.flags.append(
-					f"view {view} of row y={row_y} has {len(lamps)} red pixels "
-					f"(cap {MAX_LAMPS_PER_VIEW}): not automated"
+					f"views {views['diagonals'][0]}/{views['diagonals'][1]} of row y={row_y} mirror "
+					f"{len(diagonals)} red pixels (cap {MAX_LAMPS_PER_VIEW}): not automated"
 				)
-				continue
-			if not mirror_symmetric([(x, y, 0, 0) for x, y in lamps], width):
-				detection.flags.append(
-					f"red pixels at view {view} of row y={row_y} are not mirror-symmetric: not automated"
-				)
+				diagonals = {}
+
+			if not lamps and not diagonals:
 				continue
 			ends_with_lamps += 1
-			for x, y in lamps:
-				found[(left + x, row_y + top + y)] = TRAILING_LAMP_LIT
+			found.update(lamps)
+			found.update(diagonals)
+
+			# Side-on, the same lamps if the artist drew them; nothing here has ever mismatched.
+			sides = mirror_pair_lamps(image, row_y, boxes, views["sides"])
+			if len(sides) <= MAX_LAMPS_PER_VIEW:
+				found.update(sides)
 
 		if not found:
 			continue
 		if ends_with_lamps > 1:
-			# Both end-on faces carry a red pair: the drawing is not a single-cab vehicle, so which
-			# end trails is ambiguous. Leave it to a human rather than guess.
+			# Both ends carry lamps: the drawing is not a single-cab vehicle, so which end trails is
+			# ambiguous. Leave it to a human rather than guess.
 			detection.flags.append(
-				f"red lamp pairs on both end-on views of row y={row_y}: not automated"
+				f"red lamp pixels on both ends of row y={row_y}: not automated"
 			)
 			continue
 

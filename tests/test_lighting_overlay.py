@@ -308,6 +308,58 @@ class TrailingOnlyLampTests(unittest.TestCase):
         self.assertEqual(detection.pixels, {})
         self.assertEqual(detection.pairs, 0)
 
+    def test_the_same_lamps_are_flipped_in_the_diagonal_and_side_views(self):
+        # A DVT draws its tail lamps in three views (N and both rear diagonals) and sometimes
+        # side-on too: the diagonal pair mirrors across the box width, the side pair likewise.
+        # Without this the lamps stayed red on diagonal track, which is most of what a player sees.
+        detection = self._detect(
+            {
+                (0 + 2, 21): RED,
+                (0 + 5, 21): RED,  # end-on pair, mirrored within the 8-wide N box
+                (9 + 1, 10): RED,
+                (150 + 19, 10): RED,  # a lamp in NE and its mirror in NW (21-wide boxes)
+                (31 + 3, 8): RED,
+                (117 + 28, 8): RED,  # side-on, mirrored between the 32-wide E and W boxes
+            },
+            trailing_only=True,
+        )
+
+        self.assertEqual(
+            detection.pixels,
+            {
+                (2, 21): TRAILING_LAMP_LIT,
+                (5, 21): TRAILING_LAMP_LIT,
+                (10, 10): TRAILING_LAMP_LIT,
+                (169, 10): TRAILING_LAMP_LIT,
+                (34, 8): TRAILING_LAMP_LIT,
+                (145, 8): TRAILING_LAMP_LIT,
+            },
+        )
+
+    def test_a_livery_dash_without_a_mirror_partner_is_left_alone(self):
+        detection = self._detect(
+            {
+                (0 + 2, 21): RED,
+                (0 + 5, 21): RED,
+                (9 + 5, 5): RED,  # a dash in NE whose mirror (15,5) is not drawn in NW
+            },
+            trailing_only=True,
+        )
+
+        self.assertEqual(
+            detection.pixels, {(2, 21): TRAILING_LAMP_LIT, (5, 21): TRAILING_LAMP_LIT}
+        )
+
+    def test_diagonal_lamps_alone_are_enough_when_the_end_on_pair_is_unreadable(self):
+        # The Mk4 DVT's Virgin East Coast row: its livery band runs through the end-on pair, so only
+        # the mirror pair in the diagonals identifies the lamps - and those are the views a train on
+        # diagonal track is drawn in, so they must be flipped.
+        detection = self._detect({(9 + 1, 10): RED, (150 + 19, 10): RED}, trailing_only=True)
+
+        self.assertEqual(
+            detection.pixels, {(10, 10): TRAILING_LAMP_LIT, (169, 10): TRAILING_LAMP_LIT}
+        )
+
     def test_a_livery_stroke_is_not_a_lamp(self):
         # eleven reds in a diagonal run: a livery stripe, which no lamp cluster ever is
         stroke = {(0 + 1 + step, 4 + step): RED for step in range(7)}
@@ -329,7 +381,7 @@ class TrailingOnlyLampTests(unittest.TestCase):
         )
 
         self.assertEqual(detection.pixels, {})
-        self.assertTrue(any("both end-on views" in flag for flag in detection.flags))
+        self.assertTrue(any("both ends" in flag for flag in detection.flags))
 
     def test_over_the_cap_is_flagged_rather_than_automated(self):
         # four mirror-symmetric pairs = eight lamps, over MAX_LAMPS_PER_VIEW
