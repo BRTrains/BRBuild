@@ -547,9 +547,18 @@ misc flag `TRAIN_FLAG_SPRITE_STACK` is added to any variant that gets an overlay
   the counterpart pixel, a drawing whose lamps are in no shade we accept — is logged and left alone: the
   unit keeps its published artwork until someone deals with it manually. Units with no headlights drawn
   at all (much early steam) are in this group by design.
+- **The trailing-lamp rule, for driving cars only.** A driving vehicle (`has_cab`) draws its lamps
+  *red*: a DVT's cab faces away from the train in the normal state, so the art shows the tail lamps and
+  has no white counterpart anywhere for the rule above to pair with — which would leave its lamps red
+  while the train drives backwards. For those vehicles, and only those, a **pair of isolated bright-red
+  pixels (`B6`, `B7`) on an end-on face, mirrored about the centreline and within the six-lamp cap**, is
+  accepted as a lamp and repainted white (`0F`). Both end-on faces carrying a red pair is left to a
+  human (the drawing is not a single-cab vehicle), and scanning the end-on views only is what keeps a
+  livery's red out — a livery red runs in strokes of a dozen pixels or more. A locomotive or multiple
+  unit never reaches this rule: it already pairs, and its `has_cab` is unset.
 
 The overlay paints the counterpart's own value at the lamp pixel, so the shade is reciprocated rather
-than replaced.
+than replaced; the trailing-lamp rule paints the white the lamps take when the train drives backwards.
 
 ### Cost and caching
 

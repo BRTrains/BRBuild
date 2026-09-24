@@ -48,8 +48,16 @@ TRANSPARENT = 0x00
 #: A double headlight is two pixels a side and a centre repeater adds a pair.
 MAX_LAMPS_PER_VIEW = 6
 
+#: The brightest reds a tail lamp is drawn in. Deliberately not a shade *search*: the trailing-only
+#: rule below looks for these in the end-on views only, where a livery's own red runs in strokes.
+TRAILING_LAMP_RED = frozenset({0xB6, 0xB7})
+
+#: The shade a tail lamp takes when the train drives backwards, which is what the trailing-only
+#: overlay paints: the same lamp, in the state the ordinary pair-based rule would have found.
+TRAILING_LAMP_LIT = 0x0F
+
 #: Bump when the rules above change, so every cache is re-derived.
-RULES_VERSION = 1
+RULES_VERSION = 2
 
 #: End-on views, where lamps are mirror-symmetric about the box centreline.
 END_ON_VIEWS = (0, 4)
@@ -273,11 +281,37 @@ def _detect_unpaired_rows(image, row_a: int, boxes_a, row_b: int, boxes_b) -> De
 	return detection
 
 
-def detect_for_parts(image, parts: list[Part]) -> Detection:
-	"""Run the rules over one variant's parts, in consist order."""
+def detect_for_parts(image, parts: list[Part], trailing_only_fallback: bool = False) -> Detection:
+	"""Run the rules over one variant's parts, in consist order.
+
+	`trailing_only_fallback` admits the trailing-lamp rule for a vehicle the caller knows is a
+	driving car (`has_cab`): such a vehicle draws its lamps red on the end-on face because its cab
+	points away from the train in the normal state, so there is no white counterpart to pair with.
+	It stays off everywhere else — a locomotive or multiple unit that already pairs must not have
+	livery red read as lamps.
+	"""
 	if not parts:
 		return Detection()
 
+	detection = _paired_detection(image, parts)
+	if detection.pixels or not trailing_only_fallback:
+		return detection
+
+	rows: list[tuple[int, tuple]] = []
+	for part in parts:
+		if not any(row_y == part.row_y for row_y, _ in rows):
+			rows.append((part.row_y, part.boxes))
+
+	trailing = detect_trailing_only(image, rows)
+	if trailing.pixels:
+		return trailing
+
+	detection.flags.extend(flag for flag in trailing.flags if flag not in detection.flags)
+	return detection
+
+
+def _paired_detection(image, parts: list[Part]) -> Detection:
+	"""The original rule: pair each drawing's lamps with the counterpart that shows them lit."""
 	if len({part.row_y for part in parts}) == 1:
 		# a single-unit vehicle: locomotive, tank engine, single-unit stock
 		return detect_in_row(image, parts[0].row_y, parts[0].boxes)
@@ -292,6 +326,76 @@ def detect_for_parts(image, parts: list[Part]) -> Detection:
 	if first.template_name != last.template_name:
 		return _detect_unpaired_rows(image, first.row_y, first.boxes, last.row_y, last.boxes)
 	return detect_between_rows(image, first.row_y, first.boxes, last.row_y, last.boxes)
+
+
+def detect_trailing_only(image, rows: list[tuple[int, tuple]]) -> Detection:
+	"""Lamps drawn only in their trailing state: a red pair on an end-on face, no white anywhere.
+
+	Driving vehicles draw their lamps red, because a DVT's cab faces away from the train in the
+	normal state (that is what `has_cab` marks), and their art carries no white counterpart to pair
+	with — so the ordinary rule finds nothing and the lamps never flip while the train drives
+	backwards. This rule accepts the red pair instead, and paints it white.
+
+	Searching only the end-on views is what keeps a livery's own red out: the Royal Mail PCV and the
+	TPO body are drawn mostly in red, as is a Class 60's livery, and a livery red runs in strokes of
+	a dozen pixels or more while a lamp is one or two isolated pixels mirrored about the centreline.
+	The caller decides *whether* to ask (it passes `has_cab`); this function decides whether what it
+	finds is a lamp.
+	"""
+	detection = Detection()
+	for row_y, boxes in rows:
+		found: dict[tuple[int, int], int] = {}
+		ends_with_lamps = 0
+		for view in END_ON_VIEWS:
+			left, top, width, height = boxes[view]
+			reds = {
+				(x, y)
+				for x in range(width)
+				for y in range(height)
+				if image.getpixel((left + x, row_y + top + y)) in TRAILING_LAMP_RED
+			}
+			# A lamp is one or two pixels; anything larger is a stroke of livery.
+			lamps = {pixel for cluster in _clusters(reds) if len(cluster) <= 2 for pixel in cluster}
+			if not lamps:
+				continue
+			if len(lamps) > MAX_LAMPS_PER_VIEW:
+				detection.flags.append(
+					f"view {view} of row y={row_y} has {len(lamps)} red pixels "
+					f"(cap {MAX_LAMPS_PER_VIEW}): not automated"
+				)
+				continue
+			if not mirror_symmetric([(x, y, 0, 0) for x, y in lamps], width):
+				detection.flags.append(
+					f"red pixels at view {view} of row y={row_y} are not mirror-symmetric: not automated"
+				)
+				continue
+			ends_with_lamps += 1
+			for x, y in lamps:
+				found[(left + x, row_y + top + y)] = TRAILING_LAMP_LIT
+
+		if not found:
+			continue
+		if ends_with_lamps > 1:
+			# Both end-on faces carry a red pair: the drawing is not a single-cab vehicle, so which
+			# end trails is ambiguous. Leave it to a human rather than guess.
+			detection.flags.append(
+				f"red lamp pairs on both end-on views of row y={row_y}: not automated"
+			)
+			continue
+
+		if detection.pixels:
+			detection.flags.append(
+				f"trailing lamps found on more than one drawing (rows {sorted(detection.rows)} and "
+				f"y={row_y}): not automated"
+			)
+			return detection
+
+		detection.pixels.update(found)
+		detection.rows.add(row_y)
+		detection.pairs += len(found)
+		detection.view_mapping = "trailing only"
+
+	return detection
 
 
 class LightingOverlayCache:
@@ -446,11 +550,15 @@ class VehicleLighting:
 			self._image = Image.open(self.sheet_path).convert("P")
 		return self._image
 
-	def detection_for(self, parts: list[Part]) -> Detection:
-		"""The detection for one variant's pairings, from the cache or freshly made."""
-		key = signature(parts)
+	def detection_for(self, parts: list[Part], trailing_only: bool = False) -> Detection:
+		"""The detection for one variant's pairings, from the cache or freshly made.
+
+		`trailing_only` admits the trailing-lamp rule for a driving car (`has_cab`); it is part of the
+		cache key because the same pairings answer differently with and without it.
+		"""
+		key = signature(parts) + ("|trailing" if trailing_only else "")
 		if key not in self._detections:
-			self._detections[key] = detect_for_parts(self.image, parts)
+			self._detections[key] = detect_for_parts(self.image, parts, trailing_only_fallback=trailing_only)
 			self.unwritten = True
 		detection = self._detections[key]
 		self._combined.add(detection)

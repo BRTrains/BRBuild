@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from PIL import Image
@@ -9,6 +10,8 @@ from Sprites.LightingOverlay import (
     Detection,
     LightingOverlayCache,
     Part,
+    RULES_VERSION,
+    TRAILING_LAMP_LIT,
     VehicleLighting,
     boxes_of,
     detect_for_parts,
@@ -264,8 +267,92 @@ class LightingCacheTests(unittest.TestCase):
 
     def test_invalidated_by_a_rules_version_bump(self):
         self._cache().store(self._detections())
-        with patch("Sprites.LightingOverlay.RULES_VERSION", 2):
+        with patch("Sprites.LightingOverlay.RULES_VERSION", RULES_VERSION + 1):
             self.assertEqual(self._cache().load(), {})
+
+
+class TrailingOnlyLampTests(unittest.TestCase):
+    """The rule for a driving vehicle that draws its lamps only in the trailing state.
+
+    A DVT's cab faces away from the train, so its art carries a red pair on the end-on face and no
+    white counterpart anywhere: nothing for the pair-based rule to find. The trailing rule accepts
+    that pair for a vehicle the caller says is a driving car (`has_cab`) and paints it white.
+    """
+
+    def setUp(self):
+        self._folder = tempfile.TemporaryDirectory()
+        self.root = Path(self._folder.name)
+        self.sheet = self.root / "sheet.png"
+
+    def tearDown(self):
+        self._folder.cleanup()
+
+    def _detect(self, pixels: dict, trailing_only: bool) -> Detection:
+        _sheet(self.sheet, {0: pixels})
+        image = Image.open(self.sheet).convert("P")
+        return detect_for_parts(image, _parts(0), trailing_only_fallback=trailing_only)
+
+    def test_a_red_pair_is_found_and_painted_white_for_a_driving_car(self):
+        detection = self._detect(
+            {(0 + 1, 20): RED, (0 + 6, 20): RED}, trailing_only=True
+        )
+
+        self.assertEqual(detection.pixels, {(1, 20): TRAILING_LAMP_LIT, (6, 20): TRAILING_LAMP_LIT})
+        self.assertEqual(detection.rows, {0})
+        self.assertEqual(detection.view_mapping, "trailing only")
+        self.assertEqual(detection.flags, [])
+
+    def test_the_rule_stays_off_without_the_driving_car_flag(self):
+        detection = self._detect({(0 + 1, 20): RED, (0 + 6, 20): RED}, trailing_only=False)
+
+        self.assertEqual(detection.pixels, {})
+        self.assertEqual(detection.pairs, 0)
+
+    def test_a_livery_stroke_is_not_a_lamp(self):
+        # eleven reds in a diagonal run: a livery stripe, which no lamp cluster ever is
+        stroke = {(0 + 1 + step, 4 + step): RED for step in range(7)}
+        detection = self._detect(stroke, trailing_only=True)
+
+        self.assertEqual(detection.pixels, {})
+
+    def test_an_asymmetric_red_pixel_is_not_a_lamp(self):
+        detection = self._detect({(0 + 1, 20): RED}, trailing_only=True)
+
+        self.assertEqual(detection.pixels, {})
+        self.assertTrue(any("mirror-symmetric" in flag for flag in detection.flags))
+
+    def test_lamps_on_both_end_on_faces_are_left_to_a_human(self):
+        # a red pair on N *and* on S: not a single-cab vehicle, so which end trails is ambiguous
+        detection = self._detect(
+            {(0 + 1, 20): RED, (0 + 6, 20): RED, (86 + 1, 20): RED, (86 + 6, 20): RED},
+            trailing_only=True,
+        )
+
+        self.assertEqual(detection.pixels, {})
+        self.assertTrue(any("both end-on views" in flag for flag in detection.flags))
+
+    def test_over_the_cap_is_flagged_rather_than_automated(self):
+        # four mirror-symmetric pairs = eight lamps, over MAX_LAMPS_PER_VIEW
+        detection = self._detect(
+            {(0 + x, 20): RED for x in (1, 2, 5, 6)} | {(0 + x, 12): RED for x in (1, 2, 5, 6)},
+            trailing_only=True,
+        )
+
+        self.assertEqual(detection.pixels, {})
+        self.assertTrue(any("cap" in flag for flag in detection.flags))
+
+    def test_the_cache_key_separates_the_two_modes(self):
+        _sheet(self.sheet, {0: {(0 + 1, 20): RED, (0 + 6, 20): RED}})
+        vehicle = SimpleNamespace(spritesheet_path=str(self.sheet))
+        lighting = VehicleLighting(
+            vehicle, _palette(), [_definition()], str(self.root / "out")
+        )
+
+        plain = lighting.detection_for(_parts(0), trailing_only=False)
+        driving = lighting.detection_for(_parts(0), trailing_only=True)
+
+        self.assertEqual(plain.pixels, {})
+        self.assertEqual(len(driving.pixels), 2)
 
 
 class VehicleLightingTests(unittest.TestCase):

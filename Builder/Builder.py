@@ -327,7 +327,10 @@ class Builder:
                             Part(row_y=sprite.y, template_name=template_name, boxes=boxes_of(sprite))
                             for sprite, template_name in zip(variant.spritesets, variant.sprite_template_names)
                         ]
-                        variant.lighting_detection = lighting.detection_for(parts)
+                        variant.lighting_detection = lighting.detection_for(
+                            parts,
+                            trailing_only=bool(variant.get_attr("has_cab")),
+                        )
 
             for lighting in lightings.values():
                 lighting.write_images()
