@@ -213,6 +213,48 @@ class IngestTargetTests(unittest.TestCase):
 
         self.assertEqual(pairs, [(Path("/candidate/new/revision.png"), "/candidate/BRMk3.png")])
 
+    def test_the_resolved_view_substitutes_a_staged_copy(self):
+        from Builder.Builder import Builder
+
+        vehicle = SimpleNamespace(
+            identifier="mk4",
+            spritesheet_path="/candidate/BRMk4.png",
+            profiles=[Profile("dvt", spritesheet="/candidate/BRMk4DVT.png")],
+            liveries=[],
+            spritesheet_overrides={"/candidate/BRMk4DVT.png": "/staging/BRMk4DVT.png"},
+        )
+
+        self.assertEqual(
+            Builder._declared_sheets(vehicle),
+            ["/candidate/BRMk4.png", "/candidate/BRMk4DVT.png"],
+        )
+        self.assertEqual(
+            Builder._declared_sheets(vehicle, resolved=True),
+            ["/candidate/BRMk4.png", "/staging/BRMk4DVT.png"],
+        )
+
+    def test_a_candidate_with_only_standalone_sheets_is_buildable(self):
+        from Builder.Builder import Builder
+
+        with tempfile.TemporaryDirectory() as folder:
+            sheet = Path(folder) / "BRMk4DVT.png"
+            sheet.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+            vehicle = SimpleNamespace(
+                identifier="mk4",
+                spritesheet_path=str(Path(folder) / "BRMk4.png"),
+                profiles=[Profile("dvt", spritesheet=str(sheet))],
+                liveries=[],
+                spritesheet_overrides={},
+            )
+
+            self.assertTrue(Builder._has_any_sheet(vehicle))
+
+            # And the same candidate with its own sheet only.
+            (Path(folder) / "BRMk4.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+            vehicle.profiles = [Profile("coach")]
+            self.assertTrue(Builder._has_any_sheet(vehicle))
+
     def test_an_ambiguous_drop_is_refused_rather_than_guessed(self):
         from Builder.Builder import Builder
 
@@ -292,6 +334,55 @@ class StandaloneSheetRowTests(unittest.TestCase):
             self.assertEqual(allocator.cursor, 1)
             self.assertEqual(allocator.sheet_for(vehicle.profiles[0], livery), str(dvt))
             self.assertEqual(allocator.sheet_for(vehicle.profiles[1], livery), str(main))
+
+    def test_a_candidate_needs_no_sheet_of_its_own(self):
+        """A candidate whose profiles all name their own sheets draws nothing from `<Vehicle>.png`."""
+        with tempfile.TemporaryDirectory() as folder:
+            dvt = Path(folder) / "BRMk4DVT.png"
+            dvt.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+            vehicle = Vehicle(folder_path=folder, identifier="br_mk4", name="Mk4 Coach")
+            # The candidate's own sheet is deliberately absent.
+            vehicle.yaml_path = str(Path(folder) / "BRMk4.yaml")
+            profile = Profile("dvt", spritesheet=str(dvt), num_vehicles=1)
+            vehicle.profiles = [profile]
+            livery = Livery("Default")
+            vehicle.liveries = [livery]
+
+            rows = {str(dvt): [("dvt-row", SimpleNamespace(name="tmpl_train_8", length=8))]}
+
+            with patch.object(sprite_groups, "SpritesheetExtractor", FakeExtractor), patch.object(
+                sprite_groups, "SheetDetectionCache", FakeDetectionCache
+            ), patch.object(
+                VehicleSpriteAllocator,
+                "_match_vehicle_rows",
+                staticmethod(lambda extractor, vehicle_type, definitions: rows[extractor.filename]),
+            ):
+                allocator = VehicleSpriteAllocator(vehicle, [], [])
+
+                self.assertEqual(allocator.vehicle_rows, [])
+
+                dvt_sets, _, _ = allocator.get(profile, livery)
+
+            self.assertEqual(dvt_sets, ["dvt-row"])
+            self.assertEqual(allocator.sheet_for(profile, livery), str(dvt))
+
+    def test_a_profile_using_the_absent_own_sheet_says_so(self):
+        with tempfile.TemporaryDirectory() as folder:
+            vehicle = Vehicle(folder_path=folder, identifier="br_mk4", name="Mk4 Coach")
+            vehicle.yaml_path = str(Path(folder) / "BRMk4.yaml")
+            profile = Profile("coach", num_vehicles=1)
+            vehicle.profiles = [profile]
+            livery = Livery("Default")
+            vehicle.liveries = [livery]
+
+            allocator = VehicleSpriteAllocator(vehicle, [], [])
+
+            with self.assertRaises(ValueError) as caught:
+                allocator.get(profile, livery)
+
+            self.assertIn("BRMk4.png", str(caught.exception))
+            self.assertIn("spritesheet", str(caught.exception))
 
     def test_a_profile_naming_a_missing_sheet_fails_with_its_path(self):
         with tempfile.TemporaryDirectory() as folder:

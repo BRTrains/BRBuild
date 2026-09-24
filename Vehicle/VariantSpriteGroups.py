@@ -189,8 +189,6 @@ class VehicleSpriteAllocator:
 		v_type = vehicle.vehicle_type
 		vehicle_type_str = v_type.name.lower() if hasattr(v_type, "name") else str(v_type).lower()
 
-		extractor = SpritesheetExtractor(vehicle.spritesheet_path, palette)
-		self._image = extractor.image
 		self._palette = palette
 		#: The template definitions and vehicle type the detections were made with, needed again
 		#: for any sheet a profile or livery names for itself.
@@ -201,16 +199,30 @@ class VehicleSpriteAllocator:
 		#: The sheet each (profile, livery) group actually drew its rows from.
 		self._sheet_paths: dict[tuple[str, str], str] = {}
 
-		# Detecting rows is the build's most expensive step and answers the same question
-		# for an unchanged sheet, so the result is cached beside the sheet and reused while
-		# the sheet bytes, palette, template definitions and vehicle type all match.
-		cache = SheetDetectionCache(vehicle.spritesheet_path, palette, definitions, vehicle_type_str)
-		rows = cache.load()
-		if rows is None:
-			rows = self._match_vehicle_rows(extractor, vehicle_type_str, definitions)
-			cache.store(rows)
+		# The candidate's own sheet is optional: a candidate whose every profile names a
+		# `spritesheet` of its own has no rows to detect there, and its coach rows may simply not
+		# exist yet. Each sheet is read from the path the build actually uses, which is the copy
+		# staged out of `new/` while that sheet is being ingested.
+		self._own_sheet = str(vehicle.spritesheet_path)
+		if Path(self._own_sheet).is_file():
+			extractor = SpritesheetExtractor(self._own_sheet, palette)
+			self._image = extractor.image
 
-		self.vehicle_rows: list[tuple[Spriteset, TemplateDefinition]] = rows
+			# Detecting rows is the build's most expensive step and answers the same question
+			# for an unchanged sheet, so the result is cached beside the sheet and reused while
+			# the sheet bytes, palette, template definitions and vehicle type all match.
+			cache = SheetDetectionCache(
+				self._own_sheet, palette, definitions, vehicle_type_str
+			)
+			rows = cache.load()
+			if rows is None:
+				rows = self._match_vehicle_rows(extractor, vehicle_type_str, definitions)
+				cache.store(rows)
+
+			self.vehicle_rows: list[tuple[Spriteset, TemplateDefinition]] = rows
+		else:
+			self._image = None
+			self.vehicle_rows: list[tuple[Spriteset, TemplateDefinition]] = []
 
 		# Rows are matched against the vehicle's own type, so a candidate authored as a train
 		# matches train templates even where a profile is also emitted as a road vehicle. The
@@ -332,6 +344,12 @@ class VehicleSpriteAllocator:
 		sheet = declared_sheet_path(livery, profile, self.vehicle)
 
 		if sheet is None or _same_path(sheet, self.vehicle.spritesheet_path):
+			if not self.vehicle_rows:
+				raise ValueError(
+					f"'{self.vehicle.identifier}' has no spritesheet of its own at "
+					f"'{self.vehicle.spritesheet_path}': give this profile a 'spritesheet' of "
+					f"its own, or commit the candidate's own sheet."
+				)
 			group_slice = self.vehicle_rows[self.cursor:self.cursor + count]
 			self.cursor += count
 			self._record_sheet(key, self.vehicle.spritesheet_path)

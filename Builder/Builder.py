@@ -268,7 +268,7 @@ class Builder:
                     files_for_vehicle.append(staged)
 
             ingested_new_spritesheet = self._ingest_new_spritesheet(vehicle, ctx)
-            has_spritesheet = bool(vehicle.spritesheet_path) and Path(vehicle.spritesheet_path).is_file()
+            has_spritesheet = self._has_any_sheet(vehicle)
             allocator = None
             variant_groups = {}
 
@@ -288,7 +288,10 @@ class Builder:
             variants = list(VariantIterator(vehicle))
             lightings: dict[str, VehicleLighting] = {}
             if allocator is not None and variants:
-                for sheet in self._declared_sheets(vehicle):
+                for sheet in self._declared_sheets(vehicle, resolved=True):
+                    if not Path(sheet).is_file():
+                        # A candidate can declare a sheet nothing draws from yet.
+                        continue
                     lightings[str(sheet)] = VehicleLighting(
                         vehicle,
                         ctx.palette,
@@ -394,14 +397,20 @@ class Builder:
         return NmlCollator().copy_supplied_nml(source, destination, ctx.project.path)
 
     @staticmethod
-    def _declared_sheets(vehicle) -> list[str]:
+    def _declared_sheets(vehicle, resolved: bool = False) -> list[str]:
         """Every spritesheet a candidate draws from, in declaration order.
 
-        The candidate's own `<Vehicle>.png` first, then any sheet a profile or livery names for
-        itself, de-duplicated by resolved path. A candidate with no standalone sheets — which is
-        every candidate in both projects today — reports one path, exactly as before.
+        The candidate's own sheet first, then any sheet a profile or livery names for itself,
+        de-duplicated by resolved path. A candidate with no standalone sheets — which is
+        every candidate in both projects but the new Mk families — reports one path.
+
+        `resolved` returns the paths the build reads, with an ingest's staged copy substituted
+        for the published sheet (used for existence checks and for the per-sheet lighting
+        detectors); the default returns the published paths, which is what a drop in `new/` is
+        matched against.
         """
         sheets: list[str] = []
+        overrides = getattr(vehicle, "spritesheet_overrides", None) or {}
         own = getattr(vehicle, "spritesheet_path", None)
         if own:
             sheets.append(str(own))
@@ -416,9 +425,20 @@ class Builder:
                     continue
                 if any(Path(existing).resolve() == Path(declared).resolve() for existing in sheets):
                     continue
+                if resolved:
+                    declared = overrides.get(str(declared), declared)
                 sheets.append(str(declared))
 
         return sheets
+
+    @classmethod
+    def _has_any_sheet(cls, vehicle) -> bool:
+        """Whether any sheet this build will read exists on disk.
+
+        A candidate whose only profiles name sheets of their own needs no `<Vehicle>.png`, so the
+        check is over every declared sheet rather than the candidate's own alone.
+        """
+        return any(Path(sheet).is_file() for sheet in cls._declared_sheets(vehicle, resolved=True))
 
     @classmethod
     def _ingest_targets(cls, vehicle, drops: list[Path]) -> list[tuple[Path, str]]:
@@ -676,6 +696,9 @@ class Builder:
         )
 
         for sheet in sheets:
+            if not Path(sheet).is_file():
+                # A candidate whose own sheet is absent builds from its profiles' sheets alone.
+                continue
             try:
                 converter = SpritesheetLegacyConverter(definitions, ctx.palette)
                 kept = converter.process(sheet, v_type_str)
