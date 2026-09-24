@@ -185,6 +185,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `power_type`: List of traction types (e.g., `[steam, coal]`).
     *   `track_type`: List of the project's logical track types the train can use (see Track types below). Defaults to `RAIL`; trains only.
     *   `has_cab`: `true` marks an unpowered driving vehicle (a DVT, DBSO or driving trailer) so the train may back up with it leading (see Driving vehicles below). Also accepted on a profile or a livery.
+    *   `lighting`: `auto` (the default), `exact` or `none` — see Lighting overlays below. Also accepted on a profile or a livery.
     *   `sound_effect`, `visual_effect`: Override the presentation implied by the traction type (see Traction types below). Also accepted on a profile or a livery.
 *   **`cargo`**: what the vehicle can be refitted to, as a preset name, an explicit NML class, or a list of either:
     *   Presets — `passenger`, `parcels`, `mail`, `containerised`, `bulk`, `tank`, `open_wagon`. These are the project's own names for the bundles each kind of unit actually uses, so `cargo: containerised` beats repeating a seven-class bitmask in every wagon.
@@ -212,6 +213,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `tilt`: Tilt strength for this profile, as a named level or a number.
     *   `track_type`: Track types for this profile (see Track types below), e.g. a dual-voltage formation alongside a single-system one.
     *   `has_cab`: `true` when this profile is a driving vehicle (see Driving vehicles below).
+    *   `lighting`: `auto`, `exact` or `none` for this profile (see Lighting overlays below).
     *   `spritesheet`: A spritesheet of this profile's own, instead of the candidate's `<Vehicle>.png` (see Standalone spritesheets below).
     *   `cargo`: Cargo preset or classes for this profile, overriding the vehicle's `cargo`.
     *   `special_tags`: List of custom tags triggering special badges for this profile's variants.
@@ -225,6 +227,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `tilt`: Tilt strength for this livery; overrides the vehicle default, but not the profile.
     *   `track_type`: Track types for this livery; overrides both profile and vehicle (see Track types below).
     *   `has_cab`: `true` when this livery is a driving vehicle; overrides both profile and vehicle.
+    *   `lighting`: `auto`, `exact` or `none` for this livery; overrides both profile and vehicle.
     *   `spritesheet`: A spritesheet of this livery's own; overrides both profile and vehicle (see Standalone spritesheets below).
     *   `special_tags`: List of custom tags triggering special badges for this livery's variants.
 *   **Other root fields**:
@@ -559,6 +562,37 @@ misc flag `TRAIN_FLAG_SPRITE_STACK` is added to any variant that gets an overlay
 
 The overlay paints the counterpart's own value at the lamp pixel, so the shade is reciprocated rather
 than replaced; the trailing-lamp rule paints the white the lamps take when the train drives backwards.
+
+### Assuming a livery's lamps from its siblings (`lighting`)
+
+A class is drawn once per livery, and a livery whose lamps the detector cannot read otherwise keeps
+its artwork as authored — no layer, no flip. Where the unit's *other* liveries do identify lamps, the
+unreadable one is taken to match them: one livery of a class shows the class's lamp geometry.
+
+The assumption is deliberately narrow, and each condition is a way for it to be wrong:
+
+- it needs **exactly one** identified pattern; two or more different patterns is ambiguity about which
+  to use, so nothing is assumed;
+- the pattern must come from the **same spritesheet and the same template**, because a pattern is
+  recorded relative to the view boxes;
+- the pattern must come from a drawing the detector **did not flag** (not over the lamp cap, not
+  asymmetric, not assumed itself), since a rejected row is not evidence;
+- the target must be a drawing the detector said **nothing at all** about — a rejected row keeps its
+  flag and stays for a human;
+- a variant set to **`lighting: exact`** neither gives nor takes a pattern.
+
+`lighting` is accepted on the vehicle, a profile or a livery (livery wins), and takes:
+
+| Value | Meaning |
+|---|---|
+| `auto` | the default: detect the lamps, and fill an unreadable livery in from its siblings |
+| `exact` | trust only what this vehicle's own artwork shows (the override for a wrong guess) |
+| `none` | emit no lighting layer for this variant at all |
+
+Every assumption is labelled so it can be found and checked: the build logs a warning naming the
+source and the target, the sheet's `<sheet>.lightcache.json` records `"assumed_from"` and
+`"view_mapping": "assumed"` (so `grep assumed <sheet>.lightcache.json` lists every guess on that
+sheet), and the detection's flags carry `lamps assumed from '<source>': verify in game`.
 
 ### Cost and caching
 

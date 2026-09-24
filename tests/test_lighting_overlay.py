@@ -355,6 +355,154 @@ class TrailingOnlyLampTests(unittest.TestCase):
         self.assertEqual(len(driving.pixels), 2)
 
 
+class FakeVariant:
+    """Just enough of a `Variant` for the assumption pass: sprites, settings, a detection.
+
+    The identifier is written as `<unit> <profile>/<livery>` so the labels the pass records are the
+    ones a build would produce, without needing `Variant.process()` to have run.
+    """
+
+    def __init__(self, identifier, rows, template_name="tmpl_train_8_old", settings=None):
+        unit, rest = identifier.split(" ", 1)
+        profile_id, livery_name = rest.split("/", 1)
+        self.profile = SimpleNamespace(identifier=profile_id)
+        self.livery = SimpleNamespace(name=livery_name)
+        self.vehicle = SimpleNamespace(identifier=unit)
+        self.spritesets = [_spriteset(row, template_name) for row in rows]
+        self.sprite_template_names = [template_name] * len(rows)
+        self.lighting_detection = None
+        self._settings = settings or {}
+
+    def get_attr(self, name):
+        return self._settings.get(name)
+
+
+class FakeAllocator:
+    def __init__(self, sheet):
+        self.sheet = str(sheet)
+
+    def sheet_for(self, profile, livery):
+        return self.sheet
+
+
+def _spriteset(row_y: int, template_name: str):
+    template = Template(
+        name=template_name,
+        sprites=[Sprite(left, top, width, height, 0, 0) for left, top, width, height in BOXES],
+    )
+    return Spriteset(name=f"spriteset_{row_y}", file="sheet.png", template=template, x=0, y=row_y)
+
+
+def _detection(lamps: dict) -> Detection:
+    detection = Detection()
+    detection.pixels.update(lamps)
+    detection.pairs = len(lamps)
+    return detection
+
+
+class AssumedPatternTests(unittest.TestCase):
+    """Jon's rule: a livery the detector cannot read takes its unit's own lamp pattern.
+
+    Only where exactly one trustworthy pattern exists, only on the same sheet and template, and
+    never when the unit says `lighting: exact`.
+    """
+
+    def setUp(self):
+        self._folder = tempfile.TemporaryDirectory()
+        self.root = Path(self._folder.name)
+        self.sheet = self.root / "sheet.png"
+        _sheet(self.sheet, {})
+
+    def tearDown(self):
+        self._folder.cleanup()
+
+    def _lighting(self):
+        vehicle = SimpleNamespace(spritesheet_path=str(self.sheet))
+        return VehicleLighting(vehicle, _palette(), [_definition()], str(self.root / "out"))
+
+    def _run_real(self, variants):
+        """Call the pass on a real Builder instance (it needs no other state)."""
+        from Builder.Builder import Builder
+
+        builder = Builder.__new__(Builder)
+        lighting = self._lighting()
+        Builder._assume_lighting_patterns(
+            builder, variants, FakeAllocator(self.sheet), {str(self.sheet): lighting}
+        )
+        return lighting
+
+    def test_an_unreadable_livery_takes_the_units_single_pattern(self):
+        source = FakeVariant("br_mk4 dvt/National Express", [25])
+        source.lighting_detection = _detection({(1, 25 + 21): WHITE, (6, 25 + 21): WHITE})
+        target = FakeVariant("br_mk4 dvt/Virgin East Coast", [50])
+
+        self._run_real([source, target])
+
+        self.assertEqual(target.lighting_detection.pixels, {(1, 50 + 21): WHITE, (6, 50 + 21): WHITE})
+        self.assertEqual(target.lighting_detection.assumed_from, "br_mk4 dvt/National Express")
+        self.assertEqual(target.lighting_detection.view_mapping, "assumed")
+        self.assertTrue(any("verify in game" in flag for flag in target.lighting_detection.flags))
+
+    def test_two_patterns_are_ambiguous_and_nothing_is_assumed(self):
+        first = FakeVariant("br_mk1 a/first", [25])
+        first.lighting_detection = _detection({(1, 25 + 21): WHITE, (6, 25 + 21): WHITE})
+        second = FakeVariant("br_mk1 b/second", [50])
+        second.lighting_detection = _detection({(0, 50 + 20): WHITE})
+        target = FakeVariant("br_mk1 c/third", [75])
+
+        self._run_real([first, second, target])
+
+        self.assertIsNone(target.lighting_detection)
+
+    def test_a_different_template_is_not_a_pattern_match(self):
+        source = FakeVariant("br_mk1 a/first", [25], template_name="tmpl_train_8")
+        source.lighting_detection = _detection({(1, 25 + 21): WHITE})
+        target = FakeVariant("br_mk1 b/second", [50], template_name="tmpl_train_8_old")
+
+        self._run_real([source, target])
+
+        self.assertIsNone(target.lighting_detection)
+
+    def test_a_flagged_pattern_is_not_evidence(self):
+        source = FakeVariant("br_mk1 a/first", [25])
+        source.lighting_detection = _detection({(1, 25 + 21): WHITE})
+        source.lighting_detection.flags.append("view 0 of row y=25 found 8 lamp pixels (cap 6): not automated")
+        target = FakeVariant("br_mk1 b/second", [50])
+
+        self._run_real([source, target])
+
+        self.assertIsNone(target.lighting_detection)
+
+    def test_lighting_exact_on_the_target_keeps_the_artwork_as_drawn(self):
+        source = FakeVariant("br_mk1 a/first", [25])
+        source.lighting_detection = _detection({(1, 25 + 21): WHITE})
+        target = FakeVariant("br_mk1 b/second", [50], settings={"lighting": "exact"})
+
+        self._run_real([source, target])
+
+        self.assertIsNone(target.lighting_detection)
+
+    def test_lighting_exact_on_the_only_reader_leaves_nothing_to_assume(self):
+        source = FakeVariant("br_mk1 a/first", [25], settings={"lighting": "exact"})
+        source.lighting_detection = _detection({(1, 25 + 21): WHITE})
+        target = FakeVariant("br_mk1 b/second", [50])
+
+        self._run_real([source, target])
+
+        self.assertIsNone(target.lighting_detection)
+
+    def test_the_assumption_is_cached_against_the_sibling_it_came_from(self):
+        source = FakeVariant("br_mk1 a/first", [25])
+        source.lighting_detection = _detection({(1, 25 + 21): WHITE})
+        target = FakeVariant("br_mk1 b/second", [50])
+
+        lighting = self._run_real([source, target])
+
+        keys = [key for key in lighting._detections if "assumed" in key]
+        self.assertEqual(len(keys), 1)
+        self.assertIn("br_mk1 a/first", keys[0])
+
+
 class VehicleLightingTests(unittest.TestCase):
     def setUp(self):
         self._folder = tempfile.TemporaryDirectory()

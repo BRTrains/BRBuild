@@ -13,6 +13,7 @@ from PropertyCalculation import (
     VehicleType,
 )
 from PropertyCalculation.CargoClasses import as_bitmask
+from Sprites.LightingOverlay import LIGHTING_NONE
 
 from Vehicle.Translator.PhysicsRules import PhysicsRules
 from Vehicle.Translator.Speed import speed_field
@@ -636,9 +637,15 @@ class Variant:
 
         The lighting overlay only makes sense with the sprite stack enabled, so the flag is added
         here; the switch that routes the stack sits in front of the generated part switch, which
-        stays as layer 0's selector. A supplied `default` override wins, as everywhere else.
+        stays as layer 0's selector. A supplied `default` override wins, as everywhere else, and
+        `lighting: none` (vehicle, profile or livery) suppresses the layer entirely.
         """
         if self.lighting_overlay_path is None or not self.spritesets:
+            return
+        if self.get_attr("lighting") == LIGHTING_NONE:
+            # The project wants this variant's artwork left exactly as drawn.
+            self.lighting_overlay_path = None
+            self.lighting_transparent_path = None
             return
         if self.nml_override_callbacks() and "default" in self.nml_override_callbacks():
             return

@@ -9,6 +9,7 @@ import yaml
 
 from PropertyCalculation import TrainType, VehicleType
 from PropertyCalculation.CargoClasses import parse_cargo
+from Sprites.LightingOverlay import LIGHTING_SETTINGS
 from Vehicle import Livery, Profile, Vehicle
 
 # assumes Vehicle, Profile, Livery already defined
@@ -126,6 +127,9 @@ class VehicleLoader:
             # Accept either the root or `stats` block, as with the other vehicle-level fields.
             has_cab=VehicleLoader._parse_has_cab(
                 data.get("has_cab", stats.get("has_cab")), path
+            ),
+            lighting=VehicleLoader._parse_lighting(
+                data.get("lighting", stats.get("lighting")), path
             ),
 
             power=stats.get("power"),
@@ -367,6 +371,23 @@ class VehicleLoader:
         return str(path)
 
     @staticmethod
+    def _parse_lighting(raw: Any, where: str) -> str | None:
+        """Parse a `lighting` setting: `auto` (the default when unset), `exact` or `none`.
+
+        An unknown value is a load failure rather than a silent default, because both alternatives
+        change what the user sees: `exact` stops a livery's lamps being filled in from its
+        siblings, and `none` drops the lighting layer for that variant altogether.
+        """
+        if raw is None:
+            return None
+        if not isinstance(raw, str) or raw.strip().lower() not in LIGHTING_SETTINGS:
+            raise ValueError(
+                f"Invalid value '{raw}' for 'lighting' in {where}: expected one of "
+                f"{', '.join(LIGHTING_SETTINGS)}."
+            )
+        return raw.strip().lower()
+
+    @staticmethod
     def _parse_profile(p: Dict[str, Any], folder_path: str = ".") -> Profile:
         identifier = p.get("identifier")
         if identifier is None:
@@ -392,6 +413,7 @@ class VehicleLoader:
                 p.get("track_type"), f"'track_type' in profile {identifier}"
             ),
             has_cab=VehicleLoader._parse_has_cab(p.get("has_cab"), f"profile {identifier}"),
+            lighting=VehicleLoader._parse_lighting(p.get("lighting"), f"profile {identifier}"),
             spritesheet=VehicleLoader._parse_spritesheet(
                 p.get("spritesheet"), f"profile {identifier}", folder_path
             ),
@@ -427,6 +449,7 @@ class VehicleLoader:
                 lv.get("track_type"), f"'track_type' in livery {name}"
             ),
             has_cab=VehicleLoader._parse_has_cab(lv.get("has_cab"), f"livery {name}"),
+            lighting=VehicleLoader._parse_lighting(lv.get("lighting"), f"livery {name}"),
             spritesheet=VehicleLoader._parse_spritesheet(
                 lv.get("spritesheet"), f"livery {name}", folder_path
             ),

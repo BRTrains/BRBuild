@@ -415,3 +415,40 @@ class StandaloneSheetRowTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LightingSettingTests(unittest.TestCase):
+    """`lighting` is the manual override around the lamp detection and its pattern assumption."""
+
+    def test_the_loader_accepts_the_three_settings_and_refuses_anything_else(self):
+        self.assertIsNone(VehicleLoader._parse_lighting(None, "test"))
+        for value in ("auto", "exact", "none", " EXACT "):
+            self.assertEqual(VehicleLoader._parse_lighting(value, "test"), value.strip().lower())
+        for bad in ("off", "manual", 1, ""):
+            with self.assertRaises(ValueError):
+                VehicleLoader._parse_lighting(bad, "test")
+
+    def test_lighting_resolves_livery_then_profile_then_vehicle(self):
+        vehicle = Vehicle(folder_path=".", identifier="dvt", name="DVT", lighting="none")
+        profile = Profile("dvt", lighting="exact")
+        variant = make_variant(vehicle, profile=profile)
+        self.assertEqual(variant.get_attr("lighting"), "exact")
+        self.assertEqual(make_variant(vehicle).get_attr("lighting"), "none")
+        self.assertEqual(
+            make_variant(vehicle, profile=profile, livery=Livery("Plain", lighting="auto")).get_attr("lighting"),
+            "auto",
+        )
+
+    def test_lighting_none_suppresses_the_layer(self):
+        class FakeSet:
+            pass
+
+        vehicle = Vehicle(folder_path=".", identifier="dvt", name="DVT", lighting="none")
+        variant = make_variant(vehicle)
+        variant.spritesets = [object()]
+        variant.lighting_overlay_path = "overlay.png"
+        variant.lighting_transparent_path = "transparent.png"
+        variant.process()
+
+        self.assertNotIn("misc_flags", variant.properties)
+        self.assertIsNone(variant.lighting_overlay_path)

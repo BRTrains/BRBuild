@@ -35,6 +35,10 @@ class Vehicle:
     length: Optional[int] = None
     tilt: Optional[Union[str, float]] = None
 
+    #: `auto` (default) detects the lamps and fills an unreadable livery in from its siblings,
+    #: `exact` trusts only what this vehicle's own artwork shows, `none` emits no layer at all.
+    lighting: Optional[str] = None
+
     #: A driving vehicle — an unpowered cab car such as a DVT or DBSO, which OpenTTD lets lead a
     #: rake so the train backs up instead of magic-flipping. Emits `extra_flags`' HAS_CAB bit.
     has_cab: Optional[bool] = None

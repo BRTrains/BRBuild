@@ -17,6 +17,8 @@ class Livery:
     tilt: Optional[Union[str, float]] = None
     track_type: Optional[List[str]] = None
     has_cab: Optional[bool] = None
+    #: `auto` (default), `exact` or `none`; see Vehicle.lighting.
+    lighting: Optional[str] = None
     #: Draw this livery's rows from a spritesheet of its own; see Profile.spritesheet.
     spritesheet: Optional[str] = None
     sound_effect: Optional[str] = None

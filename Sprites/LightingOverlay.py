@@ -57,10 +57,18 @@ TRAILING_LAMP_RED = frozenset({0xB6, 0xB7})
 TRAILING_LAMP_LIT = 0x0F
 
 #: Bump when the rules above change, so every cache is re-derived.
-RULES_VERSION = 2
+RULES_VERSION = 3
 
 #: End-on views, where lamps are mirror-symmetric about the box centreline.
 END_ON_VIEWS = (0, 4)
+
+#: A variant's `lighting` setting, accepted at vehicle, profile and livery level (livery wins):
+#: `auto` detects and fills an unreadable livery in from its siblings, `exact` trusts only what the
+#: artwork itself shows (the manual override for a wrong guess), `none` emits no layer at all.
+LIGHTING_AUTO = "auto"
+LIGHTING_EXACT = "exact"
+LIGHTING_NONE = "none"
+LIGHTING_SETTINGS = (LIGHTING_AUTO, LIGHTING_EXACT, LIGHTING_NONE)
 
 #: Overlay and transparency sheets are generated build data, written next to the purchase icons.
 OVERLAY_SUFFIX = "_lights.png"
@@ -86,6 +94,9 @@ class Detection:
 	pairs: int = 0
 	rejected: int = 0
 	view_mapping: str | None = None
+	#: The variant identifier whose lamps these were assumed from, when the drawing itself told us
+	#: nothing and a sibling livery on the same sheet and template was taken as the pattern.
+	assumed_from: str | None = None
 
 	def add(self, other: "Detection") -> None:
 		for key, value in other.pixels.items():
@@ -95,6 +106,7 @@ class Detection:
 		self.pairs += other.pairs
 		self.rejected += other.rejected
 		self.view_mapping = self.view_mapping or other.view_mapping
+		self.assumed_from = self.assumed_from or other.assumed_from
 
 	def serialise(self) -> dict:
 		return {
@@ -104,6 +116,7 @@ class Detection:
 			"pairs": self.pairs,
 			"rejected": self.rejected,
 			"view_mapping": self.view_mapping,
+			"assumed_from": self.assumed_from,
 		}
 
 	@classmethod
@@ -115,6 +128,7 @@ class Detection:
 			pairs=int(payload.get("pairs", 0)),
 			rejected=int(payload.get("rejected", 0)),
 			view_mapping=payload.get("view_mapping"),
+			assumed_from=payload.get("assumed_from"),
 		)
 
 
@@ -123,6 +137,38 @@ def boxes_of(spriteset) -> tuple[tuple[int, int, int, int], ...]:
 	return tuple(
 		(sprite.left_x, sprite.upper_y, sprite.width, sprite.height) for sprite in spriteset.template.sprites
 	)
+
+
+def pattern_of(detection: Detection, part: Part) -> frozenset[tuple[int, int, int, int]]:
+	"""One drawing's lamps as a pattern: (view, x, y, value) per lamp, box-relative.
+
+	The coordinates are relative to the view boxes rather than the sheet, because that is what two
+	liveries of one unit share: they draw their lamps in the same places on different rows. Comparing
+	these patterns is how the builder decides whether a unit's identified liveries agree.
+	"""
+	pattern = set()
+	for (abs_x, abs_y), value in detection.pixels.items():
+		for view, (left, top, width, height) in enumerate(part.boxes):
+			x, y = abs_x - left, abs_y - part.row_y - top
+			if 0 <= x < width and 0 <= y < height:
+				pattern.add((view, x, y, value))
+				break
+	return frozenset(pattern)
+
+
+def apply_pattern(part: Part, pattern, source: str) -> Detection:
+	"""A detection holding `pattern`'s lamps on this drawing, labelled as assumed from `source`."""
+	detection = Detection()
+	for view, x, y, value in sorted(pattern):
+		left, top, width, height = part.boxes[view]
+		detection.pixels[(left + x, part.row_y + top + y)] = value
+	if not detection.pixels:
+		return detection
+	detection.rows.add(part.row_y)
+	detection.pairs = len(detection.pixels)
+	detection.view_mapping = "assumed"
+	detection.assumed_from = source
+	return detection
 
 
 def _clusters(pixels: set[tuple[int, int]]) -> list[set[tuple[int, int]]]:
@@ -561,6 +607,24 @@ class VehicleLighting:
 			self._detections[key] = detect_for_parts(self.image, parts, trailing_only_fallback=trailing_only)
 			self.unwritten = True
 		detection = self._detections[key]
+		self._combined.add(detection)
+		return detection
+
+	def assume_for(self, parts: list[Part], part_index: int, pattern, source: str) -> Detection:
+		"""Register a detection whose lamps were assumed from a sibling drawing.
+
+		Cached like any other detection so a rebuild reuses the assumption instead of re-deriving
+		it, under a key that names the source: if a later build picks a different sibling (because
+		that one stopped being readable, say) the entry is re-derived rather than carrying a stale
+		label. `<sheet>.lightcache.json` therefore names what every guess came from.
+		"""
+		key = signature(parts) + f"|assumed:{part_index}|{source}"
+		detection = self._detections.get(key)
+		if detection is None:
+			detection = apply_pattern(parts[part_index], pattern, source)
+			self._detections[key] = detection
+			self.unwritten = True
+		detection.assumed_from = source
 		self._combined.add(detection)
 		return detection
 
