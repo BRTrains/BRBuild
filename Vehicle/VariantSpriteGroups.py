@@ -48,6 +48,31 @@ def _resolve(attr: str, livery: Livery, profile: Profile, vehicle: Vehicle):
 	return None
 
 
+def _same_path(one: str | Path | None, other: str | Path | None) -> bool:
+	"""Whether two sheet paths name the same file."""
+	if one is None or other is None:
+		return False
+	return Path(one).resolve() == Path(other).resolve()
+
+
+def declared_sheet_path(livery: Livery, profile: Profile, vehicle: Vehicle) -> str | None:
+	"""The spritesheet a group draws from, if it does not use the candidate's own sheet.
+
+	`spritesheet` on a livery or profile keeps that group's drawings in a sheet of its own, so
+	one profile of a candidate can be maintained without intermingling its rows with the rest.
+	Resolution is livery, then profile, then vehicle like every other per-variant field; unset
+	means the candidate's own `<Vehicle>.png`, which is the case for every existing project.
+
+	During an ingest the published sheet is remapped to the copy staged out of `new/`, exactly
+	as the vehicle's own sheet is, so the build reads and normalises one picture per sheet.
+	"""
+	declared = _resolve("spritesheet", livery, profile, vehicle)
+	if declared is None:
+		return None
+	overrides = getattr(vehicle, "spritesheet_overrides", None) or {}
+	return str(overrides.get(str(declared), declared))
+
+
 def _resolve_pattern(livery: Livery, profile: Profile, vehicle: Vehicle) -> list[int] | None:
 	"""Resolve an explicit sprite pattern, falling back to the vehicle count."""
 	for obj in (livery, profile, vehicle):
@@ -167,6 +192,14 @@ class VehicleSpriteAllocator:
 		extractor = SpritesheetExtractor(vehicle.spritesheet_path, palette)
 		self._image = extractor.image
 		self._palette = palette
+		#: The template definitions and vehicle type the detections were made with, needed again
+		#: for any sheet a profile or livery names for itself.
+		self._template_definitions = definitions
+		self._vehicle_type_str = vehicle_type_str
+		#: Recognised rows of each extra sheet, keyed by resolved path, with its own cursor.
+		self._extra_pools: dict[str, dict] = {}
+		#: The sheet each (profile, livery) group actually drew its rows from.
+		self._sheet_paths: dict[tuple[str, str], str] = {}
 
 		# Detecting rows is the build's most expensive step and answers the same question
 		# for an unchanged sheet, so the result is cached beside the sheet and reused while
@@ -249,9 +282,15 @@ class VehicleSpriteAllocator:
 			source = getattr(profile, "sprite_group", None)
 			if source and str(source) != str(profile.identifier):
 				group_slice = self._shared_rows(profile, livery, source)
+				# The shared rows keep the sheet the source group drew them from.
+				self._record_sheet(
+					key,
+					getattr(self, "_sheet_paths", {}).get(
+						(str(source), str(livery.name)), self.vehicle.spritesheet_path
+					),
+				)
 			else:
-				group_slice = self.vehicle_rows[self.cursor:self.cursor + group.group_size]
-				self.cursor += group.group_size
+				group_slice = self._take_rows(profile, livery, group.group_size)
 				self._assigned_rows[key] = group_slice
 
 			if len(group_slice) < group.group_size:
@@ -274,6 +313,81 @@ class VehicleSpriteAllocator:
 			]
 
 		return self._spritesets[key], names, self._lengths[key]
+
+	def _record_sheet(self, key: tuple[str, str], sheet_path: str) -> None:
+		"""Remember which sheet a group's rows came from (see `sheet_for`)."""
+		if not hasattr(self, "_sheet_paths"):
+			self._sheet_paths = {}
+		self._sheet_paths[key] = sheet_path
+
+	def _take_rows(self, profile: Profile, livery: Livery, count: int) -> list:
+		"""Take the next `count` recognised rows from the sheet this group draws from.
+
+		A group using the candidate's own sheet consumes rows from it exactly as before; a group
+		whose profile (or livery) names a `spritesheet` of its own consumes rows from that sheet,
+		which keeps its own cursor. The sheet's identity is remembered per group so the purchase
+		icon and the lighting overlays read the picture the rows actually live on.
+		"""
+		key = (str(profile.identifier), str(livery.name))
+		sheet = declared_sheet_path(livery, profile, self.vehicle)
+
+		if sheet is None or _same_path(sheet, self.vehicle.spritesheet_path):
+			group_slice = self.vehicle_rows[self.cursor:self.cursor + count]
+			self.cursor += count
+			self._record_sheet(key, self.vehicle.spritesheet_path)
+			return group_slice
+
+		pool = self._extra_pool(sheet)
+		group_slice = pool["rows"][pool["cursor"]:pool["cursor"] + count]
+		pool["cursor"] += count
+		self._record_sheet(key, pool["path"])
+		return group_slice
+
+	def _extra_pool(self, sheet_path: str) -> dict:
+		"""The recognised rows of a sheet a profile or livery names for itself.
+
+		Detected through the same extractor, cache and template matching as the candidate's own
+		sheet, so a standalone sheet is held to exactly the same contract and is just as cheap on
+		a rebuild. Sheets load once each and are keyed by resolved path.
+		"""
+		path = Path(sheet_path)
+		key = str(path.resolve())
+		pool = self._extra_pools.get(key)
+		if pool is not None:
+			return pool
+
+		if not path.is_file():
+			raise ValueError(
+				f"Spritesheet '{sheet_path}' does not exist: a profile or livery of "
+				f"'{self.vehicle.identifier}' names it, so it must be committed beside the "
+				f"candidate's own sheet."
+			)
+
+		extractor = SpritesheetExtractor(str(path), self._palette)
+		cache = SheetDetectionCache(
+			str(path), self._palette, self._template_definitions, self._vehicle_type_str
+		)
+		rows = cache.load()
+		if rows is None:
+			rows = self._match_vehicle_rows(
+				extractor, self._vehicle_type_str, self._template_definitions
+			)
+			cache.store(rows)
+
+		pool = {"path": str(path), "image": extractor.image, "rows": rows, "cursor": 0}
+		self._extra_pools[key] = pool
+		return pool
+
+	def image_for(self, sheet_path: str | None):
+		"""The image rows drawn from `sheet_path` live on: an extra sheet, or the candidate's own."""
+		if sheet_path is None or _same_path(sheet_path, self.vehicle.spritesheet_path):
+			return self._image
+		return self._extra_pool(sheet_path)["image"]
+
+	def sheet_for(self, profile: Profile, livery: Livery) -> str:
+		"""The sheet a group's rows live on, once the group has been resolved."""
+		key = (str(profile.identifier), str(livery.name))
+		return getattr(self, "_sheet_paths", {}).get(key, self.vehicle.spritesheet_path)
 
 	def _shared_rows(self, profile: Profile, livery: Livery, source: str) -> list:
 		"""Return the rows assigned to the profile named by this profile's `sprite_group`."""
@@ -326,6 +440,10 @@ class VehicleSpriteAllocator:
 		if not spritesets:
 			return None
 
+		# A group drawing from a sheet of its own crops its cars out of that sheet.
+		sheet = getattr(self, "_sheet_paths", {}).get(key)
+		image = self._image if sheet is None else self.image_for(sheet)
+
 		parts = []
 		for index, spriteset in enumerate(spritesets):
 			views = spriteset.template.sprites
@@ -347,7 +465,7 @@ class VehicleSpriteAllocator:
 				right = min(right, spriteset.x + box.left_x + box.width)
 				bottom = min(bottom, spriteset.y + box.upper_y + box.height)
 
-			parts.append(self._image.crop((left, top, right, bottom)))
+			parts.append(image.crop((left, top, right, bottom)))
 
 		# Units are bottom-aligned: the deepest crop sits on the icon's bottom row and
 		# the rest keep their extra height as padding above, which is what the game does

@@ -18,6 +18,10 @@ class Vehicle:
 
     yaml_path: Optional[str] = None
     spritesheet_override: Optional[str] = None
+    #: Staged copies of this vehicle's spritesheets during an ingest, keyed by published path.
+    #: A standalone sheet declared on a profile/livery is staged the same way the vehicle's own
+    #: sheet is, so the build reads (and normalises) the staged copy and publishes it afterwards.
+    spritesheet_overrides: dict = field(default_factory=dict)
 
     based_on: Optional[str] = None
     operator: Optional[str] = None
@@ -30,6 +34,10 @@ class Vehicle:
     weight: Optional[float] = None
     length: Optional[int] = None
     tilt: Optional[Union[str, float]] = None
+
+    #: A driving vehicle — an unpowered cab car such as a DVT or DBSO, which OpenTTD lets lead a
+    #: rake so the train backs up instead of magic-flipping. Emits `extra_flags`' HAS_CAB bit.
+    has_cab: Optional[bool] = None
 
     power: Optional[int] = None
     speed: Optional[int] = None

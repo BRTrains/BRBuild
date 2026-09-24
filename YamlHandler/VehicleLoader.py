@@ -74,12 +74,12 @@ class VehicleLoader:
         dates = data.get("dates", {}) or {}
 
         profiles = [
-            VehicleLoader._parse_profile(p)
+            VehicleLoader._parse_profile(p, folder_path)
             for p in data.get("profiles", []) or []
         ]
 
         liveries = [
-            VehicleLoader._parse_livery(lv)
+            VehicleLoader._parse_livery(lv, folder_path)
             for lv in data.get("liveries", []) or []
         ]
 
@@ -122,6 +122,11 @@ class VehicleLoader:
             weight=stats.get("weight"),
             length=stats.get("length"),
             tilt=stats.get("tilt"),
+
+            # Accept either the root or `stats` block, as with the other vehicle-level fields.
+            has_cab=VehicleLoader._parse_has_cab(
+                data.get("has_cab", stats.get("has_cab")), path
+            ),
 
             power=stats.get("power"),
             speed=stats.get("speed"),
@@ -324,7 +329,45 @@ class VehicleLoader:
             )
 
     @staticmethod
-    def _parse_profile(p: Dict[str, Any]) -> Profile:
+    def _parse_has_cab(raw: Any, where: str) -> bool | None:
+        """Parse the driving-vehicle flag, strictly.
+
+        `has_cab: true` marks an unpowered cab car (a DVT or DBSO) that OpenTTD may use to lead a
+        rake, so the train backs up rather than magic-flipping. The value is validated as a real
+        boolean instead of being taken for truthiness: `"false"` is a non-empty string and would
+        otherwise mean the opposite of what it reads as.
+        """
+        if raw is None:
+            return None
+        if isinstance(raw, bool):
+            return raw
+        raise ValueError(
+            f"Invalid value '{raw}' for 'has_cab' in {where}: expected true or false."
+        )
+
+    @staticmethod
+    def _parse_spritesheet(raw: Any, where: str, folder_path: str) -> str | None:
+        """Resolve a profile's or livery's own spritesheet to an absolute path.
+
+        The value is a file name (or relative path) beside the candidate's YAML, the same
+        convention the candidate's own `<Vehicle>.png` follows. It is resolved at load so every
+        later stage compares one path, and deliberately not required to exist yet: a new sheet
+        first arrives through the candidate's `new/` folder and is only published once a build
+        using it succeeds.
+        """
+        if raw is None:
+            return None
+        if not isinstance(raw, str) or not raw.strip():
+            raise ValueError(
+                f"Invalid value '{raw}' for 'spritesheet' in {where}: expected a file name."
+            )
+        path = Path(raw.strip())
+        if not path.is_absolute():
+            path = Path(folder_path) / path
+        return str(path)
+
+    @staticmethod
+    def _parse_profile(p: Dict[str, Any], folder_path: str = ".") -> Profile:
         identifier = p.get("identifier")
         if identifier is None:
             raise ValueError(f"Profile configuration missing required 'identifier': {p}")
@@ -348,6 +391,10 @@ class VehicleLoader:
             track_type=VehicleLoader._parse_track_type(
                 p.get("track_type"), f"'track_type' in profile {identifier}"
             ),
+            has_cab=VehicleLoader._parse_has_cab(p.get("has_cab"), f"profile {identifier}"),
+            spritesheet=VehicleLoader._parse_spritesheet(
+                p.get("spritesheet"), f"profile {identifier}", folder_path
+            ),
             sound_effect=p.get("sound_effect"),
             visual_effect=p.get("visual_effect"),
             types=[
@@ -360,7 +407,7 @@ class VehicleLoader:
         )
 
     @staticmethod
-    def _parse_livery(lv: Dict[str, Any]) -> Livery:
+    def _parse_livery(lv: Dict[str, Any], folder_path: str = ".") -> Livery:
         name = lv.get("name")
         if name is None:
             raise ValueError(f"Livery configuration missing required 'name': {lv}")
@@ -378,6 +425,10 @@ class VehicleLoader:
             tilt=lv.get("tilt"),
             track_type=VehicleLoader._parse_track_type(
                 lv.get("track_type"), f"'track_type' in livery {name}"
+            ),
+            has_cab=VehicleLoader._parse_has_cab(lv.get("has_cab"), f"livery {name}"),
+            spritesheet=VehicleLoader._parse_spritesheet(
+                lv.get("spritesheet"), f"livery {name}", folder_path
             ),
             sound_effect=lv.get("sound_effect"),
             visual_effect=lv.get("visual_effect"),

@@ -419,9 +419,18 @@ class VehicleLighting:
 	how the purchase icons are written into the build's working folder.
 	"""
 
-	def __init__(self, vehicle, palette: list[int], definitions: list, output_folder: str):
+	def __init__(
+		self,
+		vehicle,
+		palette: list[int],
+		definitions: list,
+		output_folder: str,
+		sheet_path: str | None = None,
+	):
 		self.vehicle = vehicle
-		self.sheet_path = Path(vehicle.spritesheet_path)
+		#: One instance per spritesheet: a candidate whose profiles name their own sheets gets a
+		#: detector (and an overlay sheet) per sheet it draws from.
+		self.sheet_path = Path(sheet_path or vehicle.spritesheet_path)
 		self.output_folder = Path(output_folder)
 		self.cache = LightingOverlayCache(self.sheet_path, palette, definitions)
 		self._detections: dict[str, Detection] = self.cache.load()

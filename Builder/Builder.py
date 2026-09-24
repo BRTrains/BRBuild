@@ -284,12 +284,18 @@ class Builder:
 
             # Materialised so the lighting overlays for every variant can be resolved before any of
             # them is written: one overlay sheet per published sheet holds the union of their lamps.
+            # A candidate whose profiles name spritesheets of their own gets one detector per sheet.
             variants = list(VariantIterator(vehicle))
-            lighting = None
+            lightings: dict[str, VehicleLighting] = {}
             if allocator is not None and variants:
-                lighting = VehicleLighting(
-                    vehicle, ctx.palette, self._get_template_definitions(ctx), ctx.nml_output_folder
-                )
+                for sheet in self._declared_sheets(vehicle):
+                    lightings[str(sheet)] = VehicleLighting(
+                        vehicle,
+                        ctx.palette,
+                        self._get_template_definitions(ctx),
+                        ctx.nml_output_folder,
+                        sheet_path=sheet,
+                    )
 
             for variant in variants:
                 logger.debug(
@@ -311,17 +317,24 @@ class Builder:
                         ctx.failed_variants.append(repr(variant))
                         return
 
-                if lighting is not None and variant.spritesets:
-                    parts = [
-                        Part(row_y=sprite.y, template_name=template_name, boxes=boxes_of(sprite))
-                        for sprite, template_name in zip(variant.spritesets, variant.sprite_template_names)
-                    ]
-                    variant.lighting_detection = lighting.detection_for(parts)
+                if allocator is not None and variant.spritesets:
+                    lighting = lightings.get(str(allocator.sheet_for(variant.profile, variant.livery)))
+                    if lighting is not None:
+                        parts = [
+                            Part(row_y=sprite.y, template_name=template_name, boxes=boxes_of(sprite))
+                            for sprite, template_name in zip(variant.spritesets, variant.sprite_template_names)
+                        ]
+                        variant.lighting_detection = lighting.detection_for(parts)
 
-            if lighting is not None:
+            for lighting in lightings.values():
                 lighting.write_images()
 
             for variant in variants:
+                lighting = (
+                    lightings.get(str(allocator.sheet_for(variant.profile, variant.livery)))
+                    if allocator is not None
+                    else None
+                )
                 if (
                     lighting is not None
                     and variant.lighting_detection is not None
@@ -381,12 +394,86 @@ class Builder:
         return NmlCollator().copy_supplied_nml(source, destination, ctx.project.path)
 
     @staticmethod
-    def _ingest_new_spritesheet(vehicle, ctx: BuildContext) -> bool:
-        """Stage one PNG from the vehicle's ``new/`` drop folder for this build.
+    def _declared_sheets(vehicle) -> list[str]:
+        """Every spritesheet a candidate draws from, in declaration order.
 
-        The published spritesheet stays untouched until the build succeeds: the staged
-        copy becomes the sheet this build reads and normalises, and
-        `_finalize_sprite_ingests` publishes it only after the GRF has been compiled.
+        The candidate's own `<Vehicle>.png` first, then any sheet a profile or livery names for
+        itself, de-duplicated by resolved path. A candidate with no standalone sheets — which is
+        every candidate in both projects today — reports one path, exactly as before.
+        """
+        sheets: list[str] = []
+        own = getattr(vehicle, "spritesheet_path", None)
+        if own:
+            sheets.append(str(own))
+
+        for collection in (
+            getattr(vehicle, "profiles", None) or [],
+            getattr(vehicle, "liveries", None) or [],
+        ):
+            for entry in collection:
+                declared = getattr(entry, "spritesheet", None)
+                if not declared:
+                    continue
+                if any(Path(existing).resolve() == Path(declared).resolve() for existing in sheets):
+                    continue
+                sheets.append(str(declared))
+
+        return sheets
+
+    @classmethod
+    def _ingest_targets(cls, vehicle, drops: list[Path]) -> list[tuple[Path, str]]:
+        """Pair each PNG dropped in `new/` with the spritesheet it replaces.
+
+        A drop is matched to a sheet by file name. A single unclaimed drop is paired with the one
+        unclaimed sheet, which keeps the long-standing convenience of dropping a sheet under any
+        name; anything ambiguous is refused with the names the candidate expects, because a drop
+        silently ingested into the wrong sheet rewrites the wrong artwork.
+        """
+        sheets = cls._declared_sheets(vehicle)
+        by_name = {Path(sheet).name.lower(): sheet for sheet in sheets}
+
+        pairs: list[tuple[Path, str]] = []
+        claimed: set[str] = set()
+        unmatched_sheets = list(sheets)
+        unmatched_drops: list[Path] = []
+
+        for drop in drops:
+            sheet = by_name.get(drop.name.lower())
+            if sheet is not None and sheet not in claimed:
+                pairs.append((drop, sheet))
+                claimed.add(sheet)
+                unmatched_sheets = [item for item in unmatched_sheets if item != sheet]
+            elif sheet is not None:
+                raise ValueError(
+                    f"Two drops in '{drop.parent}' both name the sheet '{Path(sheet).name}'."
+                )
+            else:
+                unmatched_drops.append(drop)
+
+        if len(unmatched_drops) == 1 and len(unmatched_sheets) == 1:
+            pairs.append((unmatched_drops[0], unmatched_sheets[0]))
+            unmatched_drops = []
+            unmatched_sheets = []
+
+        if unmatched_drops:
+            expected = ", ".join(Path(sheet).name for sheet in unmatched_sheets) or "none"
+            raise ValueError(
+                f"Cannot tell which spritesheet the drop(s) "
+                f"{', '.join(drop.name for drop in unmatched_drops)} in '{drops[0].parent}' belong "
+                f"to for '{vehicle.identifier}': name a drop after the sheet it replaces. "
+                f"Still unclaimed: {expected}."
+            )
+
+        return pairs
+
+    @classmethod
+    def _ingest_new_spritesheet(cls, vehicle, ctx: BuildContext) -> bool:
+        """Stage the PNGs in the vehicle's ``new/`` drop folder for this build.
+
+        One drop per spritesheet the candidate uses: its own `<Vehicle>.png`, plus any sheet a
+        profile or livery names for itself. The published sheets stay untouched until the build
+        succeeds: the staged copies become the sheets this build reads and normalises, and
+        `_finalize_sprite_ingests` publishes them only after the GRF has been compiled.
         """
         if not vehicle.spritesheet_path:
             return False
@@ -397,35 +484,43 @@ class Builder:
         if not new_folder.is_dir():
             return False
 
-        candidates = sorted(
+        drops = sorted(
             path for path in new_folder.iterdir() if path.is_file() and path.suffix.lower() == ".png"
         )
-        if not candidates:
+        if not drops:
             return False
-        if len(candidates) > 1:
-            raise ValueError(f"Expected one PNG in '{new_folder}', found {len(candidates)}.")
+
+        targets = cls._ingest_targets(vehicle, drops)
 
         staging_folder = Path(ctx.nml_output_folder) / "ingest" / vehicle.identifier
         if staging_folder.exists():
             shutil.rmtree(staging_folder)
         staging_folder.mkdir(parents=True, exist_ok=True)
-        staging_path = staging_folder / base_path.name
 
-        shutil.copy2(candidates[0], staging_path)
-        vehicle.spritesheet_override = str(staging_path)
-        ctx.pending_sprite_ingests.append(
-            {
-                "vehicle": vehicle,
-                "new_path": candidates[0],
-                "staging_path": staging_path,
-                "ingested_path": vehicle_folder / "ingested" / base_path.name,
-                "base_path": base_path,
-            }
-        )
-        logger.info(
-            f"Staged new spritesheet '{candidates[0]}' as '{staging_path}' for "
-            f"'{vehicle.identifier}'."
-        )
+        for drop, sheet in targets:
+            sheet_path = Path(sheet)
+            staging_path = staging_folder / sheet_path.name
+            shutil.copy2(drop, staging_path)
+
+            if Path(sheet).resolve() == base_path.resolve():
+                vehicle.spritesheet_override = str(staging_path)
+            else:
+                vehicle.spritesheet_overrides[str(sheet)] = str(staging_path)
+
+            ctx.pending_sprite_ingests.append(
+                {
+                    "vehicle": vehicle,
+                    "new_path": drop,
+                    "staging_path": staging_path,
+                    "ingested_path": vehicle_folder / "ingested" / sheet_path.name,
+                    "base_path": sheet_path,
+                }
+            )
+            logger.info(
+                f"Staged new spritesheet '{drop}' as '{staging_path}' for "
+                f"'{vehicle.identifier}'."
+            )
+
         return True
 
     def _finalize_sprite_ingests(self, ctx: BuildContext):
@@ -439,13 +534,21 @@ class Builder:
 
         built_vehicles = self._built_vehicle_identifiers(ctx)
         staging_root = None
+        # A candidate can drop several sheets at once, so each folder is cleared once for the
+        # whole candidate rather than once per sheet: clearing it per sheet would delete the
+        # previous sheet's raw source.
+        cleared_ingested: set[Path] = set()
+        cleared_error: set[Path] = set()
+
         for ingest in ctx.pending_sprite_ingests:
             vehicle = ingest["vehicle"]
             if built_vehicles is not None and vehicle.identifier not in built_vehicles:
                 error_folder = ingest["base_path"].parent / "error"
                 error_folder.mkdir(parents=True, exist_ok=True)
-                for stale in error_folder.glob("*.png"):
-                    stale.unlink()
+                if error_folder not in cleared_error:
+                    for stale in error_folder.glob("*.png"):
+                        stale.unlink()
+                    cleared_error.add(error_folder)
                 error_path = error_folder / ingest["base_path"].name
                 shutil.move(str(ingest["new_path"]), error_path)
                 staging_root = Path(ingest["staging_path"]).parent.parent
@@ -458,8 +561,10 @@ class Builder:
             base_path = ingest["base_path"]
             ingested_folder = ingest["ingested_path"].parent
             ingested_folder.mkdir(parents=True, exist_ok=True)
-            for stale in ingested_folder.glob("*.png"):
-                stale.unlink()
+            if ingested_folder not in cleared_ingested:
+                for stale in ingested_folder.glob("*.png"):
+                    stale.unlink()
+                cleared_ingested.add(ingested_folder)
 
             shutil.copy2(ingest["staging_path"], base_path)
             shutil.move(str(ingest["new_path"]), ingest["ingested_path"])
@@ -551,7 +656,11 @@ class Builder:
             return None
 
     def _convert_spritesheet(self, vehicle, ctx: BuildContext):
-        """Normalise a vehicle's spritesheet in place to only its recognised template rows."""
+        """Normalise the vehicle's spritesheets in place to only their recognised template rows.
+
+        One sheet per drop: the candidate's own `<Vehicle>.png`, plus any sheet a profile or
+        livery names for itself, each held to the same contract.
+        """
         definitions = self._get_template_definitions(ctx)
         if not definitions:
             logger.debug(f"No template definitions found; skipping spritesheet conversion for '{vehicle.identifier}'.")
@@ -560,12 +669,22 @@ class Builder:
         v_type = vehicle.vehicle_type
         v_type_str = v_type.name.lower() if hasattr(v_type, "name") else str(v_type).lower()
 
-        try:
-            converter = SpritesheetLegacyConverter(definitions, ctx.palette)
-            kept = converter.process(vehicle.spritesheet_path, v_type_str)
-            logger.info(f"Converted spritesheet for '{vehicle.identifier}': kept {len(kept)} recognised row(s).")
-        except Exception as exc:
-            logger.exception(f"Unable to convert spritesheet for vehicle '{vehicle.identifier}': {exc}")
+        sheets = [vehicle.spritesheet_path]
+        sheets.extend(
+            str(staged)
+            for staged in (getattr(vehicle, "spritesheet_overrides", None) or {}).values()
+        )
+
+        for sheet in sheets:
+            try:
+                converter = SpritesheetLegacyConverter(definitions, ctx.palette)
+                kept = converter.process(sheet, v_type_str)
+                logger.info(
+                    f"Converted spritesheet '{Path(sheet).name}' for '{vehicle.identifier}': "
+                    f"kept {len(kept)} recognised row(s)."
+                )
+            except Exception as exc:
+                logger.exception(f"Unable to convert spritesheet '{sheet}' for '{vehicle.identifier}': {exc}")
 
     def _collate_nml(self, ctx: BuildContext):
         if len(ctx.nml_files) == 0:

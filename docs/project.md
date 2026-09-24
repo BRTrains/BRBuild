@@ -184,6 +184,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `tractive_effort`: Tractive effort in kN (integer).
     *   `power_type`: List of traction types (e.g., `[steam, coal]`).
     *   `track_type`: List of the project's logical track types the train can use (see Track types below). Defaults to `RAIL`; trains only.
+    *   `has_cab`: `true` marks an unpowered driving vehicle (a DVT, DBSO or driving trailer) so the train may back up with it leading (see Driving vehicles below). Also accepted on a profile or a livery.
     *   `sound_effect`, `visual_effect`: Override the presentation implied by the traction type (see Traction types below). Also accepted on a profile or a livery.
 *   **`cargo`**: what the vehicle can be refitted to, as a preset name, an explicit NML class, or a list of either:
     *   Presets — `passenger`, `parcels`, `mail`, `containerised`, `bulk`, `tank`, `open_wagon`. These are the project's own names for the bundles each kind of unit actually uses, so `cargo: containerised` beats repeating a seven-class bitmask in every wagon.
@@ -210,6 +211,8 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `introduction_date`: Date when this profile becomes available; overrides the vehicle-level `dates.introduction_date`.
     *   `tilt`: Tilt strength for this profile, as a named level or a number.
     *   `track_type`: Track types for this profile (see Track types below), e.g. a dual-voltage formation alongside a single-system one.
+    *   `has_cab`: `true` when this profile is a driving vehicle (see Driving vehicles below).
+    *   `spritesheet`: A spritesheet of this profile's own, instead of the candidate's `<Vehicle>.png` (see Standalone spritesheets below).
     *   `cargo`: Cargo preset or classes for this profile, overriding the vehicle's `cargo`.
     *   `special_tags`: List of custom tags triggering special badges for this profile's variants.
     *   `types`: Target vehicle type variants (e.g. `[train, tram]`). Rows are matched once per vehicle, against the vehicle's own `stats.vehicle_type`, so a variant emitted as a road vehicle is drawn with the `tmpl_tram_*` twin of whichever template its row matched: the twins are deliberately the same shape as the train templates and differ only in the offsets that place a tram on the road. Both variants of a profile therefore share one set of sprites, with different placement.
@@ -221,6 +224,8 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `weight`: Weight in metric tons for this livery; overrides the vehicle default, but not the profile.
     *   `tilt`: Tilt strength for this livery; overrides the vehicle default, but not the profile.
     *   `track_type`: Track types for this livery; overrides both profile and vehicle (see Track types below).
+    *   `has_cab`: `true` when this livery is a driving vehicle; overrides both profile and vehicle.
+    *   `spritesheet`: A spritesheet of this livery's own; overrides both profile and vehicle (see Standalone spritesheets below).
     *   `special_tags`: List of custom tags triggering special badges for this livery's variants.
 *   **Other root fields**:
     *   `classification`: Categorization string.
@@ -380,6 +385,50 @@ FOURTH: [SAA4, SAA3, 4RDR, ELRL]  # fourth rail, then third, then overhead
   list. A label that is not a bare identifier (`3RDR`, `4RDR`) is quoted.
 - Declaring the file replaces NML's default table, so every standard label the project
   still uses has to be listed in it.
+
+#### Driving vehicles (`has_cab`)
+
+An unpowered vehicle with a driving cab — a DVT, a DBSO, a driving trailer — can lead a rake,
+which decides how OpenTTD 16+ reverses a train: with a cab at the far end it **backs up**
+(keeping every vehicle's facing and its artwork), and without one it magic-flips the consist.
+
+```yaml
+has_cab: true          # stats, a profile or a livery
+```
+
+- Emits `extra_flags: bitmask(VEHICLE_FLAG_TRAIN_HAS_CAB)` on the variant's train item.
+- Resolved livery → profile → vehicle, like every other per-variant field, so one vehicle can
+  carry a driving variant among ordinary coaches.
+- Only meaningful for a train, and only emitted for one: a tram has no back-up state, so
+  `has_cab` on a road-vehicle variant is ignored (logged at debug) rather than written into the
+  road-vehicle property block, where the bit means something else.
+- Unset emits nothing, so a candidate that does not use it produces byte-identical output.
+
+#### Standalone spritesheets (`spritesheet`)
+
+By default a candidate's rows all live in its own `<Vehicle>.png`. A profile or a livery can
+name a sheet of its own instead:
+
+```yaml
+profiles:
+  - identifier: mk3_dvt
+    spritesheet: BRMk3DVT.png   # beside the candidate's YAML
+    has_cab: true
+```
+
+- The path is relative to the candidate folder (an absolute path is accepted as-is) and is
+  resolved at load.
+- Rows are consumed from that sheet with its own cursor, using the same detection, template
+  matching and `<sheet>.png.sheetcache.json` cache as the candidate's own sheet, so a
+  standalone sheet is held to exactly the same geometry contract.
+- The group's purchase icon and lighting overlays are read from the sheet the rows came from,
+  and each sheet gets its own `<Sheet>_lights.png` overlay.
+- `sprite_group` sharing is unaffected: a profile that reuses another profile's rows also reuses
+  that profile's sheet.
+- Ingest works per sheet: drop one PNG per sheet in `new/`, named after the sheet it replaces
+  (a single unnamed drop still goes to the candidate's own sheet, as before). Anything
+  ambiguous fails the build rather than rewriting the wrong artwork, and a failed candidate
+  parks every dropped sheet in `error/`.
 
 ### Example configuration
 

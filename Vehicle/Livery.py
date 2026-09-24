@@ -16,6 +16,9 @@ class Livery:
     weight: Optional[float] = None
     tilt: Optional[Union[str, float]] = None
     track_type: Optional[List[str]] = None
+    has_cab: Optional[bool] = None
+    #: Draw this livery's rows from a spritesheet of its own; see Profile.spritesheet.
+    spritesheet: Optional[str] = None
     sound_effect: Optional[str] = None
     visual_effect: Optional[str] = None
     nml_override: Optional[dict] = None

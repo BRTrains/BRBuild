@@ -21,6 +21,10 @@ class Profile:
     introduction_date: Optional[Union[str, int]] = None
     tilt: Optional[Union[str, float]] = None
     track_type: Optional[List[str]] = None
+    has_cab: Optional[bool] = None
+    #: Draw this profile's rows from a spritesheet of its own, instead of the candidate's
+    #: own `<Vehicle>.png`. Keeps the drawings of one profile out of the shared sheet.
+    spritesheet: Optional[str] = None
     sound_effect: Optional[str] = None
     visual_effect: Optional[str] = None
     types: Optional[List[VehicleType]] = None

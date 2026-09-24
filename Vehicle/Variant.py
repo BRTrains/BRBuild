@@ -50,6 +50,8 @@ class Variant:
 
         self.spritesets = list()
         self.misc_flags = set()
+        #: Train `extra_flags` contributed by any stage (`handleExtraFlags` writes the bitmask).
+        self.extra_flags = set()
         self.visual_effect = None
         self.track_types = list()
         #: Track types implied by the vehicle's traction, unless it names its own.
@@ -98,6 +100,7 @@ class Variant:
             self.handleSprites,
             self.handleLighting,
             self.handleMiscFlags,
+            self.handleExtraFlags,
             self.handleNmlOverride,
         ]
 
@@ -316,6 +319,33 @@ class Variant:
 
     def add_misc_flag(self, flag: str):
         self.misc_flags.add(flag)
+
+    def add_extra_flag(self, flag: str):
+        self.extra_flags.add(flag)
+
+    def handleExtraFlags(self):
+        """Write the accumulated train `extra_flags` bitmask.
+
+        One flag so far: `VEHICLE_FLAG_TRAIN_HAS_CAB`, from `has_cab: true` on the vehicle, a
+        profile or a livery. It tells OpenTTD this unpowered vehicle has a driving cab, so the
+        train may back up with it leading instead of magic-flipping the whole consist.
+
+        A road vehicle has no equivalent — the back-up state exists for trains only — so the flag
+        is emitted for trains and a `has_cab` on a tram-only variant is ignored rather than
+        written into the road-vehicle property block, where the bit would mean something else.
+        """
+        if self.get_attr("has_cab"):
+            vehicle_type = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
+            if vehicle_type == "TRAIN":
+                self.add_extra_flag("VEHICLE_FLAG_TRAIN_HAS_CAB")
+            else:
+                logger.debug(
+                    f"Ignoring 'has_cab' for {self.vehicle.name} ({vehicle_type}): the "
+                    f"has-a-cab flag applies to trains only."
+                )
+
+        if self.extra_flags:
+            self.properties["extra_flags"] = f"bitmask({', '.join(sorted(self.extra_flags))})"
 
     def handleMiscFlags(self):
         """Write the accumulated misc_flags bitmask and the visual effect last.
