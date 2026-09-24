@@ -9,6 +9,7 @@ from Lang.StringRegistry import _registry
 from Lang.StringWriter import StringWriter
 from NmlWriter import NmlGrfWriter, NmlVariantWriter, NmlCollator, NmlCompiler
 from Project import Project
+from Sprites.LightingOverlay import Part, VehicleLighting, boxes_of
 from Sprites.PalettedImage import PalettedImage
 from Templates.SpritesheetLegacyConverter import SpritesheetLegacyConverter
 from Templates.TemplateLoaderNML import TemplateLoaderNML
@@ -281,7 +282,16 @@ class Builder:
                     ctx.failed_variants.append(f"{vehicle.identifier} (spritesheet)")
                     continue
 
-            for variant in VariantIterator(vehicle):
+            # Materialised so the lighting overlays for every variant can be resolved before any of
+            # them is written: one overlay sheet per published sheet holds the union of their lamps.
+            variants = list(VariantIterator(vehicle))
+            lighting = None
+            if allocator is not None and variants:
+                lighting = VehicleLighting(
+                    vehicle, ctx.palette, self._get_template_definitions(ctx), ctx.nml_output_folder
+                )
+
+            for variant in variants:
                 logger.debug(
                     f"\tGenerated variant: {variant.vehicle.name}, using livery {variant.livery.name} "
                     f"and profile {variant.profile.identifier}"
@@ -300,6 +310,25 @@ class Builder:
                         logger.exception(f"Unable to assign sprites for variant {variant}: {exc}")
                         ctx.failed_variants.append(repr(variant))
                         return
+
+                if lighting is not None and variant.spritesets:
+                    parts = [
+                        Part(row_y=sprite.y, template_name=template_name, boxes=boxes_of(sprite))
+                        for sprite, template_name in zip(variant.spritesets, variant.sprite_template_names)
+                    ]
+                    variant.lighting_detection = lighting.detection_for(parts)
+
+            if lighting is not None:
+                lighting.write_images()
+
+            for variant in variants:
+                if (
+                    lighting is not None
+                    and variant.lighting_detection is not None
+                    and variant.lighting_detection.pixels
+                ):
+                    variant.lighting_overlay_path = lighting.overlay_path
+                    variant.lighting_transparent_path = lighting.transparent_path
 
                 assignment = ctx.sprite_id_registry.resolve(
                     vehicle.identifier,

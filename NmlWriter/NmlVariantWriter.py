@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from PropertyCalculation import VehicleType
+from Sprites.Spriteset import Spriteset
 from .BaseNmlWriter import BaseNmlWriter
 from .NmlSpritesetWriter import NmlSpritesetWriter
 from .NmlSwitchWriter import NmlSwitchWriter
@@ -117,12 +118,130 @@ class NmlVariantWriter(BaseNmlWriter):
             expression = f"position_in_articulated_veh % {len(spritesets)}"
             self.switch_writer.write_switch(f, self._feature(variant), "SELF", switch_name, expression, values)
 
+        self._write_lighting(f, variant)
+
         length_switch_name = getattr(variant, "length_switch_name", None)
         lengths = getattr(variant, "sprite_lengths", None)
         if length_switch_name and lengths:
             values = {i: length for i, length in enumerate(lengths)}
             expression = f"position_in_articulated_veh % {len(lengths)}"
             self.switch_writer.write_switch(f, self._feature(variant), "SELF", length_switch_name, expression, values)
+
+    def _transparent_spriteset(self, f, variant, base, template_name, transparent_path) -> str:
+        """One transparent spriteset per vehicle and template, shared by every part that needs one.
+
+        The sheet is uniform, so a single copy at (0, 0) serves all of a vehicle's parts and variants —
+        it is the same eight empty views either way, and emitting one per part would add a spriteset to
+        the GRF for every articulated part of every livery.
+        """
+        vehicle = variant.vehicle
+        emitted = getattr(vehicle, "_lighting_transparent_spritesets", None)
+        if emitted is None:
+            emitted = {}
+            setattr(vehicle, "_lighting_transparent_spritesets", emitted)
+
+        name = f"spriteset_{vehicle.identifier}_transparent_{template_name}"
+        if template_name not in emitted:
+            blank = Spriteset(
+                name=name,
+                file=str(transparent_path),
+                template=base.template,
+                x=0,
+                y=0,
+            )
+            self.spriteset_writer.write(f, blank, template_name, name=name)
+            emitted[template_name] = name
+        return emitted[template_name]
+
+    def _write_lighting(self, f, variant):
+        """Write the second sprite layer: the published drawing with the lamps of the other state.
+
+        Layer 0 draws the vehicle as published; layer 1 draws the overlay, which holds the reciprocal
+        lamp pixels and is transparent everywhere else. Layer 1 hands over the overlay while the
+        vehicle is drawn turned around or the train is backing up — the XOR of the two, which is
+        exactly when the published lamps sit at the wrong end — and nothing otherwise. Both stores
+        also set the sprite-stack flag that makes OpenTTD resolve a second layer at all.
+        """
+        switch_name = getattr(variant, "lighting_switch_name", None)
+        overlay_path = getattr(variant, "lighting_overlay_path", None)
+        transparent_path = getattr(variant, "lighting_transparent_path", None)
+        if not switch_name or not overlay_path or not transparent_path:
+            return
+
+        spritesets = variant.spritesets
+        names = variant.spriteset_names
+        template_names = variant.sprite_template_names
+        detection = getattr(variant, "lighting_detection", None)
+        lamp_rows = set(getattr(detection, "rows", set()) or set())
+        feature = self._feature(variant)
+        count = len(spritesets)
+
+        def as_spriteset(path, base, name):
+            return Spriteset(name=name, file=str(path), template=base.template, x=base.x, y=base.y)
+
+        layers = []
+        written = set()
+        for i, (base, template_name, name) in enumerate(zip(spritesets, template_names, names)):
+            # two parts of a formation can share a drawing (a repeated middle car), and a spriteset
+            # name may only be defined once
+            overlay_name = f"{name}_light"
+            plain_name = f"{name}_no_light"
+            has_lamps = base.y in lamp_rows
+            if overlay_name not in written:
+                self.spriteset_writer.write(
+                    f, as_spriteset(overlay_path if has_lamps else transparent_path, base, overlay_name),
+                    template_name, name=overlay_name,
+                )
+                written.add(overlay_name)
+            if has_lamps:
+                plain_name = self._transparent_spriteset(f, variant, base, template_name, transparent_path)
+            layers.append((i, name, overlay_name, plain_name, has_lamps))
+
+        for i, base_name, overlay_name, plain_name, has_lamps in layers:
+            self.switch_writer.write_switch(
+                f, feature, "SELF", f"{switch_name}_l0_{i}",
+                "STORE_TEMP(CB_FLAG_MORE_SPRITES | PALETTE_USE_DEFAULT, 0x100)",
+                {"default": base_name},
+            )
+            if has_lamps:
+                self.switch_writer.write_switch(
+                    f, feature, "SELF", f"{switch_name}_l1_{i}",
+                    "STORE_TEMP(PALETTE_IDENTITY, 0x100)", {"default": overlay_name},
+                )
+                self.switch_writer.write_switch(
+                    f, feature, "SELF", f"{switch_name}_n1_{i}",
+                    "STORE_TEMP(PALETTE_IDENTITY, 0x100)", {"default": plain_name},
+                )
+                self.switch_writer.write_switch(
+                    f, feature, "SELF", f"{switch_name}_pick_{i}",
+                    "vehicle_is_flipped != train_is_driving_backwards",
+                    {0: f"{switch_name}_n1_{i}", "default": f"{switch_name}_l1_{i}"},
+                )
+            else:
+                # no lamps on this part: layer 1 is transparent in both states, so one spriteset does
+                # for both branches (the overlay name already points at the transparent sheet)
+                self.switch_writer.write_switch(
+                    f, feature, "SELF", f"{switch_name}_l1_{i}",
+                    "STORE_TEMP(PALETTE_IDENTITY, 0x100)", {"default": overlay_name},
+                )
+
+        picks = {
+            i: (f"{switch_name}_pick_{i}" if has_lamps else f"{switch_name}_l1_{i}")
+            for i, _name, _overlay, _plain, has_lamps in layers
+        }
+        self.switch_writer.write_switch(
+            f, feature, "SELF", f"{switch_name}_base",
+            f"position_in_articulated_veh % {count}",
+            {i: f"{switch_name}_l0_{i}" for i in range(count)},
+        )
+        self.switch_writer.write_switch(
+            f, feature, "SELF", f"{switch_name}_overlay",
+            f"position_in_articulated_veh % {count}", picks,
+        )
+        self.switch_writer.write_switch(
+            f, feature, "SELF", switch_name, "getbits(extra_callback_info1, 8, 8)",
+            {0: f"{switch_name}_base", "default": f"{switch_name}_overlay"},
+        )
 
     @staticmethod
     def _feature(variant):

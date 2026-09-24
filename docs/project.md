@@ -465,3 +465,56 @@ This is deliberately an escape hatch, not a second schema: keep the chain in NML
 BRBuild stores the numeric vehicle IDs used in `item()` definitions in `src/grf/VehicleIDData.yaml`. The registry identifies a variant by vehicle, profile, livery, and vehicle type. Generated GNML is archived beside that file so released variants can remain in the GRF after they are removed or changed.
 
 Normal development builds reuse IDs from variants that were not seen in the build. Run with `--release` when the set of variants is ready to be savegame-compatible: active IDs are locked, and changes to capacity, articulated-part count, or individual part lengths create a new ID. The previous definition is retained with `NO_CLIMATE` and `(DEPRECATED)` so it remains loadable but cannot be purchased.
+
+## Lighting overlays (directional headlights)
+
+A train's headlights are drawn into its artwork, so before OpenTTD 16 a train that reversed looked
+right because the game flipped the whole consist: whichever drawing led, its lamps led with it. A train
+that now *backs up* instead keeps its arrangement, so the leading end's lamps are the trailing end's
+drawing — the lamps are at the wrong end of the train.
+
+BRBuild handles this by drawing a second sprite layer over the vehicle: layer 0 as published, layer 1 an
+overlay that holds the lamps of the opposite running state and is transparent everywhere else. Layer 1
+takes over while `vehicle_is_flipped != train_is_driving_backwards` — the XOR of "this vehicle is drawn
+turned around" (ctrl+click) and "the train is backing up" — which is exactly when the published lamps sit
+at the wrong end. The layer switch stores the stack flags in temporary register `0x100`
+(`CB_FLAG_MORE_SPRITES | PALETTE_USE_DEFAULT` for layer 0, `PALETTE_IDENTITY` for layer 1), and the
+misc flag `TRAIN_FLAG_SPRITE_STACK` is added to any variant that gets an overlay.
+
+### What counts as a lamp
+
+- Candidates are single pixels of the lamp shades, searched brightest first (`0F`, `A1`, `45`, `34`, `44`);
+  within a cluster only the brightest shade counts, so a dimmer glow does not widen the lamp.
+- A lamp is *not* a lamp unless it changes state: the counterpart pixel, in the view four along of the
+  other drawing, must not itself be one of the lit shades (`0F`, `0E`, `0D`, `45`, `44`, `34`, `A1`).
+- A multiple unit pairs the drawing at its first consist position with the one at its last: the leading
+  end's lamps against the trailing end's. A single-unit vehicle (locomotive, tank engine, single-unit
+  stock) has no rear unit to compare with, so it pairs a view with the view four along inside its own
+  drawing — those rows carry both the nose and the rear views.
+- At most six lamp pixels are automated in one view (a double headlight is two pixels a side and a centre
+  repeater adds a pair). End-on views (N and S) must be mirror-symmetric about the centreline, apart from
+  a lone centre repeater pixel.
+- Anything not clearly identified — a view over the cap, asymmetric lamps, a lamp with nothing drawn on
+  the counterpart pixel, a drawing whose lamps are in no shade we accept — is logged and left alone: the
+  unit keeps its published artwork until someone deals with it manually. Units with no headlights drawn
+  at all (much early steam) are in this group by design.
+
+The overlay paints the counterpart's own value at the lamp pixel, so the shade is reciprocated rather
+than replaced.
+
+### Cost and caching
+
+Detection is pure pixel work over the published sheet, so it is cached beside the sheet in
+`<sheet>.lightcache.json`, keyed by the sheet bytes, the palette, the template geometry, the rules
+version and the pairings it was asked about. An unchanged rebuild re-uses every entry and does no
+detection at all; the generated overlay and transparency sheets are only rewritten when their contents
+change, so nmlc's sprite cache stays valid. The cache is derived data: it is not a build input and
+belongs in each project's `.gitignore`.
+
+The overlay and transparency sheets are written to `WorkingData/<project>/`, beside the generated
+purchase icons. One transparent spriteset per vehicle and template is shared by every part that needs
+one, rather than one per articulated part.
+
+On BRTrains3 (189 variants) the layer adds 3592 sprites and about 337 KB to the GRF (+32%); the build
+itself is unchanged within noise (about 1.6 s warm). Nothing is emitted for a project whose artwork has
+no detected lamps, so such a project's output stays byte-identical.

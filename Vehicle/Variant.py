@@ -57,6 +57,12 @@ class Variant:
         self.spriteset_names = list()
         self.purchase_spriteset = None
         self.purchase_spriteset_name = None
+        #: Lamp pixels found for this variant (Sprites.LightingOverlay.Detection), plus the sheets the
+        #: builder generated for it. Set before `process()` so the misc flag and graphics chain follow.
+        self.lighting_detection = None
+        self.lighting_overlay_path = None
+        self.lighting_transparent_path = None
+        self.lighting_switch_name = None
         self.purchase_template_name = None
         self.sprite_switch_name = None
         self.length_switch_name = None
@@ -87,6 +93,7 @@ class Variant:
             self.handleSpecialTags,
             self.handleAdditionalText,
             self.handleSprites,
+            self.handleLighting,
             self.handleMiscFlags,
             self.handleNmlOverride,
         ]
@@ -573,6 +580,30 @@ class Variant:
             self.purchase_spriteset_name = f"spriteset_{self.identifier}_purchase"
             if "purchase" not in overridden:
                 self.callbacks["purchase"] = self.purchase_spriteset_name
+
+    def handleLighting(self):
+        """Give the variant a second sprite layer when its drawing carries lamps.
+
+        The lighting overlay only makes sense with the sprite stack enabled, so the flag is added
+        here; the switch that routes the stack sits in front of the generated part switch, which
+        stays as layer 0's selector. A supplied `default` override wins, as everywhere else.
+        """
+        if self.lighting_overlay_path is None or not self.spritesets:
+            return
+        if self.nml_override_callbacks() and "default" in self.nml_override_callbacks():
+            return
+
+        feature = getattr(getattr(self.vehicle_type, "nml_feature", None), "value", None)
+        if str(feature).upper().endswith("ROADVEHS"):
+            # road vehicles reverse without the train variables, so their side waits for a decision
+            logger.debug(f"Lighting overlay found for road vehicle {self.identifier}; not emitted yet.")
+            self.lighting_overlay_path = None
+            self.lighting_transparent_path = None
+            return
+
+        self.add_misc_flag("TRAIN_FLAG_SPRITE_STACK")
+        self.lighting_switch_name = f"{self.sprite_switch_name}_layers"
+        self.callbacks["default"] = self.lighting_switch_name
 
     def nml_override_callbacks(self) -> set[str]:
         """Callback names this variant's YAML supplies itself, via `nml_override`."""
