@@ -20,6 +20,9 @@ from Vehicle.Translator.Tilt import MISC_FLAG_TILT, Tilt, resolve_tilt
 
 logger = logging.getLogger(__name__)
 
+#: Largest weight a road vehicle's weight property can hold: one byte in 1/4-ton units.
+ROADVEH_WEIGHT_PROPERTY_MAX_T = 63.75
+
 
 class Variant:
     #: The BRTrains track types, used when a candidate set does not provide its own
@@ -373,7 +376,16 @@ class Variant:
         capacity = self.get_attr("capacity")
         if capacity is None:
             capacity = 0
-        self.callbacks["cargo_capacity"] = f"{int(capacity)} * param_capacity_scaling"
+        # The scaling factor is a *stored* GRF parameter: OpenTTD uses whatever the savegame or
+        # the config holds (`GRFConfig::GetValue` returns `param[nr]` as-is, and a slot that was
+        # never written reads as 0 - which is what a savegame predating the parameter's current
+        # index holds). Multiplying unguarded would then zero every capacity in the set, so the
+        # callback falls back to the plain figure whenever the parameter is unset or below 1.
+        self.callbacks["cargo_capacity"] = (
+            f"param_capacity_scaling < 1 "
+            f"? {int(capacity)} "
+            f": {int(capacity)} * param_capacity_scaling"
+        )
         self.properties["cargo_capacity"] = 1 # Needed for NML to allow the callback override
 
     def handlePhysics(self):
@@ -390,8 +402,16 @@ class Variant:
         if weight is not None:
             vehicle_type_name = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
             if vehicle_type_name == "TRAM":
-                weight /= 4
-            self.properties["weight"] = f"{weight} ton"
+                # A road vehicle's weight property is one byte of 1/4 tons, so it cannot carry
+                # more than 63.75 t: the property holds the clamped figure as the fallback and the
+                # callback holds the real one, in the field's unit (nmlc converts a `ton` property
+                # but converts nothing written into an expression - the same split the capacity
+                # already uses). Writing the property at the authored figure aborts the compile
+                # with `Action 0 property too large`.
+                self.properties["weight"] = f"{min(weight, ROADVEH_WEIGHT_PROPERTY_MAX_T)} ton"
+                self.callbacks["weight"] = f"{round(weight * 4)}"
+            else:
+                self.properties["weight"] = f"{weight} ton"
 
         if hasattr(self, "te_coefficient") and self.te_coefficient is not None:
             self.properties["tractive_effort_coefficient"] = str(self.te_coefficient)
