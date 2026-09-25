@@ -5,8 +5,9 @@ class StringRegistry:
     def __init__(self):
         self._counter = 1
         self._strings = {}  # name -> text
+        self._names_by_text = {}  # cleaned text -> canonical name
 
-    def write_string(self, text: str, name: str = None) -> str:
+    def write_string(self, text: str, name: str = None, deduplicate: bool = False) -> str:
         """Stores a string and returns a reference of the form string(identifier)."""
         if text is None:
             raise ValueError("String text cannot be None")
@@ -31,7 +32,15 @@ class StringRegistry:
         if name in self._strings:
             return f"string({name})"
 
-        self._strings[name] = self.clean_string(text)
+        cleaned_text = self.clean_string(text)
+        if deduplicate:
+            canonical_name = self._names_by_text.get(cleaned_text)
+            if canonical_name is not None:
+                return f"string({canonical_name})"
+
+        self._strings[name] = cleaned_text
+        if deduplicate:
+            self._names_by_text[cleaned_text] = name
         return f"string({name})"
 
     def clean_name(self, name: str) -> str:
@@ -56,6 +65,7 @@ class StringRegistry:
 
     def clear(self):
         self._strings.clear()
+        self._names_by_text.clear()
         self._counter = 1
 
     def __repr__(self):

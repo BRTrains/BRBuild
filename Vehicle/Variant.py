@@ -194,7 +194,11 @@ class Variant:
         name_ref = nml_str(self.name, f"{self.identifier}_name")
         self.properties["name"] = name_ref
         self.name_callback_name = f"sw_{self.identifier}_name"
-        self.name_callback_string = nml_str(self.grouped_name, f"{self.identifier}_group_name")
+        self.name_callback_string = nml_str(
+            self.grouped_name,
+            f"{self.identifier}_group_name",
+            deduplicate=True,
+        )
         single_livery_name = " - ".join(
             part for part in (self.grouped_name, self._livery_display_name()) if part
         )
