@@ -185,10 +185,14 @@ class PowerTypeClassifier:
         else:
             fuel_enum = FuelType.UNPOWERED
 
-        # An explicit engine class is always emitted verbatim; a per-fuel default is only
-        # used for single-mode traction, because multi-mode vehicles take their livery
-        # colouring and effect from the presentation defaults instead.
-        if engine_class and (explicit_engine_class or modes == 1):
+        # An explicit engine class is always emitted verbatim. A per-fuel default is used
+        # for single-mode traction, and for a multi-mode unit that has a diesel engine:
+        # leaving the class unset is not neutral, because OpenTTD defaults a train's class
+        # to steam, which gives steam particles, the steam departure sound and the steam
+        # livery scheme. Diesel is the right class for such a unit — ENGINE_CLASS_ELECTRIC
+        # would give overhead-wire effects on stock that also runs on plain rail, which is
+        # what the legacy project recorded when it gave its bi-modes ENGINE_CLASS_DIESEL.
+        if engine_class and (explicit_engine_class or modes == 1 or has_diesel):
             self.variant.properties["engine_class"] = engine_class
 
         self.variant.fuel_type = fuel_enum

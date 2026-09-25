@@ -514,6 +514,46 @@ class BuildPathTests(unittest.TestCase):
                 f"{power_type} should not need an override",
             )
 
+    def test_a_diesel_bi_mode_takes_the_diesel_engine_class(self):
+        """Leaving the class unset is not neutral: OpenTTD defaults a train to steam."""
+        from PropertyCalculation.FuelType import FuelType
+
+        variant = self._variant(power_type=["diesel", "electric"], power=5400, speed=100)
+
+        self.assertEqual(variant.fuel_type, FuelType.BI_MODE)
+        self.assertEqual(variant.properties["engine_class"], "ENGINE_CLASS_DIESEL")
+        # The diesel class already supplies diesel particles and the train departure sound,
+        # so no visual-effect override is needed.
+        self.assertNotIn("visual_effect_and_powered", variant.properties)
+
+    def test_a_diesel_tri_mode_takes_the_diesel_engine_class_too(self):
+        variant = self._variant(
+            power_type=["diesel", "electric", "battery"], power=1000, speed=100
+        )
+
+        self.assertEqual(variant.properties["engine_class"], "ENGINE_CLASS_DIESEL")
+
+    def test_explicit_engine_class_still_wins_on_a_bi_mode(self):
+        variant = self._variant(
+            power_type=["diesel", "electric"],
+            power=5400,
+            speed=100,
+            engine_class="ENGINE_CLASS_ELECTRIC",
+        )
+
+        self.assertEqual(variant.properties["engine_class"], "ENGINE_CLASS_ELECTRIC")
+
+    def test_a_multi_mode_with_no_diesel_engine_still_names_no_class(self):
+        """Known gap, not a decision: only the diesel rule avoids the steam fallback.
+
+        A hydrogen or battery multi-mode has no rule of its own, so it inherits OpenTTD's
+        steam default for particles, departure sound and livery scheme. Change this test
+        when that is addressed rather than leaving it to fail silently.
+        """
+        variant = self._variant(power_type=["hydrogen", "battery"], power=1000, speed=100)
+
+        self.assertNotIn("engine_class", variant.properties)
+
     def test_gas_turbine_costs_more_to_run_than_diesel(self):
         diesel = self._variant(power_type=["diesel"], power=2700, speed=152)
         turbine = self._variant(power_type=["gas_turbine"], power=2700, speed=152)
