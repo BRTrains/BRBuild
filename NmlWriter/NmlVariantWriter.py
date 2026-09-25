@@ -70,8 +70,7 @@ class NmlVariantWriter(BaseNmlWriter):
                 or any(str(livery_profile).replace("_", "").strip().lower() == profile_id for livery_profile in livery.profiles)
             ]
             grouped_name_string = getattr(variant, "name_callback_string", name_switch_string)
-            single_livery_name_string = getattr(variant, "name_callback_single_livery_string", base_name_string)
-            root_name_string = single_livery_name_string if len(eligible_liveries) <= 1 else grouped_name_string
+            root_name_string = base_name_string if len(eligible_liveries) <= 1 else grouped_name_string
             self.switch_writer.write_switch(
                 f,
                 self._feature(variant),

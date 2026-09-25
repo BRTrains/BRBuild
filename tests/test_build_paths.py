@@ -737,7 +737,7 @@ class BuildPathTests(unittest.TestCase):
         self.assertIn("switch (FEAT_TRAINS, SELF, sw_example_passenger_blue_train_name, extra_callback_info1 & 0xFF)", switch)
         self.assertIn("0x20 : sw_example_passenger_blue_train_name_purchase;", switch)
         self.assertIn("switch (FEAT_TRAINS, SELF, sw_example_passenger_blue_train_name_purchase, getbits(extra_callback_info1, 0, 16))", switch)
-        self.assertIn("0x20 : string(str_example_passenger_blue_train_single_livery_name);", switch)
+        self.assertIn("0x20 : string(str_example_passenger_blue_train_name);", switch)
         self.assertIn("0x120 : string(str_example_passenger_blue_train_name);", switch)
         self.assertIn("\tstring(str_example_passenger_blue_train_name);", switch)
         self.assertIn("CB_FAILED;", switch)

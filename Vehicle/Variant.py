@@ -199,13 +199,6 @@ class Variant:
             f"{self.identifier}_group_name",
             deduplicate=True,
         )
-        single_livery_name = " - ".join(
-            part for part in (self.grouped_name, self._livery_display_name()) if part
-        )
-        self.name_callback_single_livery_string = nml_str(
-            single_livery_name,
-            f"{self.identifier}_single_livery_name",
-        )
         self.callbacks["name"] = self.name_callback_name
 
         v_type = self.vehicle_type
