@@ -128,19 +128,14 @@ class Variant:
 
     @property
     def name(self):
-        """Return the purchase-menu name: the vehicle, then its named profile and livery.
+        """Return the variant's displayed name: the vehicle, then its named profile and livery.
 
-        A profile or livery called "Default" carries no information, so it is left out
-        rather than shown as a label: a single-formation unit lists as its own name, one
-        with a named livery lists as "Name - Livery", and a multi-formation unit as
-        "Name - Profile - Livery".
+        This is the variant's only name — it is written to the `name` property — so the livery
+        is always included, even when the unit carries just one, and a profile or livery called
+        "Default" is left out rather than shown as a label: "Name - Profile - Livery", or
+        "Name - Livery" when the unit's only profile is `Default`.
         """
         return " - ".join(self._name_parts())
-
-    @property
-    def grouped_name(self):
-        """Return the name used when OpenTTD displays a grouped livery."""
-        return " - ".join(self._name_parts(include_livery=False))
 
     def _name_parts(self, include_livery: bool = True) -> list[str]:
         parts = [self.vehicle.name, self._profile_display_name()]
@@ -190,16 +185,12 @@ class Variant:
             self.identifier = f"{self.identifier}_v{self.sprite_id_generation}"
         self.nml_filename = f"{self.identifier}.gnml"
 
-        # Formatted NML header properties
+        # Formatted NML header properties. The name is a property and nothing else: OpenTTD
+        # keeps a vehicle's name in its own per-vehicle string space (Action 4 keyed by the
+        # vehicle id), while a name returned from a callback is drawn from the 1024-id misc
+        # pool (`0xD0`) — the pool the set's per-variant names had exhausted.
         name_ref = nml_str(self.name, f"{self.identifier}_name")
         self.properties["name"] = name_ref
-        self.name_callback_name = f"sw_{self.identifier}_name"
-        self.name_callback_string = nml_str(
-            self.grouped_name,
-            f"{self.identifier}_group_name",
-            deduplicate=True,
-        )
-        self.callbacks["name"] = self.name_callback_name
 
         v_type = self.vehicle_type
         if getattr(v_type, "name", str(v_type)).upper() == "TRAM":

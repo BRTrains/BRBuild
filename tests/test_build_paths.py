@@ -710,7 +710,7 @@ class BuildPathTests(unittest.TestCase):
 
         self.assertIn("sprite_id: SPRITE_ID_NEW_TRAIN;", output.getvalue())
 
-    def test_variant_names_use_property_and_group_callback_labels(self):
+    def test_variant_name_is_a_property_and_emits_no_name_callback(self):
         from Vehicle.Livery import Livery
         from Vehicle.Profile import Profile
         from Vehicle.Vehicle import Vehicle
@@ -727,20 +727,14 @@ class BuildPathTests(unittest.TestCase):
         variant.process()
 
         self.assertEqual(variant.name, "Class Example - Passenger - Blue")
-        self.assertEqual(variant.grouped_name, "Class Example - Passenger")
         self.assertEqual(variant.properties["name"], "string(str_example_passenger_blue_train_name)")
-        self.assertEqual(variant.callbacks["name"], "sw_example_passenger_blue_train_name")
+        self.assertNotIn("name", variant.callbacks)
 
         output = StringIO()
         NmlVariantWriter(variant, "/tmp").write_sprites(output, variant)
         switch = output.getvalue()
-        self.assertIn("switch (FEAT_TRAINS, SELF, sw_example_passenger_blue_train_name, extra_callback_info1 & 0xFF)", switch)
-        self.assertIn("0x20 : sw_example_passenger_blue_train_name_purchase;", switch)
-        self.assertIn("switch (FEAT_TRAINS, SELF, sw_example_passenger_blue_train_name_purchase, getbits(extra_callback_info1, 0, 16))", switch)
-        self.assertIn("0x20 : string(str_example_passenger_blue_train_name);", switch)
-        self.assertIn("0x120 : string(str_example_passenger_blue_train_name);", switch)
-        self.assertIn("\tstring(str_example_passenger_blue_train_name);", switch)
-        self.assertIn("CB_FAILED;", switch)
+        self.assertNotIn("sw_example_passenger_blue_train_name", switch)
+        self.assertNotIn("group_name", switch)
 
     def test_default_profile_and_livery_names_are_omitted(self):
         """A `Default` profile/livery is a placeholder, so the name is the vehicle's."""
@@ -758,7 +752,6 @@ class BuildPathTests(unittest.TestCase):
         variant.process()
 
         self.assertEqual(variant.name, "Class Example")
-        self.assertEqual(variant.grouped_name, "Class Example")
 
         named_livery = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
             vehicle,
@@ -770,7 +763,8 @@ class BuildPathTests(unittest.TestCase):
 
         self.assertEqual(named_livery.name, "Class Example - Blue")
 
-    def test_variant_name_callback_uses_group_name_for_multiple_liveries(self):
+    def test_multiple_liveries_each_keep_their_livery_name_without_a_callback(self):
+        """Two liveries are two named variants; neither needs a callback to tell them apart."""
         from Vehicle.Livery import Livery
         from Vehicle.Profile import Profile
         from Vehicle.Vehicle import Vehicle
@@ -779,20 +773,22 @@ class BuildPathTests(unittest.TestCase):
         first = Livery("Blue")
         second = Livery("Green")
         vehicle.liveries = [first, second]
-        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
-            vehicle,
-            first,
-            Profile("Passenger", name="Passenger"),
-            VehicleType.TRAIN,
-        )
-        variant.process()
+        Variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant
+        blue = Variant(vehicle, first, Profile("Passenger", name="Passenger"), VehicleType.TRAIN)
+        green = Variant(vehicle, second, Profile("Passenger", name="Passenger"), VehicleType.TRAIN)
+        blue.process()
+        green.process()
+
+        self.assertEqual(blue.name, "Class Example - Passenger - Blue")
+        self.assertEqual(green.name, "Class Example - Passenger - Green")
+        self.assertEqual(blue.properties["name"], "string(str_example_passenger_blue_train_name)")
+        self.assertEqual(green.properties["name"], "string(str_example_passenger_green_train_name)")
+        for variant in (blue, green):
+            self.assertNotIn("name", variant.callbacks)
 
         output = StringIO()
-        NmlVariantWriter(variant, "/tmp").write_sprites(output, variant)
-        switch = output.getvalue()
-        self.assertIn("switch (FEAT_TRAINS, SELF, sw_example_passenger_blue_train_name_purchase, getbits(extra_callback_info1, 0, 16))", switch)
-        self.assertIn("0x20 : string(str_example_passenger_blue_train_group_name);", switch)
-        self.assertIn("0x120 : string(str_example_passenger_blue_train_name);", switch)
+        NmlVariantWriter(blue, "/tmp").write_sprites(output, blue)
+        self.assertNotIn("_name", output.getvalue())
 
     def test_service_speed_alone_writes_the_property_and_no_callback(self):
         from Vehicle.Livery import Livery
