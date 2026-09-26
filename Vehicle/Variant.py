@@ -24,6 +24,19 @@ logger = logging.getLogger(__name__)
 #: Largest weight a road vehicle's weight property can hold: one byte in 1/4-ton units.
 ROADVEH_WEIGHT_PROPERTY_MAX_T = 63.75
 
+#: Name colours for the purchase list: vehicle, profile, livery. Readable names rather than
+#: raw palette indices, because what each segment should look like is a presentation
+#: decision. OpenTTD's default text colour is black, so a variant only emits `BLACK` where
+#: the name has already switched away from it.
+GRAY = "GRAY"
+BLACK = "BLACK"
+GOLD = "GOLD"
+
+
+def colour(name: str) -> str:
+    """Render an OpenTTD text colour code, e.g. `{GOLD}`."""
+    return "{" + name + "}"
+
 
 class Variant:
     #: The BRTrains track types, used when a candidate set does not provide its own
@@ -134,14 +147,25 @@ class Variant:
         is always included, even when the unit carries just one, and a profile or livery called
         "Default" is left out rather than shown as a label: "Name - Profile - Livery", or
         "Name - Livery" when the unit's only profile is `Default`.
-        """
-        return " - ".join(self._name_parts())
 
-    def _name_parts(self, include_livery: bool = True) -> list[str]:
-        parts = [self.vehicle.name, self._profile_display_name()]
-        if include_livery:
-            parts.append(self._livery_display_name())
-        return [part for part in parts if part]
+        The segments are coloured so a long purchase list reads: the vehicle in grey, the
+        profile in black and the livery in gold. OpenTTD's own default text colour is black,
+        so the black code is only emitted where the name has switched away from it (after a
+        grey profile). A colour code is part of the text, not a separate string, so this
+        costs no string-pool ID — the reason names are properties in the first place.
+        """
+        vehicle, profile, livery = self._name_parts()
+
+        name = f"{colour(GRAY)}{vehicle}"
+        if profile:
+            name += f" {colour(BLACK)}- {colour(GRAY)}{profile}"
+        if livery:
+            name += f" {colour(BLACK)}- {colour(GOLD)}{livery}"
+        return name
+
+    def _name_parts(self):
+        """Return the three segments of the name, each `""` when it should be omitted."""
+        return self.vehicle.name, self._profile_display_name(), self._livery_display_name()
 
     def _profile_display_name(self):
         """Return the profile's own name, or "" when the profile is the unnamed `Default`."""
