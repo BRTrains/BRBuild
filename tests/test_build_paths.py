@@ -711,7 +711,7 @@ class BuildPathTests(unittest.TestCase):
         self.assertIn("sprite_id: SPRITE_ID_NEW_TRAIN;", output.getvalue())
 
     def test_variant_name_is_a_property_and_emits_no_name_callback(self):
-        """The displayed name colours the vehicle grey and the livery gold.
+        """The displayed name leaves the vehicle in the default colour and colours the rest.
 
         A colour code is not a pool cost: it is part of the text the property already
         carries, so the name stays affordable at any variant count.
@@ -731,7 +731,7 @@ class BuildPathTests(unittest.TestCase):
         )
         variant.process()
 
-        self.assertEqual(variant.name, "{GRAY}Class Example {BLACK}- {GRAY}Passenger {BLACK}- {GOLD}Blue")
+        self.assertEqual(variant.name, "Class Example - {GRAY}Passenger{BLACK} - {GOLD}Blue")
         self.assertEqual(
             variant.properties["name"], "string(str_example_passenger_blue_train_name)"
         )
@@ -743,11 +743,12 @@ class BuildPathTests(unittest.TestCase):
         self.assertNotIn("sw_example_passenger_blue_train_name", switch)
         self.assertNotIn("group_name", switch)
 
-    def test_the_black_code_is_always_written_before_the_dash(self):
-        """Every `- ` is written in the reference default colour, black.
+    def test_a_default_profile_is_omitted_rather_than_coloured(self):
+        """With the profile omitted the name never leaves the default black.
 
-        So the separator before the gold livery is black whether or not a grey profile
-        precedes it, and the only code the omitted profile removes is the grey one.
+        The vehicle name and both separators stay in the default colour, so the only
+        codes the name carries are the grey that opens the profile and the gold that
+        opens the livery.
         """
         from Vehicle.Livery import Livery
         from Vehicle.Profile import Profile
@@ -762,13 +763,13 @@ class BuildPathTests(unittest.TestCase):
         )
         named_livery.process()
 
-        self.assertEqual(named_livery.name, "{GRAY}Class Example {BLACK}- {GOLD}Blue")
+        self.assertEqual(named_livery.name, "Class Example - {GOLD}Blue")
 
     def test_a_default_livery_is_still_shown_in_gold(self):
         """The livery is always shown, so a livery named `Default` keeps no `Default`.
 
-        `Default` is a placeholder, so the name is the vehicle's own coloured text; the
-        livery segment is dropped rather than shown as `Default`.
+        `Default` is a placeholder, so the name is the vehicle's own text; the livery
+        segment is dropped rather than shown as `Default`.
         """
         from Vehicle.Livery import Livery
         from Vehicle.Profile import Profile
@@ -783,7 +784,7 @@ class BuildPathTests(unittest.TestCase):
         )
         variant.process()
 
-        self.assertEqual(variant.name, "{GRAY}Class Example")
+        self.assertEqual(variant.name, "Class Example")
 
     def test_multiple_liveries_each_keep_their_livery_name_without_a_callback(self):
         """Two liveries are two named variants; neither needs a callback to tell them apart."""
@@ -801,8 +802,8 @@ class BuildPathTests(unittest.TestCase):
         blue.process()
         green.process()
 
-        self.assertEqual(blue.name, "{GRAY}Class Example {BLACK}- {GRAY}Passenger {BLACK}- {GOLD}Blue")
-        self.assertEqual(green.name, "{GRAY}Class Example {BLACK}- {GRAY}Passenger {BLACK}- {GOLD}Green")
+        self.assertEqual(blue.name, "Class Example - {GRAY}Passenger{BLACK} - {GOLD}Blue")
+        self.assertEqual(green.name, "Class Example - {GRAY}Passenger{BLACK} - {GOLD}Green")
         self.assertEqual(blue.properties["name"], "string(str_example_passenger_blue_train_name)")
         self.assertEqual(green.properties["name"], "string(str_example_passenger_green_train_name)")
         for variant in (blue, green):

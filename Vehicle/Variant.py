@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 #: Largest weight a road vehicle's weight property can hold: one byte in 1/4-ton units.
 ROADVEH_WEIGHT_PROPERTY_MAX_T = 63.75
 
-#: Name colours for the purchase list: vehicle, profile, livery. Readable names rather than
-#: raw palette indices, because what each segment should look like is a presentation
-#: decision. OpenTTD's default text colour is black, so a variant only emits `BLACK` where
-#: the name has already switched away from it.
+#: Name colours for the purchase list: the profile in grey, the livery in gold. The vehicle
+#: keeps OpenTTD's own default text colour, so it needs no code and `BLACK` exists only to
+#: close a grey profile again. Readable names rather than raw palette indices, because what
+#: each segment should look like is a presentation decision.
 GRAY = "GRAY"
 BLACK = "BLACK"
 GOLD = "GOLD"
@@ -148,19 +148,19 @@ class Variant:
         "Default" is left out rather than shown as a label: "Name - Profile - Livery", or
         "Name - Livery" when the unit's only profile is `Default`.
 
-        The segments are coloured so a long purchase list reads: the vehicle in grey, the
-        profile in black and the livery in gold. OpenTTD's own default text colour is black,
-        so the black code is only emitted where the name has switched away from it (after a
-        grey profile). A colour code is part of the text, not a separate string, so this
-        costs no string-pool ID — the reason names are properties in the first place.
+        The name reads `Name - {GRAY}Profile{BLACK} - {GOLD}Livery`: the vehicle is left in
+        OpenTTD's default text colour, each coloured segment opens with its own code, and the
+        profile closes back to black so the following separator is not grey. A colour code is
+        part of the text, not a separate string, so this costs no string-pool ID — the reason
+        names are properties in the first place.
         """
         vehicle, profile, livery = self._name_parts()
 
-        name = f"{colour(GRAY)}{vehicle}"
+        name = vehicle
         if profile:
-            name += f" {colour(BLACK)}- {colour(GRAY)}{profile}"
+            name += f" - {colour(GRAY)}{profile}{colour(BLACK)}"
         if livery:
-            name += f" {colour(BLACK)}- {colour(GOLD)}{livery}"
+            name += f" - {colour(GOLD)}{livery}"
         return name
 
     def _name_parts(self):
