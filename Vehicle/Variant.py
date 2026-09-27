@@ -31,6 +31,8 @@ ROADVEH_WEIGHT_PROPERTY_MAX_T = 63.75
 GRAY = "GRAY"
 BLACK = "BLACK"
 GOLD = "GOLD"
+SILVER = "SILVER"
+LTBROWN = "LTBROWN"
 
 
 def colour(name: str) -> str:
@@ -148,7 +150,7 @@ class Variant:
         "Default" is left out rather than shown as a label: "Name - Profile - Livery", or
         "Name - Livery" when the unit's only profile is `Default`.
 
-        The name reads `Name - {GRAY}Profile{BLACK} - {GOLD}Livery`: the vehicle is left in
+        The name reads `Name - {SILVER}Profile{BLACK} - {GOLD}Livery`: the vehicle is left in
         OpenTTD's default text colour, each coloured segment opens with its own code, and the
         profile closes back to black so the following separator is not grey. A colour code is
         part of the text, not a separate string, so this costs no string-pool ID — the reason
@@ -158,7 +160,7 @@ class Variant:
 
         name = vehicle
         if profile:
-            name += f" - {colour(GRAY)}{profile}{colour(BLACK)}"
+            name += f" - {colour(SILVER)}{profile}{colour(BLACK)}"
         if livery:
             name += f" - {colour(GOLD)}{livery}"
         return name
