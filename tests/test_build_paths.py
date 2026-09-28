@@ -731,7 +731,7 @@ class BuildPathTests(unittest.TestCase):
         )
         variant.process()
 
-        self.assertEqual(variant.name, "Class Example - {GRAY}Passenger{BLACK} - {GOLD}Blue")
+        self.assertEqual(variant.name, "Class Example - {SILVER}Passenger{BLACK} - {GOLD}Blue")
         self.assertEqual(
             variant.properties["name"], "string(str_example_passenger_blue_train_name)"
         )
@@ -802,8 +802,8 @@ class BuildPathTests(unittest.TestCase):
         blue.process()
         green.process()
 
-        self.assertEqual(blue.name, "Class Example - {GRAY}Passenger{BLACK} - {GOLD}Blue")
-        self.assertEqual(green.name, "Class Example - {GRAY}Passenger{BLACK} - {GOLD}Green")
+        self.assertEqual(blue.name, "Class Example - {SILVER}Passenger{BLACK} - {GOLD}Blue")
+        self.assertEqual(green.name, "Class Example - {SILVER}Passenger{BLACK} - {GOLD}Green")
         self.assertEqual(blue.properties["name"], "string(str_example_passenger_blue_train_name)")
         self.assertEqual(green.properties["name"], "string(str_example_passenger_green_train_name)")
         for variant in (blue, green):
