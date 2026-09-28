@@ -24,6 +24,7 @@ def _variant(root):
         nml_filename=str(nml), vehicle_type=SimpleNamespace(name="TRAIN"), articulated_count=2,
         spritesets=[spriteset], sprite_template_names=["tmpl_train_8"], sprite_lengths=[8],
         spriteset_names=["spriteset_a_0"], purchase_spriteset=spriteset,
+        sprite_pattern=[1, 2, 3, 4, 2, 3, 4],
         purchase_spriteset_name="spriteset_a_purchase", purchase_template_name="tmpl_train_8",
         lighting_overlay_path=root / "src" / "generated" / "a_lighting.png",
         lighting_transparent_path=None, sprite_id=42, sprite_id_generation=3,
@@ -50,6 +51,8 @@ def test_manifest_contains_every_materialised_variant_and_real_rows(tmp_path):
     assert item["purchase"]["template"] == "tmpl_train_8"
     assert item["sprite_id"] == {"id": 42, "generation": 3}
     assert item["sprite_group"]["source"] == "base"
+    assert item["formation"] == {"part_count": 7, "sprite_pattern": [1, 2, 3, 4, 2, 3, 4]}
+    assert manifest["profiles"][0]["resolved"]["sprite_pattern"] == [1, 2, 3, 4, 2, 3, 4]
 
     def assert_no_absolute(value):
         if isinstance(value, dict):

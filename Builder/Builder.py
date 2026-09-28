@@ -348,6 +348,7 @@ class Builder:
                         variant.spritesets, variant.sprite_template_names, variant.sprite_lengths = allocator.get(
                             variant.profile, variant.livery, variant.vehicle_type
                         )
+                        variant.sprite_pattern = allocator.pattern_for(variant.profile, variant.livery)
                         purchase = allocator.get_purchase(
                             variant.profile, variant.livery, ctx.nml_output_folder
                         )

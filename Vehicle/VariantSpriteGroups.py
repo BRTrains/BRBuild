@@ -236,6 +236,7 @@ class VehicleSpriteAllocator:
 		self._template_names: dict[tuple[str, str], list[str]] = {}
 		self._lengths: dict[tuple[str, str], list[int]] = {}
 		self._definitions: dict[tuple[str, str], list[TemplateDefinition]] = {}
+		self._patterns: dict[tuple[str, str], list[int]] = {}
 
 	@staticmethod
 	def _match_vehicle_rows(extractor: SpritesheetExtractor, vehicle_type_str: str, definitions: list[TemplateDefinition]):
@@ -316,6 +317,9 @@ class VehicleSpriteAllocator:
 			self._template_names[key] = [group_slice[position - 1][1].name for position in group.pattern]
 			self._lengths[key] = [group_slice[position - 1][1].length for position in group.pattern]
 			self._definitions[key] = [group_slice[position - 1][1] for position in group.pattern]
+			if not hasattr(self, "_patterns"):
+				self._patterns = {}
+			self._patterns[key] = list(group.pattern)
 
 		names = self._template_names[key]
 		if getattr(vehicle_type, "nml_feature", None) == ROAD_VEHICLE_FEATURE:
@@ -325,6 +329,15 @@ class VehicleSpriteAllocator:
 			]
 
 		return self._spritesets[key], names, self._lengths[key]
+
+	def pattern_for(self, profile: Profile, livery: Livery) -> list[int]:
+		"""Return the resolved sprite pattern for an already materialised group."""
+		if not hasattr(self, "_patterns"):
+			self._patterns = {}
+		key = (str(profile.identifier), str(livery.name))
+		if key not in self._patterns:
+			self.get(profile, livery)
+		return list(self._patterns[key])
 
 	def _record_sheet(self, key: tuple[str, str], sheet_path: str) -> None:
 		"""Remember which sheet a group's rows came from (see `sheet_for`)."""

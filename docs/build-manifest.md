@@ -13,6 +13,7 @@ set, sprite allocation and source files without reimplementing BRBuild's resolut
 `schema_version` is currently `1`. The top-level document contains the project name,
 UTC ISO-8601 `generated_at`, best-effort `builder_commit`, `build_success: true`, and a
 `variants` array. Each variant records its vehicle/profile/livery identity, generated NML,
+resolved `formation` data (`part_count` and the livery → profile → vehicle `sprite_pattern`),
 materialised spritesets (file, template, length, order, origin, and actual sprite rows),
 purchase sprites, lighting outputs, sprite ID/generation, sprite-group reuse, and source
 restrictions. Paths are objects with a project-relative `path` and descriptive `kind`; an

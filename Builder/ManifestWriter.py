@@ -106,7 +106,7 @@ class ManifestWriter:
                 "name": variant.profile.name,
                 "resolved": {field: self._value(self._resolved(variant, field)) for field in (
                     "num_vehicles", "capacity", "power", "weight", "speed", "introduction_date",
-                    "track_type", "cargo_classes", "default_cargo_type",
+                    "track_type", "cargo_classes", "default_cargo_type", "sprite_pattern",
                 )},
                 "sprite_group": getattr(variant.profile, "sprite_group", None),
                 "spritesheet": self._path(getattr(variant.profile, "spritesheet", None), "source_artwork"),
@@ -120,6 +120,8 @@ class ManifestWriter:
 
     @staticmethod
     def _resolved(variant, field):
+        if field == "sprite_pattern":
+            return getattr(variant, field, None)
         resolver = getattr(variant, "get_attr", None)
         if callable(resolver):
             return resolver(field)
@@ -154,6 +156,7 @@ class ManifestWriter:
         templates = list(getattr(variant, "sprite_template_names", None) or [])
         lengths = list(getattr(variant, "sprite_lengths", None) or [])
         names = list(getattr(variant, "spriteset_names", None) or [])
+        pattern = list(getattr(variant, "sprite_pattern", None) or [])
 
         item = {
             "vehicle": self._identity(vehicle, ("identifier", "name")),
@@ -163,9 +166,12 @@ class ManifestWriter:
                 "identifier": getattr(variant, "identifier", None),
                 "nml_filename": self._path(getattr(variant, "nml_filename", None), "nml"),
                 "vehicle_type": self._value(getattr(getattr(variant, "vehicle_type", None), "name", getattr(variant, "vehicle_type", None))),
-                "articulated_count": getattr(variant, "articulated_count", None),
                 "display_name": getattr(variant, "name", None),
                 "graphics_emitted": bool(spritesets),
+            },
+            "formation": {
+                "part_count": len(pattern) or getattr(variant, "articulated_count", None) or 1,
+                "sprite_pattern": pattern,
             },
             "spritesets": [
                 self._spriteset(s, i, templates, lengths, names) for i, s in enumerate(spritesets)
