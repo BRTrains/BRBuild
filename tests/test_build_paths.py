@@ -710,12 +710,8 @@ class BuildPathTests(unittest.TestCase):
 
         self.assertIn("sprite_id: SPRITE_ID_NEW_TRAIN;", output.getvalue())
 
-    def test_variant_name_is_a_property_and_emits_no_name_callback(self):
-        """The displayed name leaves the vehicle in the default colour and colours the rest.
-
-        A colour code is not a pool cost: it is part of the text the property already
-        carries, so the name stays affordable at any variant count.
-        """
+    def test_variant_name_callback_uses_dcxx_for_nested_purchase_names(self):
+        """Purchase grouping uses OpenTTD 15's arbitrary-string callback result."""
         from Vehicle.Livery import Livery
         from Vehicle.Profile import Profile
         from Vehicle.Vehicle import Vehicle
@@ -735,21 +731,25 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(
             variant.properties["name"], "string(str_example_passenger_blue_train_name)"
         )
-        self.assertNotIn("name", variant.callbacks)
+        self.assertEqual(variant.callbacks["name"], "sw_example_passenger_blue_train_name")
 
         output = StringIO()
         NmlVariantWriter(variant, "/tmp").write_sprites(output, variant)
         switch = output.getvalue()
-        self.assertNotIn("sw_example_passenger_blue_train_name", switch)
-        self.assertNotIn("group_name", switch)
+        self.assertIn(
+            "STORE_TEMP(string(str_example_passenger_blue_train_group_name), 0x100)",
+            switch,
+        )
+        self.assertIn(
+            "STORE_TEMP(string(str_example_passenger_blue_train_nested_name), 0x100)",
+            switch,
+        )
+        self.assertIn("0x40F;", switch)
+        self.assertIn("0x20 : sw_example_passenger_blue_train_name_group;", switch)
+        self.assertIn("0x120 : sw_example_passenger_blue_train_name_nested;", switch)
 
-    def test_a_default_profile_is_omitted_rather_than_coloured(self):
-        """With the profile omitted the name never leaves the default black.
-
-        The vehicle name and both separators stay in the default colour, so the only
-        codes the name carries are the grey that opens the profile and the gold that
-        opens the livery.
-        """
+    def test_a_default_profile_still_gets_both_nesting_name_callbacks(self):
+        """A default profile uses the vehicle name as the nested-name base."""
         from Vehicle.Livery import Livery
         from Vehicle.Profile import Profile
         from Vehicle.Vehicle import Vehicle
@@ -764,6 +764,12 @@ class BuildPathTests(unittest.TestCase):
         named_livery.process()
 
         self.assertEqual(named_livery.name, "Class Example - {GOLD}Blue")
+        self.assertIn("name", named_livery.callbacks)
+        output = StringIO()
+        NmlVariantWriter(named_livery, "/tmp").write_sprites(output, named_livery)
+        switch = output.getvalue()
+        self.assertRegex(switch, r"STORE_TEMP\(string\(str_example_default_.*_group_name\), 0x100\)")
+        self.assertRegex(switch, r"STORE_TEMP\(string\(str_example_default_.*_nested_name\), 0x100\)")
 
     def test_a_default_livery_is_still_shown_in_gold(self):
         """The livery is always shown, so a livery named `Default` keeps no `Default`.
@@ -786,8 +792,8 @@ class BuildPathTests(unittest.TestCase):
 
         self.assertEqual(variant.name, "Class Example")
 
-    def test_multiple_liveries_each_keep_their_livery_name_without_a_callback(self):
-        """Two liveries are two named variants; neither needs a callback to tell them apart."""
+    def test_multiple_liveries_each_get_their_nested_purchase_name_callback(self):
+        """Two liveries get the profile/livery child-row callback."""
         from Vehicle.Livery import Livery
         from Vehicle.Profile import Profile
         from Vehicle.Vehicle import Vehicle
@@ -807,11 +813,11 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(blue.properties["name"], "string(str_example_passenger_blue_train_name)")
         self.assertEqual(green.properties["name"], "string(str_example_passenger_green_train_name)")
         for variant in (blue, green):
-            self.assertNotIn("name", variant.callbacks)
+            self.assertIn("name", variant.callbacks)
 
         output = StringIO()
         NmlVariantWriter(blue, "/tmp").write_sprites(output, blue)
-        self.assertNotIn("_name", output.getvalue())
+        self.assertIn("STORE_TEMP(string(str_example_passenger_blue_train_nested_name), 0x100)", output.getvalue())
 
     def test_service_speed_alone_writes_the_property_and_no_callback(self):
         from Vehicle.Livery import Livery

@@ -218,6 +218,27 @@ class Variant:
         name_ref = nml_str(self.name, f"{self.identifier}_name")
         self.properties["name"] = name_ref
 
+        # Purchase-list grouping uses OpenTTD's name callback.  These are deliberately
+        # separate from the property name: the root row shows the vehicle and profile,
+        # while a child row shows the profile and livery.  The colour codes belong here,
+        # rather than in YAML, because they describe this presentation only.
+        profile_name = self._profile_display_name()
+        livery_name = self._livery_display_name()
+        self.name_callback_name = f"sw_{self.identifier}_name"
+        self.name_callback_string = nml_str(
+            f"{{BLACK}}{self.vehicle.name}"
+            + (f" - {{SILVER}}{profile_name}" if profile_name else ""),
+            f"{self.identifier}_group_name",
+            deduplicate=True,
+        )
+        self.name_callback_nested_string = nml_str(
+            f"{{BLACK}}{profile_name or self.vehicle.name}"
+            + (f" - {{GOLD}}{livery_name}" if livery_name else ""),
+            f"{self.identifier}_nested_name",
+            deduplicate=True,
+        )
+        self.callbacks["name"] = self.name_callback_name
+
         v_type = self.vehicle_type
         if getattr(v_type, "name", str(v_type)).upper() == "TRAM":
             self.add_misc_flag("ROADVEH_FLAG_TRAM")

@@ -34,6 +34,7 @@ class NmlVariantWriter(BaseNmlWriter):
     def write_sprites(self, f, variant):
         """Write the generated switches and sprites for this variant."""
         self._write_articulated_switch(f, variant)
+        self._write_name_switches(f, variant)
         self._write_spritesets(f, variant)
 
     def _write_articulated_switch(self, f, variant):
@@ -50,6 +51,60 @@ class NmlVariantWriter(BaseNmlWriter):
             self.switch_writer.write_switch(
                 f, self._feature(variant), "SELF", articulated_switch_name, "extra_callback_info1", values
             )
+
+    def _write_name_switches(self, f, variant):
+        """Return coloured purchase-list names without using the D0xx callback pool.
+
+        OpenTTD 15's callback result 0x40F takes the GRF string ID from register 0x100.
+        Putting string(...) inside STORE_TEMP makes nml allocate the text in its larger
+        DCxx range; the callback text stack, when used, starts at register 0x101.
+        """
+        name_switch_name = getattr(variant, "name_callback_name", None)
+        group_string = getattr(variant, "name_callback_string", None)
+        nested_string = getattr(variant, "name_callback_nested_string", None)
+        if not name_switch_name or not group_string or not nested_string:
+            return
+
+        feature = self._feature(variant)
+        group_result = f"{name_switch_name}_group"
+        nested_result = f"{name_switch_name}_nested"
+
+        self.switch_writer.write_switch(
+            f,
+            feature,
+            "SELF",
+            group_result,
+            f"[STORE_TEMP({group_string}, 0x100)]",
+            {"default": "0x40F"},
+        )
+        self.switch_writer.write_switch(
+            f,
+            feature,
+            "SELF",
+            nested_result,
+            f"[STORE_TEMP({nested_string}, 0x100)]",
+            {"default": "0x40F"},
+        )
+        self.switch_writer.write_switch(
+            f,
+            feature,
+            "SELF",
+            f"{name_switch_name}_purchase",
+            "getbits(extra_callback_info1, 0, 16)",
+            {
+                "0x20": group_result,
+                "0x120": nested_result,
+                "default": "CB_FAILED",
+            },
+        )
+        self.switch_writer.write_switch(
+            f,
+            feature,
+            "SELF",
+            name_switch_name,
+            "extra_callback_info1 & 0xFF",
+            {"0x20": f"{name_switch_name}_purchase", "default": "CB_FAILED"},
+        )
 
     def _write_spritesets(self, f, variant):
         spritesets = getattr(variant, "spritesets", None)
