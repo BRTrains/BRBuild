@@ -276,6 +276,11 @@ class Builder:
 
         if len(ctx.successful_variants) == 0:
             raise RuntimeError(f"No successful variants were generated for project '{ctx.project.name}'. Halting build process.")
+        if ctx.failed_variants:
+            raise RuntimeError(
+                f"{len(ctx.failed_variants)} variant(s) failed for project "
+                f"'{ctx.project.name}'. Halting build process without publishing documentation."
+            )
 
     def _process_candidate(self, candidate, ctx: BuildContext):
         logger.info(f"Processing candidate: {candidate.get('name')}")

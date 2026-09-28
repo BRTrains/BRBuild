@@ -55,14 +55,96 @@ class ManifestWriter:
         return output
 
     def build_document(self, builder_commit: str | None = None) -> dict[str, Any]:
+        variants = [self._variant(variant) for variant in self.successful_variants]
         return {
             "schema_version": 1,
             "project": str(self.project.name),
             "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "builder_commit": builder_commit,
             "build_success": True,
-            "variants": [self._variant(variant) for variant in self.successful_variants],
+            "vehicles": self._vehicles(),
+            "profiles": self._profiles(),
+            "liveries": self._liveries(),
+            "variants": variants,
         }
+
+    def _vehicles(self):
+        result = {}
+        for variant in self.successful_variants:
+            vehicle = variant.vehicle
+            identifier = str(vehicle.identifier)
+            if identifier in result:
+                continue
+            result[identifier] = {
+                "identifier": identifier,
+                "name": vehicle.name,
+                "subtitle": getattr(vehicle, "sub_name", None),
+                "based_on": getattr(vehicle, "based_on", None),
+                "vehicle_type": self._value(getattr(getattr(vehicle, "vehicle_type", None), "name", getattr(vehicle, "vehicle_type", None))),
+                "train_type": self._value(getattr(getattr(vehicle, "train_type", None), "name", getattr(vehicle, "train_type", None))),
+                "introduction_date": self._value(getattr(vehicle, "introduction_date", None)),
+                "stats": {key: self._value(getattr(vehicle, key, None)) for key in (
+                    "speed", "design_speed", "power", "weight", "capacity", "tractive_effort",
+                    "power_type", "track_type", "cargo_classes", "default_cargo_type", "loading_speed",
+                )},
+                "special_tags": list(getattr(vehicle, "special_tags", None) or []),
+                "source_yaml": self._path(getattr(vehicle, "yaml_path", None), "source_yaml"),
+                "spritesheet": self._path(getattr(vehicle, "spritesheet_path", None), "source_artwork"),
+            }
+        return list(result.values())
+
+    def _profiles(self):
+        result = {}
+        for variant in self.successful_variants:
+            key = (str(variant.vehicle.identifier), str(variant.profile.identifier))
+            if key in result:
+                result[key]["variants"].append(variant.identifier)
+                continue
+            result[key] = {
+                "vehicle_identifier": str(variant.vehicle.identifier),
+                "identifier": str(variant.profile.identifier),
+                "name": variant.profile.name,
+                "resolved": {field: self._value(self._resolved(variant, field)) for field in (
+                    "num_vehicles", "capacity", "power", "weight", "speed", "introduction_date",
+                    "track_type", "cargo_classes", "default_cargo_type",
+                )},
+                "sprite_group": getattr(variant.profile, "sprite_group", None),
+                "spritesheet": self._path(getattr(variant.profile, "spritesheet", None), "source_artwork"),
+                "source_restrictions": {
+                    "sprite_group": getattr(variant.profile, "sprite_group", None),
+                    "special_tags": list(getattr(variant.profile, "special_tags", None) or []),
+                },
+                "variants": [variant.identifier],
+            }
+        return list(result.values())
+
+    @staticmethod
+    def _resolved(variant, field):
+        resolver = getattr(variant, "get_attr", None)
+        if callable(resolver):
+            return resolver(field)
+        for obj in (getattr(variant, "livery", None), getattr(variant, "profile", None), getattr(variant, "vehicle", None)):
+            value = getattr(obj, field, None)
+            if value is not None:
+                return value
+        return None
+
+    def _liveries(self):
+        result = {}
+        for variant in self.successful_variants:
+            key = (str(variant.vehicle.identifier), str(variant.livery.name))
+            if key in result:
+                result[key]["variants"].append(variant.identifier)
+                continue
+            result[key] = {
+                "vehicle_identifier": str(variant.vehicle.identifier),
+                "name": variant.livery.name,
+                "special_tags": list(getattr(variant.livery, "special_tags", None) or []),
+                "profile_restrictions": list(getattr(variant.livery, "profiles", None) or []),
+                "spritesheet": self._path(getattr(variant.livery, "spritesheet", None), "source_artwork"),
+                "variants": [variant.identifier],
+            }
+        return list(result.values())
 
     def _variant(self, variant) -> dict[str, Any]:
         vehicle = getattr(variant, "vehicle", None)
@@ -82,6 +164,8 @@ class ManifestWriter:
                 "nml_filename": self._path(getattr(variant, "nml_filename", None), "nml"),
                 "vehicle_type": self._value(getattr(getattr(variant, "vehicle_type", None), "name", getattr(variant, "vehicle_type", None))),
                 "articulated_count": getattr(variant, "articulated_count", None),
+                "display_name": getattr(variant, "name", None),
+                "graphics_emitted": bool(spritesets),
             },
             "spritesets": [
                 self._spriteset(s, i, templates, lengths, names) for i, s in enumerate(spritesets)
@@ -111,7 +195,8 @@ class ManifestWriter:
         template = getattr(spriteset, "template", None)
         template_name = templates[index] if index < len(templates) else getattr(template, "name", None)
         return {
-            "name": names[index] if index < len(names) else getattr(spriteset, "name", None),
+            "spriteset": names[index] if index < len(names) else getattr(spriteset, "name", None),
+            "source_name": getattr(spriteset, "name", None),
             "file": self._path(getattr(spriteset, "file", None), "spritesheet"),
             "template": template_name,
             "length": lengths[index] if index < len(lengths) else None,
