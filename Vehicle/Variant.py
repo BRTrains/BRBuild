@@ -239,7 +239,9 @@ class Variant:
         vehicle_name = self._vehicle_display_name()
         self.name_callback_name = f"sw_{self.identifier}_name"
         self.name_callback_string = nml_str(
-            vehicle_name + (f" - {{SILVER}}{formation_name}{{BLACK}}" if formation_name else ""),
+            vehicle_name
+            + (f" - {{SILVER}}{formation_name}{{BLACK}}" if formation_name else "")
+            + (f" - {{GOLD}}{livery_name}" if livery_name else ""),
             f"{self.identifier}_group_name",
             deduplicate=True,
         )

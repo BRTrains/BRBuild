@@ -136,6 +136,17 @@ class BuildPathTests(unittest.TestCase):
             variant.name,
             'Class 196 "Civity" - {SILVER}3-car{BLACK} - {GOLD}Northern',
         )
+        from Lang.StringRegistry import _registry
+        group_key = variant.name_callback_string.removeprefix("string(").rstrip(")")
+        nested_key = variant.name_callback_nested_string.removeprefix("string(").rstrip(")")
+        self.assertEqual(
+            _registry._strings[group_key],
+            'Class 196 "Civity" - {SILVER}3-car{BLACK} - {GOLD}Northern',
+        )
+        self.assertEqual(
+            _registry._strings[nested_key],
+            '{SILVER}3-car{BLACK} - {GOLD}Northern',
+        )
 
     def test_unpowered_multi_part_passenger_stock_gets_formation_length(self):
         from Badge import BadgeRegistry
