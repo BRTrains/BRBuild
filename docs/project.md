@@ -182,6 +182,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `speed`: Service speed in mph (integer) — the limit the vehicle normally runs to.
     *   `design_speed`: Design speed in mph (integer), optional. Set it only where the real design/technical maximum differs from the service limit; with both set, the `param_speed_mode` GRF parameter picks between them (see Design vs service speed below). Accepted on a profile or a livery as well as `stats`.
     *   `tractive_effort`: Tractive effort in kN (integer).
+    *   `formation`: Optional formation badge override, resolved livery → profile → vehicle. Use values such as `2-car`, `engine+tender`, `tank_engine` or `locomotive` when the automatic formation classification does not describe the rake.
     *   `power_type`: List of traction types (e.g., `[steam, coal]`).
     *   `track_type`: List of the project's logical track types the train can use (see Track types below). Defaults to `RAIL`; trains only.
     *   `has_cab`: `true` marks an unpowered driving vehicle (a DVT, DBSO or driving trailer) so the train may back up with it leading (see Driving vehicles below). Also accepted on a profile or a livery.

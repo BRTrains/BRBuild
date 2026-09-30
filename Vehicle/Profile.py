@@ -10,6 +10,7 @@ class Profile:
     name: Optional[str] = None
     size: Optional[int] = None
     num_vehicles: Optional[int] = None
+    formation: Optional[str] = None
     sprite_override: Optional[List[int]] = None
     sprite_exclude: Optional[List[int]] = None
     sprite_group: Optional[str] = None

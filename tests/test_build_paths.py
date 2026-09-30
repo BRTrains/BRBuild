@@ -118,6 +118,44 @@ class BuildPathTests(unittest.TestCase):
         variant.process()
         self.assertIn("formation/engine+tender", BadgeRegistry().badges())
 
+    def test_unpowered_multi_part_passenger_stock_gets_formation_length(self):
+        from Badge import BadgeRegistry
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+        from PropertyCalculation.TrainType import TrainType
+
+        BadgeRegistry().clear()
+        coach_rake = Vehicle(
+            folder_path=".", identifier="coach_rake", name="Coach rake",
+            train_type=TrainType.COACH, power=0, cargo_classes=["PASSENGERS"], num_vehicles=9,
+        )
+        variant = Variant(coach_rake, Livery("Default"), Profile("Default"), VehicleType.TRAIN)
+        variant.process()
+        self.assertIn("formation/9-car", BadgeRegistry().badges())
+
+    def test_formation_override_resolves_livery_profile_vehicle(self):
+        from Badge import BadgeRegistry
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+        from PropertyCalculation.TrainType import TrainType
+
+        BadgeRegistry().clear()
+        vehicle = Vehicle(
+            folder_path=".", identifier="rake", name="Rake", train_type=TrainType.MULTIPLE_UNIT,
+            power=1000, cargo_classes=["PASSENGERS"], num_vehicles=5, formation="4-car",
+        )
+        profile = Profile("long", formation="3-car")
+        livery = Livery("special", formation="2-car")
+        variant = Variant(vehicle, livery, profile, VehicleType.TRAIN)
+        variant.process()
+        self.assertIn("formation/2-car", BadgeRegistry().badges())
+        self.assertNotIn("formation/3-car", BadgeRegistry().badges())
+        self.assertNotIn("formation/4-car", BadgeRegistry().badges())
+
     def test_livery_and_profile_physics_override_vehicle_defaults(self):
         """Livery wins over profile, and profile wins over vehicle defaults."""
         from Vehicle.Livery import Livery

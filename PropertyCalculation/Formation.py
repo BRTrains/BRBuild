@@ -24,7 +24,7 @@ def formation_tag(train_type, power, cargo_classes, power_type, num_vehicles=Non
     carries_cargo = bool(cargo_classes)
 
     if train_type in (TrainType.COACH, TrainType.WAGON):
-        return "formation/1-car"
+        return f"formation/{count}-car"
 
     if powered and carries_cargo:
         return f"formation/{count}-car"

@@ -151,6 +151,7 @@ class VehicleLoader:
 
             size=stats.get("size") or data.get("size"),
             num_vehicles=stats.get("num_vehicles") or data.get("num_vehicles"),
+            formation=data.get("formation") or stats.get("formation"),
             sprite_override=data.get("sprite_override"),
             sprite_exclude=data.get("sprite_exclude"),
 
@@ -397,6 +398,7 @@ class VehicleLoader:
             name=p.get("name"),
             size=p.get("size"),
             num_vehicles=p.get("num_vehicles"),
+            formation=p.get("formation"),
             sprite_override=p.get("sprite_override"),
             sprite_exclude=p.get("sprite_exclude"),
             sprite_group=p.get("sprite_group"),
@@ -437,6 +439,7 @@ class VehicleLoader:
             name=str(name),
             size=lv.get("size"),
             num_vehicles=lv.get("num_vehicles"),
+            formation=lv.get("formation"),
             sprite_override=lv.get("sprite_override"),
             sprite_exclude=lv.get("sprite_exclude"),
             profiles=lv.get("profiles"),
