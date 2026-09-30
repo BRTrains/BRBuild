@@ -13,6 +13,7 @@ from PropertyCalculation import (
     VehicleType,
 )
 from PropertyCalculation.CargoClasses import as_bitmask
+from PropertyCalculation.Formation import formation_tag
 from Sprites.LightingOverlay import LIGHTING_NONE
 
 from Vehicle.Translator.PhysicsRules import PhysicsRules
@@ -505,9 +506,28 @@ class Variant:
     def handleSpecialTags(self):
         for source in (self.vehicle, self.profile, self.livery):
             for tag in getattr(source, "special_tags", None) or []:
+                # Formation is derived from the resolved facts below; a hand-authored
+                # formation badge must not survive alongside the derived one.
+                if str(tag).lower().startswith("formation/"):
+                    continue
                 badge = BadgeRegistry().add_badge(tag)
                 if badge not in self.badges:
                     self.badges.append(badge)
+
+        count = self.get_attr("num_vehicles")
+        if count is None:
+            count = self.get_attr("size")
+        formation = formation_tag(
+            getattr(self.vehicle, "train_type", None),
+            self.get_attr("power"),
+            self.get_attr("cargo_classes"),
+            self.get_attr("power_type"),
+            num_vehicles=count,
+        )
+        if formation:
+            badge = BadgeRegistry().add_badge(formation)
+            if badge not in self.badges:
+                self.badges.append(badge)
 
         operator = self.get_attr("operator")
         if operator:

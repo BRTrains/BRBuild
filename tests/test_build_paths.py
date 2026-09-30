@@ -75,6 +75,49 @@ class BuildPathTests(unittest.TestCase):
         self.assertIn("STR_BADGE_OPERATOR_AVANTI_WEST_COAST", _registry)
         self.assertIn('"Operator/Avanti West Coast"', variant.properties["badges"])
 
+    def test_automatic_formation_badges_classify_mus_and_locomotives(self):
+        """Formation badges come from resolved power, cargo, traction and part count."""
+        from Badge import BadgeRegistry
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+        from PropertyCalculation.TrainType import TrainType
+
+        BadgeRegistry().clear()
+        mu = Vehicle(
+            folder_path=".", identifier="mu", name="MU", train_type=TrainType.MULTIPLE_UNIT,
+            power=1000, capacity=100, cargo_classes=["PASSENGERS"], num_vehicles=3,
+        )
+        variant = Variant(mu, Livery("Default"), Profile("Default"), VehicleType.TRAIN)
+        variant.process()
+        self.assertIn("formation/3-car", BadgeRegistry().badges())
+
+        steam = Vehicle(
+            folder_path=".", identifier="steam", name="Steam", train_type=TrainType.LOCOMOTIVE,
+            power=1000, power_type=["steam"], cargo_classes=[], num_vehicles=1,
+        )
+        variant = Variant(steam, Livery("Default"), Profile("Default"), VehicleType.TRAIN)
+        variant.process()
+        self.assertIn("formation/tank_engine", BadgeRegistry().badges())
+
+    def test_automatic_formation_badges_classify_engine_and_tender(self):
+        from Badge import BadgeRegistry
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+        from PropertyCalculation.TrainType import TrainType
+
+        BadgeRegistry().clear()
+        steam = Vehicle(
+            folder_path=".", identifier="steam", name="Steam", train_type=TrainType.LOCOMOTIVE,
+            power=1000, power_type=["steam"], cargo_classes=[], num_vehicles=2,
+        )
+        variant = Variant(steam, Livery("Default"), Profile("Default"), VehicleType.TRAIN)
+        variant.process()
+        self.assertIn("formation/engine+tender", BadgeRegistry().badges())
+
     def test_livery_and_profile_physics_override_vehicle_defaults(self):
         """Livery wins over profile, and profile wins over vehicle defaults."""
         from Vehicle.Livery import Livery
