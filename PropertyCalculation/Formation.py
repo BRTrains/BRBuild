@@ -11,6 +11,18 @@ def _is_steam(power_type) -> bool:
     return any(str(value).strip().upper() in {"STEAM", "STEAM_DIESEL"} for value in values)
 
 
+def formation_display_name(tag: str | None) -> str:
+    """Render a formation badge's final path segment for a purchase-list name."""
+    if not tag:
+        return ""
+    value = str(tag).split("/")[-1]
+    return {
+        "tank_engine": "Tank Engine",
+        "engine+tender": "Engine + Tender",
+        "locomotive": "Locomotive",
+    }.get(value, value.replace("_", " "))
+
+
 def formation_tag(train_type, power, cargo_classes, power_type, num_vehicles=None, size=None):
     """Return the automatic formation badge path, or ``None`` when it is undefined.
 

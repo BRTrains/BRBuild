@@ -14,6 +14,7 @@ class Vehicle:
     folder_path: str
     identifier: str
     name: str
+    nickname: Optional[str] = None
     sub_name: Optional[str] = None
 
     yaml_path: Optional[str] = None

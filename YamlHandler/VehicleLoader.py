@@ -111,6 +111,7 @@ class VehicleLoader:
             folder_path=folder_path,
             identifier=info["identifier"],
             name=info.get("name", ""),
+            nickname=info.get("nickname"),
             sub_name=info.get("sub_name", ""),
             yaml_path=path,
             based_on=info.get("based_on", ""),

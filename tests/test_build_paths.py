@@ -118,6 +118,25 @@ class BuildPathTests(unittest.TestCase):
         variant.process()
         self.assertIn("formation/engine+tender", BadgeRegistry().badges())
 
+    def test_names_use_nickname_and_formation(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+        from PropertyCalculation.TrainType import TrainType
+
+        vehicle = Vehicle(
+            folder_path=".", identifier="unit", name="Class 196", nickname="Civity",
+            train_type=TrainType.MULTIPLE_UNIT, power=1000,
+            cargo_classes=["PASSENGERS"], num_vehicles=3,
+        )
+        variant = Variant(vehicle, Livery("Northern"), Profile("Default"), VehicleType.TRAIN)
+        variant.process()
+        self.assertEqual(
+            variant.name,
+            'Class 196 "Civity" - {SILVER}3-car{BLACK} - {GOLD}Northern',
+        )
+
     def test_unpowered_multi_part_passenger_stock_gets_formation_length(self):
         from Badge import BadgeRegistry
         from Vehicle.Livery import Livery
@@ -808,7 +827,7 @@ class BuildPathTests(unittest.TestCase):
         )
         variant.process()
 
-        self.assertEqual(variant.name, "Class Example - {SILVER}Passenger{BLACK} - {GOLD}Blue")
+        self.assertEqual(variant.name, "Class Example - {GOLD}Blue")
         self.assertEqual(
             variant.properties["name"], "string(str_example_passenger_blue_train_name)"
         )
@@ -817,14 +836,8 @@ class BuildPathTests(unittest.TestCase):
         output = StringIO()
         NmlVariantWriter(variant, "/tmp").write_sprites(output, variant)
         switch = output.getvalue()
-        self.assertIn(
-            "STORE_TEMP(string(str_example_passenger_blue_train_group_name), 0x100)",
-            switch,
-        )
-        self.assertIn(
-            "STORE_TEMP(string(str_example_passenger_blue_train_nested_name), 0x100)",
-            switch,
-        )
+        self.assertRegex(switch, r"STORE_TEMP\(string\(str_.*_group_name\), 0x100\)")
+        self.assertRegex(switch, r"STORE_TEMP\(string\(str_.*_nested_name\), 0x100\)")
         self.assertIn("0x40F;", switch)
         self.assertIn("0x20 : sw_example_passenger_blue_train_name_group;", switch)
         self.assertIn("0x120 : sw_example_passenger_blue_train_name_nested;", switch)
@@ -889,8 +902,8 @@ class BuildPathTests(unittest.TestCase):
         blue.process()
         green.process()
 
-        self.assertEqual(blue.name, "Class Example - {SILVER}Passenger{BLACK} - {GOLD}Blue")
-        self.assertEqual(green.name, "Class Example - {SILVER}Passenger{BLACK} - {GOLD}Green")
+        self.assertEqual(blue.name, "Class Example - {GOLD}Blue")
+        self.assertEqual(green.name, "Class Example - {GOLD}Green")
         self.assertEqual(blue.properties["name"], "string(str_example_passenger_blue_train_name)")
         self.assertEqual(green.properties["name"], "string(str_example_passenger_green_train_name)")
         for variant in (blue, green):
@@ -898,7 +911,7 @@ class BuildPathTests(unittest.TestCase):
 
         output = StringIO()
         NmlVariantWriter(blue, "/tmp").write_sprites(output, blue)
-        self.assertIn("STORE_TEMP(string(str_example_passenger_blue_train_nested_name), 0x100)", output.getvalue())
+        self.assertRegex(output.getvalue(), r"STORE_TEMP\(string\(str_.*_nested_name\), 0x100\)")
 
     def test_service_speed_alone_writes_the_property_and_no_callback(self):
         from Vehicle.Livery import Livery

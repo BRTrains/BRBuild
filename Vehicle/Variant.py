@@ -13,7 +13,7 @@ from PropertyCalculation import (
     VehicleType,
 )
 from PropertyCalculation.CargoClasses import as_bitmask
-from PropertyCalculation.Formation import formation_tag
+from PropertyCalculation.Formation import formation_display_name, formation_tag
 from Sprites.LightingOverlay import LIGHTING_NONE
 
 from Vehicle.Translator.PhysicsRules import PhysicsRules
@@ -142,33 +142,45 @@ class Variant:
                 return val
         return None
 
+    def _formation_tag(self):
+        override = self.get_attr("formation")
+        if override:
+            value = str(override).strip()
+            return value if value.lower().startswith("formation/") else f"formation/{value}"
+        count = self.get_attr("num_vehicles")
+        if count is None:
+            count = self.get_attr("size")
+        return formation_tag(
+            getattr(self.vehicle, "train_type", None),
+            self.get_attr("power"),
+            self.get_attr("cargo_classes"),
+            self.get_attr("power_type"),
+            num_vehicles=count,
+        )
+
+    def _formation_display_name(self):
+        return formation_display_name(self._formation_tag())
+
+    def _vehicle_display_name(self):
+        nickname = getattr(self.vehicle, "nickname", None)
+        return f'{self.vehicle.name} "{nickname}"' if nickname else self.vehicle.name
+
     @property
     def name(self):
-        """Return the variant's displayed name: the vehicle, then its named profile and livery.
-
-        This is the variant's only name — it is written to the `name` property — so the livery
-        is always included, even when the unit carries just one, and a profile or livery called
-        "Default" is left out rather than shown as a label: "Name - Profile - Livery", or
-        "Name - Livery" when the unit's only profile is `Default`.
-
-        The name reads `Name - {SILVER}Profile{BLACK} - {GOLD}Livery`: the vehicle is left in
-        OpenTTD's default text colour, each coloured segment opens with its own code, and the
-        profile closes back to black so the following separator is not grey. A colour code is
-        part of the text, not a separate string, so this costs no string-pool ID — the reason
-        names are properties in the first place.
-        """
-        vehicle, profile, livery = self._name_parts()
-
+        """Return the full variant name using nickname, formation and livery."""
+        vehicle = self._vehicle_display_name()
+        formation = self._formation_display_name()
+        livery = self._livery_display_name()
         name = vehicle
-        if profile:
-            name += f" - {colour(SILVER)}{profile}{colour(BLACK)}"
+        if formation:
+            name += f" - {colour(SILVER)}{formation}{colour(BLACK)}"
         if livery:
             name += f" - {colour(GOLD)}{livery}"
         return name
 
     def _name_parts(self):
-        """Return the three segments of the name, each `""` when it should be omitted."""
-        return self.vehicle.name, self._profile_display_name(), self._livery_display_name()
+        """Return the vehicle, formation and livery name segments."""
+        return self._vehicle_display_name(), self._formation_display_name(), self._livery_display_name()
 
     def _profile_display_name(self):
         """Return the profile's own name, or "" when the profile is the unnamed `Default`."""
@@ -219,22 +231,22 @@ class Variant:
         name_ref = nml_str(self.name, f"{self.identifier}_name")
         self.properties["name"] = name_ref
 
-        # Purchase-list grouping uses OpenTTD's name callback.  These are deliberately
-        # separate from the property name: the root row shows the vehicle and profile,
-        # while a child row shows the profile and livery.  The colour codes belong here,
-        # rather than in YAML, because they describe this presentation only.
-        profile_name = self._profile_display_name()
+        # The root switch names the vehicle and formation; the nested switch names the
+        # formation and livery. The variant property below carries the full name including
+        # the livery for details/depot views.
+        formation_name = self._formation_display_name()
         livery_name = self._livery_display_name()
+        vehicle_name = self._vehicle_display_name()
         self.name_callback_name = f"sw_{self.identifier}_name"
         self.name_callback_string = nml_str(
-            f"{{BLACK}}{self.vehicle.name}"
-            + (f" - {{SILVER}}{profile_name}" if profile_name else ""),
+            vehicle_name + (f" - {{SILVER}}{formation_name}{{BLACK}}" if formation_name else ""),
             f"{self.identifier}_group_name",
             deduplicate=True,
         )
         self.name_callback_nested_string = nml_str(
-            f"{{BLACK}}{profile_name or self.vehicle.name}"
-            + (f" - {{GOLD}}{livery_name}" if livery_name else ""),
+            (f"{{SILVER}}{formation_name}{{BLACK}}" if formation_name else "")
+            + (f" - " if formation_name and livery_name else "")
+            + (f"{{GOLD}}{livery_name}" if livery_name else ""),
             f"{self.identifier}_nested_name",
             deduplicate=True,
         )

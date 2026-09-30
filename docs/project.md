@@ -170,6 +170,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
 *   **`info`**:
     *   `identifier`: Short, unique string identifier (e.g., `thomas`).
     *   `name`: Display name of the vehicle.
+    *   `nickname`: Optional nickname/model family, displayed in quotes after the vehicle name.
     *   `sub_name`: Subtitle/alternative name.
     *   `based_on`: Reference/source vehicle.
     *   `operator`: Original railway operator.
