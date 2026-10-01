@@ -162,8 +162,15 @@ class Variant:
         return formation_display_name(self._formation_tag())
 
     def _vehicle_display_name(self):
+        sub_name = self.get_attr("sub_name")
+        sub_name = str(sub_name).strip() if sub_name else ""
         nickname = getattr(self.vehicle, "nickname", None)
-        return f'{self.vehicle.name} "{nickname}"' if nickname else self.vehicle.name
+        name = self.vehicle.name
+        if sub_name:
+            name += f" {sub_name}"
+        if nickname:
+            name += f' "{nickname}"'
+        return name
 
     @property
     def name(self):

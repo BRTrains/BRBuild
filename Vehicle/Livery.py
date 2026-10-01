@@ -5,6 +5,7 @@ from typing import List, Optional, Union
 @dataclass
 class Livery:
     name: str
+    sub_name: Optional[str] = None
     size: Optional[int] = None
     num_vehicles: Optional[int] = None
     formation: Optional[str] = None

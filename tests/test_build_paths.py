@@ -148,6 +148,35 @@ class BuildPathTests(unittest.TestCase):
             '{SILVER}3-car{BLACK} - {GOLD}Northern',
         )
 
+    def test_sub_name_resolves_livery_profile_vehicle_and_precedes_nickname(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+        from PropertyCalculation.TrainType import TrainType
+
+        vehicle = Vehicle(
+            folder_path=".", identifier="coach", name="Mk3 Coach", sub_name="Passenger coach",
+            nickname="InterCity", train_type=TrainType.COACH, power=0,
+            cargo_classes=["PASSENGERS"], num_vehicles=1,
+        )
+        profile = Profile("tf", sub_name="Trailer First")
+        livery = Livery("BR Blue", sub_name="Driving Trailer")
+        variant = Variant(vehicle, livery, profile, VehicleType.TRAIN)
+        variant.process()
+        self.assertEqual(
+            variant.name,
+            'Mk3 Coach Driving Trailer "InterCity" - {SILVER}coach{BLACK} - {GOLD}BR Blue',
+        )
+
+        profile_only = Variant(vehicle, Livery("BR Blue"), profile, VehicleType.TRAIN)
+        profile_only.process()
+        self.assertTrue(profile_only.name.startswith('Mk3 Coach Trailer First "InterCity"'))
+
+        vehicle_only = Variant(vehicle, Livery("BR Blue"), Profile("Default"), VehicleType.TRAIN)
+        vehicle_only.process()
+        self.assertTrue(vehicle_only.name.startswith('Mk3 Coach Passenger coach "InterCity"'))
+
     def test_unpowered_multi_part_passenger_stock_gets_formation_length(self):
         from Badge import BadgeRegistry
         from Vehicle.Livery import Livery

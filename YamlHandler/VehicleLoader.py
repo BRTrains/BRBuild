@@ -397,6 +397,7 @@ class VehicleLoader:
         return Profile(
             identifier=str(identifier),
             name=p.get("name"),
+            sub_name=p.get("sub_name"),
             size=p.get("size"),
             num_vehicles=p.get("num_vehicles"),
             formation=p.get("formation"),
@@ -438,6 +439,7 @@ class VehicleLoader:
             raise ValueError(f"Livery configuration missing required 'name': {lv}")
         return Livery(
             name=str(name),
+            sub_name=lv.get("sub_name"),
             size=lv.get("size"),
             num_vehicles=lv.get("num_vehicles"),
             formation=lv.get("formation"),

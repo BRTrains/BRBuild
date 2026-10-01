@@ -8,6 +8,7 @@ from PropertyCalculation.VehicleType import VehicleType
 class Profile:
     identifier: str
     name: Optional[str] = None
+    sub_name: Optional[str] = None
     size: Optional[int] = None
     num_vehicles: Optional[int] = None
     formation: Optional[str] = None
