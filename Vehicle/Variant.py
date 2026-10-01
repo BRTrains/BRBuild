@@ -116,6 +116,7 @@ class Variant:
             self.handleCosts,
             self.handleSpecialTags,
             self.handleAdditionalText,
+            self.handleColourMapping,
             self.handleSprites,
             self.handleLighting,
             self.handleMiscFlags,
@@ -642,6 +643,17 @@ class Variant:
             # `sound_effect` is a graphics callback, not a property: the callback returns
             # the sound to play (a SOUND_* constant, a sound(...) call, or a switch).
             self.callbacks["sound_effect"] = self._validate_sound_effect(str(sound_effect))
+
+    def handleColourMapping(self):
+        """Keep authored sprites in their source palette unless explicitly overridden.
+
+        BRBuild currently has no 2CC-authored vehicles.  OpenTTD's default colour mapping
+        callback can nevertheless reinterpret palette entries, which is undesirable for
+        imported artwork whose colours are already deliberate.  Keep the escape hatch in
+        ``nml_override`` for the future, but make identity mapping the project-wide default.
+        """
+        if "colour_mapping" not in self.nml_override_callbacks():
+            self.callbacks["colour_mapping"] = "PALETTE_IDENTITY"
 
     @staticmethod
     def _validate_sound_effect(value: str) -> str:

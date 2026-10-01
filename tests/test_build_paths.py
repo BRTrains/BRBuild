@@ -888,6 +888,7 @@ class BuildPathTests(unittest.TestCase):
             variant.properties["name"], "string(str_example_passenger_blue_train_name)"
         )
         self.assertEqual(variant.callbacks["name"], "sw_example_passenger_blue_train_name")
+        self.assertEqual(variant.callbacks["colour_mapping"], "PALETTE_IDENTITY")
 
         output = StringIO()
         NmlVariantWriter(variant, "/tmp").write_sprites(output, variant)
