@@ -126,7 +126,11 @@ class NmlVariantWriter(BaseNmlWriter):
             written_names.add(name)
 
         switch_name = getattr(variant, "sprite_switch_name", None)
-        if switch_name:
+        # A lighting overlay is the graphics callback's root and its layer-0 branch
+        # selects the published spritesets. The ordinary per-part switch would have
+        # no caller in that case, so do not emit a second dead switch for nmlc to warn
+        # about.
+        if switch_name and not getattr(variant, "lighting_switch_name", None):
             values = {i: name for i, name in enumerate(names)}
             expression = f"position_in_articulated_veh % {len(spritesets)}"
             self.switch_writer.write_switch(f, self._feature(variant), "SELF", switch_name, expression, values)

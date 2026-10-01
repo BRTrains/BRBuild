@@ -82,6 +82,8 @@ class LightingNmlTests(unittest.TestCase):
         self.assertIn("vehicle_is_flipped != train_is_driving_backwards", text)
         # the stack root reads the iteration number of variable 10
         self.assertIn(f"sw_{identifier}_layers, getbits(extra_callback_info1, 8, 8)", text)
+        # The plain per-part switch has no caller once the layered root is selected.
+        self.assertNotIn(f"switch (FEAT_TRAINS, SELF, sw_{identifier},", text)
         # and the item's graphics chain points at the layered root
         self.assertIn(f"default: sw_{identifier}_layers;", text)
 
