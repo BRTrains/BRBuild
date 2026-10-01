@@ -109,6 +109,7 @@ Two optional files sit beside it in the same folder:
     *   `expression`: The variable or expression evaluated (e.g., `param_disable_steam`).
     *   `values`: Key-value map (or list) representing the cases and return values.
 *   **`global_actions`**: List of parameter-controlled NML actions that run at GRF scope. Each action requires `condition` and `action`; for example, `condition: param_disable_default_vehicles == 1` and `action: disable_item(FEAT_TRAINS)`.
+*   **`usage_filters`** *(optional)*: Project-defined rules for conditionally disabling cross-feature variants by vehicle ID. Each rule has a target `feature`, a parameter identifier, optional `default_minimum`, and a `minimum` map from `VehicleUsage` identifiers to the minimum parameter value that enables that feature.
 *   **`purchase_list`**: How the purchase list is ordered. Optional; without it vehicles appear in vehicle-ID order, which is an accident of the ID registry.
     *   `order`: `none` (the default), `date`, or `grouped`.
     *   `file` *(optional)*: A manual NML file, relative to the project's `grf_folder`. When set, its contents are used instead of generated sort blocks; this is useful when the list needs explicit headers or an order the built-in grouping does not express. The file is collated after all generated items, so it may name their symbols.
@@ -174,6 +175,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `sub_name`: Subtitle/alternative name.
     *   `based_on`: Reference/source vehicle.
     *   `operator`: Original railway operator.
+*   **`usage`** *(optional)*: Operational category identifier for project-specific rules. Supported values are `TRAM`, `TRAM_TRAIN`, `LIGHT_RAIL`, `UNDERGROUND`, `METRO`, `SUBURBAN`, `COMMUTER`, `LOCAL`, `REGIONAL`, `INTERCITY`, and `HIGH_SPEED`. The value is parsed into the reusable `VehicleUsage` enumeration; it does not change the vehicle's base feature by itself.
 *   **`stats`**:
     *   `vehicle_type`: Core type. Supported values: `train`, `tram`, `road_vehicle`, `ship`, `plane`.
     *   `train_type` *(only for `vehicle_type: train`)*: Enum defining sub-type. Supported: `locomotive`, `multiple_unit`, `wagon`, `coach`.

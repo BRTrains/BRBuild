@@ -312,6 +312,18 @@ class NmlVariantWriter(BaseNmlWriter):
 
         self.writeline(f, "}\n", indent=0)
 
+        disable = getattr(variant, "disable_item_condition", None)
+        if disable and sprite_id is not None:
+            disable_feature, condition = disable
+            self.writeline(f, f"if ({condition})", indent=0)
+            self.writeline(f, "{", indent=0)
+            self.writeline(
+                f,
+                f"disable_item({disable_feature}, {sprite_id});",
+                indent=1,
+            )
+            self.writeline(f, "}\n", indent=0)
+
     @staticmethod
     def _sprite_id_property(feature):
         return {

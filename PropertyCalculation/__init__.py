@@ -11,6 +11,7 @@ from .Physics import Physics
 from .PowerTypeClassifier import PowerTypeClassifier
 from .TrainType import TrainType
 from .VehicleType import VehicleType
+from .VehicleUsage import VehicleUsage
 from .WagonType import WagonType
 
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
 	"WagonType",
 	"TrainType",
 	"VehicleType",
+	"VehicleUsage",
 	"Physics",
 	"as_bitmask",
 	"parse_cargo",

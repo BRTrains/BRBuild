@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 #: Largest weight a road vehicle's weight property can hold: one byte in 1/4-ton units.
 ROADVEH_WEIGHT_PROPERTY_MAX_T = 63.75
+#: Road vehicle power is stored in a byte in 10 hp units.
+ROADVEH_POWER_PROPERTY_MAX_HP = 2550
 
 #: Name colours for the purchase list: the profile in grey, the livery in gold. The vehicle
 #: keeps OpenTTD's own default text colour, so it needs no code and `BLACK` exists only to
@@ -482,7 +484,11 @@ class Variant:
         power = self.get_attr("power")
         if power is not None:
             self.power = power
-            self.properties["power"] = f"{power} hp"
+            vehicle_type_name = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
+            if vehicle_type_name == "TRAM":
+                self.properties["power"] = f"{min(power, ROADVEH_POWER_PROPERTY_MAX_HP)} hp"
+            else:
+                self.properties["power"] = f"{power} hp"
         else:
             self.power = 0
 

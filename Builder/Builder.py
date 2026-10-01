@@ -22,6 +22,7 @@ from Sprites.PalettedImage import PalettedImage
 from Templates.SpritesheetLegacyConverter import SpritesheetLegacyConverter
 from Templates.TemplateLoaderNML import TemplateLoaderNML
 from Vehicle import PurchaseList, Variant, VariantIterator, VehicleSpriteAllocator
+from Vehicle.UsageVisibility import disable_condition
 from YamlHandler import VehicleLoader, GrfLoader
 from .BuildContext import BuildContext
 from .CandidateFinder import CandidateFinder
@@ -395,6 +396,12 @@ class Builder:
                 )
                 variant.sprite_id = assignment["id"]
                 variant.sprite_id_generation = assignment["generation"]
+                variant.disable_item_condition = disable_condition(
+                    vehicle.vehicle_type,
+                    variant.vehicle_type,
+                    vehicle.usage,
+                    getattr(ctx.grf, "usage_filters", None),
+                )
 
                 try:
                     variant.process()

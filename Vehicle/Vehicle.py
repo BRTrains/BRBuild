@@ -1,4 +1,5 @@
 from PropertyCalculation.VehicleType import VehicleType
+from PropertyCalculation.VehicleUsage import VehicleUsage
 from PropertyCalculation.TrainType import TrainType
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -30,6 +31,7 @@ class Vehicle:
     additional_text: Optional[str] = None
 
     vehicle_type: Optional[VehicleType] = None
+    usage: Optional[VehicleUsage] = None
     train_type: Optional[TrainType] = None
 
     weight: Optional[float] = None

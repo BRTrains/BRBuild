@@ -48,6 +48,7 @@ class GrfLoader:
             params = data.get("params", []),
             global_vehicle_switches = data.get("global_vehicle_switches", []),
             global_actions = data.get("global_actions", []),
+            usage_filters = data.get("usage_filters", []),
             purchase_list_order = purchase_list_order,
             purchase_list_file = purchase_list_file,
         )

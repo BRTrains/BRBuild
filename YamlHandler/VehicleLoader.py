@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 import yaml
 
-from PropertyCalculation import TrainType, VehicleType
+from PropertyCalculation import TrainType, VehicleType, VehicleUsage
 from PropertyCalculation.CargoClasses import parse_cargo
 from Sprites.LightingOverlay import LIGHTING_SETTINGS
 from Vehicle import Livery, Profile, Vehicle
@@ -120,6 +120,7 @@ class VehicleLoader:
             additional_text=data.get("additional_text"),
 
             vehicle_type=vehicle_type,
+            usage=VehicleLoader._parse_usage(data.get("usage"), path),
             train_type=train_type,
             weight=stats.get("weight"),
             length=stats.get("length"),
@@ -324,6 +325,14 @@ class VehicleLoader:
             parsed[callback] = target
 
         return parsed or None
+
+    @staticmethod
+    def _parse_usage(raw: Any, where: str) -> VehicleUsage | None:
+        if raw is None:
+            return None
+        if isinstance(raw, (list, tuple)):
+            raise ValueError(f"'usage' in {where} must be one identifier, not a list")
+        return VehicleUsage.from_identifier(raw)
 
     @staticmethod
     def _parse_vehicle_type(raw_vehicle_type: Any) -> VehicleType:
