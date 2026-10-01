@@ -11,6 +11,10 @@ def _is_steam(power_type) -> bool:
     return any(str(value).strip().upper() in {"STEAM", "STEAM_DIESEL"} for value in values)
 
 
+def _carries_passengers(cargo_classes) -> bool:
+    return any(str(value).strip().upper() == "PASSENGERS" for value in (cargo_classes or []))
+
+
 def formation_display_name(tag: str | None) -> str:
     """Render a formation badge's final path segment for a purchase-list name."""
     if not tag:
@@ -35,8 +39,11 @@ def formation_tag(train_type, power, cargo_classes, power_type, num_vehicles=Non
     powered = power is not None and float(power) > 0
     carries_cargo = bool(cargo_classes)
 
-    if train_type in (TrainType.COACH, TrainType.WAGON):
-        return f"formation/{count}-car"
+    if not powered and (_carries_passengers(cargo_classes) or train_type == TrainType.COACH):
+        return "formation/coach"
+
+    if not powered and (carries_cargo or train_type == TrainType.WAGON):
+        return "formation/wagon"
 
     if powered and carries_cargo:
         return f"formation/{count}-car"

@@ -163,8 +163,24 @@ class BuildPathTests(unittest.TestCase):
         )
         variant = Variant(coach_rake, Livery("Default"), Profile("Default"), VehicleType.TRAIN)
         variant.process()
-        self.assertIn("formation/9-car", BadgeRegistry().badges())
+        self.assertIn("formation/coach", BadgeRegistry().badges())
 
+    def test_unpowered_freight_stock_gets_wagon_badge(self):
+        from Badge import BadgeRegistry
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+        from PropertyCalculation.TrainType import TrainType
+
+        BadgeRegistry().clear()
+        wagon = Vehicle(
+            folder_path=".", identifier="wagon", name="Wagon", train_type=TrainType.WAGON,
+            power=0, cargo_classes=["BULK"], num_vehicles=1,
+        )
+        variant = Variant(wagon, Livery("Default"), Profile("Default"), VehicleType.TRAIN)
+        variant.process()
+        self.assertIn("formation/wagon", BadgeRegistry().badges())
     def test_formation_override_resolves_livery_profile_vehicle(self):
         from Badge import BadgeRegistry
         from Vehicle.Livery import Livery
