@@ -39,7 +39,7 @@ class Builder:
         self.nmlCompiler = NmlCompiler()
         return
 
-    def build(self, project_data, log_nml_output=False, release=False):
+    def build(self, project_data, log_nml_output=False, release=False, docs=False):
         # Clear global registries so each project build starts fresh
         _registry.clear()
         BadgeRegistry().clear()
@@ -74,20 +74,22 @@ class Builder:
                 stage(context)
             except Exception as exc:
                 logger.exception(f"Build stage {stage.__name__} failed: {exc}")
-                self._write_manifest_failure(context, exc)
+                if docs:
+                    self._write_manifest_failure(context, exc)
                 return
 
-        # Documentation is deliberately outside the build-stage list: it is written only
-        # after the compiled GRF has been copied, and a documentation failure must not
-        # turn an otherwise successful build into a failed build.
-        try:
-            ManifestWriter(context.project, context.successful_variants).write()
-        except Exception as exc:
-            logger.exception(f"Unable to write build manifest: {exc}")
+        if docs:
+            # Documentation is deliberately outside the build-stage list: it is written only
+            # after the compiled GRF has been copied, and a documentation failure must not
+            # turn an otherwise successful build into a failed build.
             try:
-                ManifestWriter(context.project, context.successful_variants).write_failure_report(exc)
-            except Exception:
-                logger.exception("Unable to write manifest failure report.")
+                ManifestWriter(context.project, context.successful_variants).write()
+            except Exception as exc:
+                logger.exception(f"Unable to write build manifest: {exc}")
+                try:
+                    ManifestWriter(context.project, context.successful_variants).write_failure_report(exc)
+                except Exception:
+                    logger.exception("Unable to write manifest failure report.")
 
         elapsed = round(time.time() - start_time, 2)
         logger.info(f"BRBuild build process for project '{context.project.name}' completed successfully.")

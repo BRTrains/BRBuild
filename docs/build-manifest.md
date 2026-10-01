@@ -1,10 +1,11 @@
 # Build manifest
 
-A successful BRBuild writes `docs/generated/manifest.json` in the project after the
-compiled NewGRF has been copied. The file is generated documentation, not build input;
-it is intentionally not added to BRBuild's ignore rules, so a project may commit it for
-BRDocs or regenerate it in CI according to its release workflow. `src/` configuration,
-materialised variants, and the emitted NML remain authoritative.
+A successful BRBuild writes `docs/generated/manifest.json` in the project only when the build is
+requested with `--docs` (or `docs=True` through the Python API) after the compiled NewGRF has
+been copied. The file is generated documentation, not build input; it is intentionally not
+added to BRBuild's ignore rules, so a project may commit it for BRDocs or regenerate it in CI
+according to its release workflow. `src/` configuration, materialised variants, and the emitted
+NML remain authoritative.
 Consumers should use the manifest to discover the exact successful vehicle/profile/livery
 set, sprite allocation and source files without reimplementing BRBuild's resolution logic.
 
