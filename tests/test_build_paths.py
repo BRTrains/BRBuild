@@ -1163,17 +1163,18 @@ class BuildPathTests(unittest.TestCase):
         livery = Livery("Default")
         profile = Profile("Default", num_vehicles=1)
 
-        # The sheet: a car whose content fills rows 0..11 and a pale row at 12.
+        # The sheet: a car whose content fills rows 0..24, with a marker at each end.
         sheet = Image.new("RGB", (64, 40), (255, 255, 255))
-        for y in range(12):
+        for y in range(25):
             for x in range(32):
                 sheet.putpixel((x, y), (0, 0, 255))
         for x in range(32):
-            sheet.putpixel((x, 12), (224, 244, 252))
+            sheet.putpixel((x, 0), (16, 16, 16))
+            sheet.putpixel((x, 24), (160, 0, 0))
 
         measured = Template(
             name="measured",
-            sprites=[Sprite(0, 0, 32, 12, 0, 0)] * 6 + [Sprite(0, 0, 32, 13, 0, 0)] + [Sprite(0, 0, 32, 12, 0, 0)],
+            sprites=[Sprite(0, 0, 32, 12, 0, 0)] * 6 + [Sprite(0, 0, 32, 25, 0, 0)] + [Sprite(0, 0, 32, 12, 0, 0)],
         )
         spriteset = Spriteset("car", "/tmp/example/example.png", measured, 0, 0)
 
@@ -1219,6 +1220,16 @@ class BuildPathTests(unittest.TestCase):
                 "the pale line below the car must not be cropped into the purchase icon",
             )
             self.assertNotIn((224, 244, 252), bottom_row)
+            self.assertNotEqual(
+                icon.getpixel((0, 0)),
+                (16, 16, 16),
+                "a taller source must not use the top rows for the purchase icon",
+            )
+            self.assertEqual(
+                icon.getpixel((0, 12)),
+                (252, 220, 0),
+                "a taller source must use its bottom rows for the purchase icon",
+            )
 
     def test_purchase_sprite_aligns_parts_by_their_template_offsets(self):
         """Parts drawn against different templates must not sit a row apart in the icon.

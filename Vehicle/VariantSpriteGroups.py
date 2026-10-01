@@ -498,11 +498,9 @@ class VehicleSpriteAllocator:
 
 			parts.append(image.crop((left, top, right, bottom)))
 
-		# Units are bottom-aligned: the deepest crop sits on the icon's bottom row and
-		# the rest keep their extra height as padding above, which is what the game does
-		# with a view box that is taller than a neighbour's.
-		baseline = max(crop.height for crop in parts)
-
+		# Units are bottom-aligned in the purchase icon.  The icon is only 13px tall,
+		# so a taller west-view crop must be clipped from the top, not from the bottom:
+		# pantographs and other less-important top detail may occupy the extra rows.
 		blue_index = self._palette_index((0, 0, 255))
 		purchase = Image.new("P", (128, 13), color=blue_index)
 		purchase.putpalette(self._palette)
@@ -512,13 +510,16 @@ class VehicleSpriteAllocator:
 			if x_cursor >= purchase.width:
 				break
 
-			paste_y = baseline - crop.height
 			visible_width = min(crop.width, purchase.width - x_cursor)
-			visible_height = min(crop.height, purchase.height - paste_y)
-			if visible_height > 0:
-				purchase.paste(
-					crop.crop((0, 0, visible_width, visible_height)), (x_cursor, paste_y)
-				)
+			visible_height = min(crop.height, purchase.height)
+			source_top = crop.height - visible_height
+			paste_y = purchase.height - visible_height
+			purchase.paste(
+				crop.crop(
+					(0, source_top, visible_width, source_top + visible_height)
+				),
+				(x_cursor, paste_y),
+			)
 			x_cursor += crop.width
 
 		path = Path(output_folder) / self._purchase_filename(spritesets)
