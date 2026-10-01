@@ -68,10 +68,16 @@ class BadgeRegistry:
         for part in parts:
             accumulated.append(part)
             badge = "/".join(accumulated)
-            if badge not in self._badges:
+            existing = next(
+                (candidate for candidate in self._badges if candidate.casefold() == badge.casefold()),
+                None,
+            )
+            if existing is None:
                 self._badges.add(badge)
                 self._register_string_for_badge(badge)
+                existing = badge
                 logger.debug(f"Badge added: {badge}")
+            badge = existing
         return badge
 
     def _register_string_for_badge(self, badge_path: str):
