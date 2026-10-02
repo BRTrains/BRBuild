@@ -320,6 +320,7 @@ class Builder:
                         f"in '{vehicle.spritesheet_path}'."
                     )
                     ctx.failed_variants.append(f"{vehicle.identifier} (spritesheet)")
+                    ctx.failed_units.add(vehicle.identifier)
                     continue
 
             # Materialised so the lighting overlays for every variant can be resolved before any of
@@ -437,6 +438,19 @@ class Builder:
                     continue
 
                 ctx.successful_variants.append(variant)
+
+            if failed_variant_ids:
+                ctx.failed_units.add(vehicle.identifier)
+                failed_nml = {
+                    path for path, owner in ctx.variant_owners.items() if owner == vehicle.identifier
+                }
+                ctx.nml_files = [path for path in ctx.nml_files if str(path) not in failed_nml]
+                for path in failed_nml:
+                    ctx.variant_owners.pop(path, None)
+                ctx.successful_variants = [
+                    variant for variant in ctx.successful_variants
+                    if getattr(getattr(variant, "vehicle", None), "identifier", None) != vehicle.identifier
+                ]
 
     @staticmethod
     def _stage_candidate_nml(pnml_path: str, ctx: BuildContext) -> str:
@@ -672,7 +686,7 @@ class Builder:
         if not successful and not failed:
             return None
 
-        return successful - failed
+        return successful - failed - set(getattr(ctx, "failed_units", set()))
 
 
     @staticmethod
@@ -716,6 +730,7 @@ class Builder:
         Returns None if the sheet can't be confidently classified against the known
         templates - the caller treats that as a fatal error for this vehicle.
         """
+        self._stage_palette_normalized_sheets(vehicle, ctx)
         if normalize:
             self._convert_spritesheet(vehicle, ctx)
         else:
@@ -726,8 +741,30 @@ class Builder:
         try:
             return VehicleSpriteAllocator(vehicle, ctx.palette, self._get_template_definitions(ctx))
         except Exception as exc:
-            logger.exception(f"Unable to load spritesheet for vehicle '{vehicle.identifier}': {exc}")
+            logger.exception(f"Unable to load sprite allocator for vehicle '{vehicle.identifier}': {exc}")
             return None
+
+    def _stage_palette_normalized_sheets(self, vehicle, ctx: BuildContext):
+        """Give NML palette-valid staging copies of every sheet used by a candidate."""
+        staging_root = Path(ctx.nml_output_folder) / "palette" / vehicle.identifier
+        for declared in self._declared_sheets(vehicle):
+            source = Path((getattr(vehicle, "spritesheet_overrides", None) or {}).get(declared, declared))
+            if not source.is_file():
+                continue
+            image = PalettedImage.load(source, ctx.palette)
+            if image.is_using_palette():
+                continue
+            destination = staging_root / Path(declared).name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            image.set_palette()
+            image.image.save(destination)
+            if declared == vehicle.spritesheet_path:
+                vehicle.spritesheet_override = str(destination)
+            else:
+                vehicle.spritesheet_overrides[declared] = str(destination)
+            logger.info(
+                f"Staged palette-normalized spritesheet '{source.name}' for '{vehicle.identifier}'."
+            )
 
     def _convert_spritesheet(self, vehicle, ctx: BuildContext):
         """Normalise the vehicle's spritesheets in place to only their recognised template rows.
@@ -876,7 +913,11 @@ class Builder:
             ctx.project.path,
             candidates_root=ctx.project.path,
             staged_candidate_nml=Path(ctx.nml_output_folder) / "candidate_nml",
-            vehicle_nml_files=ctx.vehicle_nml_files,
+            vehicle_nml_files={
+                identifier: files
+                for identifier, files in ctx.vehicle_nml_files.items()
+                if identifier not in ctx.failed_units
+            },
             variant_owners=ctx.variant_owners,
             generated_trailing_nml=purchase_list_blocks,
             skip_custom_nml=skipped_custom_nml,

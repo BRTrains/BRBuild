@@ -13,6 +13,7 @@ class BuildContext:
     nml_files: list = field(default_factory=list)
     successful_variants: list = field(default_factory=list)
     failed_variants: list = field(default_factory=list)
+    failed_units: set[str] = field(default_factory=set)
     nml_filepath: str | None = None
     lang_folder: str | None = None
     newgrf_filepath: str | None = None
