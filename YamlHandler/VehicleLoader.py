@@ -74,10 +74,13 @@ class VehicleLoader:
         cargo = data.get("cargo", {}) or {}
         dates = data.get("dates", {}) or {}
 
+        raw_profiles = data.get("profiles") or []
         profiles = [
             VehicleLoader._parse_profile(p, folder_path)
-            for p in data.get("profiles", []) or []
+            for p in raw_profiles
         ]
+        if not profiles:
+            profiles = [Profile("DEFAULT")]
 
         liveries = [
             VehicleLoader._parse_livery(lv, folder_path)

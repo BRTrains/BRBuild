@@ -492,7 +492,7 @@ class BuildPathTests(unittest.TestCase):
             vehicle = VehicleLoader.load(str(path))
 
             self.assertEqual(vehicle.track_type, ["THIRD", "ELRL"])
-            self.assertEqual(vehicle.profiles, [])
+            self.assertEqual([profile.identifier for profile in vehicle.profiles], ["DEFAULT"])
 
             # A railtype *label* is the RailTypes.yaml's business, not the vehicle's:
             # the loader only guards the name's shape, and the table rejects what it
