@@ -1,5 +1,6 @@
 import time
 import logging
+import re
 import shutil
 from pathlib import Path
 
@@ -949,7 +950,7 @@ class Builder:
             if not path.is_file():
                 raise FileNotFoundError(f"Purchase-list file not found: {path}")
             logger.info(f"Using manual purchase-list NML file: {path}")
-            return [path.read_text(encoding="utf-8")], [path]
+            return [Builder._filter_manual_purchase_list(path.read_text(encoding="utf-8"), ctx)], [path]
 
         order = getattr(grf, "purchase_list_order", PurchaseList.NONE)
         if order == PurchaseList.NONE:
@@ -962,6 +963,24 @@ class Builder:
                 f"for {len(ctx.successful_variants)} variant(s)."
             )
         return blocks, []
+
+    @staticmethod
+    def _filter_manual_purchase_list(text: str, ctx: BuildContext) -> str:
+        """Remove item symbols for variants excluded from this build."""
+        available = {variant.identifier for variant in ctx.successful_variants}
+        filtered = []
+        for line in text.splitlines(keepends=True):
+            match = re.match(r"^(\s*)([A-Za-z_][A-Za-z0-9_]*),(\s*(?://.*)?\r?\n?)$", line)
+            if match and match.group(2) not in available:
+                logger.warning(
+                    f"Omitting '{match.group(2)}' from the manual purchase list: "
+                    "the corresponding variant did not build successfully."
+                )
+                newline = "\n" if line.endswith("\n") else ""
+                filtered.append(f"{match.group(1)}// omitted unavailable item: {match.group(2)},{newline}")
+            else:
+                filtered.append(line)
+        return "".join(filtered)
 
     def _finalize_sprite_ids(self, ctx: BuildContext):
         deprecated_files = ctx.sprite_id_registry.finalize(ctx.nml_output_folder)
