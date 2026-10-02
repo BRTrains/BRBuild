@@ -29,7 +29,7 @@ class PalettedImage:
 
         return image_palette == self.palette
 
-    def set_palette(self):
+    def set_palette(self, *, fill_transparent_with_white: bool = False):
         """Force the image onto the configured palette.
 
         Remaps every pixel to its nearest colour in the configured palette first (so an
@@ -40,7 +40,12 @@ class PalettedImage:
         palette_image = Image.new("P", (1, 1))
         palette_image.putpalette(self.palette)
 
-        rgb_image = self.image.convert("RGB")
+        if fill_transparent_with_white and "A" in self.image.getbands():
+            background = Image.new("RGBA", self.image.size, (255, 255, 255, 255))
+            background.alpha_composite(self.image.convert("RGBA"))
+            rgb_image = background.convert("RGB")
+        else:
+            rgb_image = self.image.convert("RGB")
         self.image = rgb_image.quantize(palette=palette_image, dither=Image.Dither.NONE)
 
     @classmethod

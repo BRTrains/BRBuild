@@ -64,7 +64,7 @@ class GraphicsBackupTests(unittest.TestCase):
             self.assertEqual(list((failed / "new").iterdir()), [])
             self.assertEqual([path.name for path in (failed / "error").iterdir()], ["Failed.png"])
 
-    def test_existing_spritesheet_is_not_normalized_in_place(self):
+    def test_existing_spritesheet_is_normalized_in_build_staging(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             (root / "Thomas.png").write_bytes(b"existing")
@@ -78,7 +78,7 @@ class GraphicsBackupTests(unittest.TestCase):
                 ):
                     Builder()._load_sprite_allocator(vehicle, context)
 
-            convert.assert_not_called()
+            convert.assert_called_once()
             self.assertEqual((root / "Thomas.png").read_bytes(), b"existing")
 
     def test_ingested_spritesheet_is_normalized(self):

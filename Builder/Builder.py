@@ -793,12 +793,9 @@ class Builder:
         templates - the caller treats that as a fatal error for this vehicle.
         """
         self._stage_palette_normalized_sheets(vehicle, ctx)
-        if normalize:
-            self._convert_spritesheet(vehicle, ctx)
-        else:
-            logger.debug(
-                f"Using existing spritesheet for '{vehicle.identifier}' without in-place normalization."
-            )
+        # Canonicalise the staged copy as well: palette correction can expose row gutters
+        # that were hidden by alpha, and NML must read the template-sized result.
+        self._convert_spritesheet(vehicle, ctx)
 
         try:
             return VehicleSpriteAllocator(vehicle, ctx.palette, self._get_template_definitions(ctx))
@@ -814,12 +811,13 @@ class Builder:
             if not source.is_file():
                 continue
             image = PalettedImage.load(source, ctx.palette)
-            if image.is_using_palette():
-                continue
             destination = staging_root / Path(declared).name
             destination.parent.mkdir(parents=True, exist_ok=True)
-            image.set_palette()
-            image.image.save(destination)
+            if image.is_using_palette():
+                shutil.copy2(source, destination)
+            else:
+                image.set_palette(fill_transparent_with_white=True)
+                image.image.save(destination)
             if declared == vehicle.spritesheet_path:
                 vehicle.spritesheet_override = str(destination)
             else:
