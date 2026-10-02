@@ -71,9 +71,9 @@ class BuildPathTests(unittest.TestCase):
         )
         variant.process()
 
-        self.assertIn("Operator/Avanti West Coast", BadgeRegistry().badges())
+        self.assertIn("operator/Avanti West Coast", BadgeRegistry().badges())
         self.assertIn("STR_BADGE_OPERATOR_AVANTI_WEST_COAST", _registry)
-        self.assertIn('"Operator/Avanti West Coast"', variant.properties["badges"])
+        self.assertIn('"operator/Avanti West Coast"', variant.properties["badges"])
 
     def test_automatic_formation_badges_classify_mus_and_locomotives(self):
         """Formation badges come from resolved power, cargo, traction and part count."""

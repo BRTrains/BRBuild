@@ -566,7 +566,7 @@ class Variant:
         if operator:
             # Route the operator badge through the registry so its name string exists in
             # the badge table; NML only accepts badge literals declared there.
-            badge = BadgeRegistry().add_badge(f"Operator/{operator}")
+            badge = BadgeRegistry().add_badge(f"operator/{operator}")
             if badge not in self.badges:
                 self.badges.append(badge)
 
