@@ -14,6 +14,7 @@ class BuildContext:
     successful_variants: list = field(default_factory=list)
     failed_variants: list = field(default_factory=list)
     failed_units: set[str] = field(default_factory=set)
+    failed_errors: list[dict[str, str]] = field(default_factory=list)
     nml_filepath: str | None = None
     lang_folder: str | None = None
     newgrf_filepath: str | None = None
