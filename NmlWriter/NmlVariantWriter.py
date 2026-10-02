@@ -269,7 +269,7 @@ class NmlVariantWriter(BaseNmlWriter):
             feature = v_type.nml_feature
         elif hasattr(v_type, "name"):
             v_name = v_type.name.upper()
-            if v_name in ("TRAM", "ROADVEH"):
+            if v_name in ("TRAM", "ROAD"):
                 feature = "FEAT_ROADVEHS"
 
         return feature

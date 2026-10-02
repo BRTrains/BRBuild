@@ -486,7 +486,7 @@ class Variant:
         if power is not None:
             self.power = power
             vehicle_type_name = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
-            if vehicle_type_name == "TRAM":
+            if vehicle_type_name in ("TRAM", "ROAD"):
                 self.properties["power"] = f"{min(power, ROADVEH_POWER_PROPERTY_MAX_HP)} hp"
             else:
                 self.properties["power"] = f"{power} hp"
@@ -496,7 +496,7 @@ class Variant:
         weight = self.get_attr("weight")
         if weight is not None:
             vehicle_type_name = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
-            if vehicle_type_name == "TRAM":
+            if vehicle_type_name in ("TRAM", "ROAD"):
                 # A road vehicle's weight property is one byte of 1/4 tons, so it cannot carry
                 # more than 63.75 t: the property holds the clamped figure as the fallback and the
                 # callback holds the real one, in the field's unit (nmlc converts a `ton` property

@@ -270,7 +270,7 @@ class PowerTypeClassifier:
         is_tram = False
         if isinstance(v_type, VehicleType) and v_type == VehicleType.TRAM:
             is_tram = True
-        elif hasattr(v_type, "name") and str(v_type.name).upper() in ("TRAM", "ROADVEH"):
+        elif hasattr(v_type, "name") and str(v_type.name).upper() == "TRAM":
             is_tram = True
 
         if is_tram:

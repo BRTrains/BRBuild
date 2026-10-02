@@ -28,7 +28,7 @@ class PhysicsRules:
         is_rv = False
         if vehicle_type is not None:
             v_name = getattr(vehicle_type, "name", str(vehicle_type)).upper()
-            is_rv = v_name in ("TRAM", "ROADVEH")
+            is_rv = v_name in ("TRAM", "ROAD")
 
         # Unpowered rolling stock (wagons and coaches) have zero TE and AD coefficients in OpenTTD
         if train_type in (TrainType.WAGON, TrainType.COACH):

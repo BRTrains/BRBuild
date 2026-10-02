@@ -77,6 +77,14 @@ class RoadVehicleWeightTests(unittest.TestCase):
         self.assertEqual("466 ton", variant.properties["weight"])
         self.assertNotIn("weight", variant.callbacks)
 
+    def test_road_is_a_non_tram_road_vehicle(self):
+        with tempfile.TemporaryDirectory() as folder:
+            variant = self._variant(folder, 98, "road", VehicleType.ROAD)
+        self.assertEqual("FEAT_ROADVEHS", variant.vehicle_type.nml_feature)
+        self.assertEqual(f"{ROADVEH_WEIGHT_PROPERTY_MAX_T} ton", variant.properties["weight"])
+        self.assertEqual("392", variant.callbacks["weight"])
+        self.assertNotIn("ROADVEH_FLAG_TRAM", variant.properties.get("misc_flags", ""))
+
 
 class CapacityCallbackTests(unittest.TestCase):
     def _variant(self, folder):
