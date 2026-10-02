@@ -268,10 +268,15 @@ class PowerTypeClassifier:
     def _apply_tram_rule(self):
         v_type = getattr(self.variant, "vehicle_type", None)
         is_tram = False
-        if isinstance(v_type, VehicleType) and v_type == VehicleType.TRAM:
-            is_tram = True
-        elif hasattr(v_type, "name") and str(v_type.name).upper() == "TRAM":
-            is_tram = True
+        if isinstance(v_type, VehicleType) and v_type in (VehicleType.TRAM, VehicleType.ROAD):
+            is_tram = v_type == VehicleType.TRAM
+        elif hasattr(v_type, "name") and str(v_type.name).upper() in ("TRAM", "ROAD"):
+            is_tram = str(v_type.name).upper() == "TRAM"
+
+        if isinstance(v_type, VehicleType) and v_type in (VehicleType.TRAM, VehicleType.ROAD):
+            self.variant.properties.pop("engine_class", None)
+        elif hasattr(v_type, "name") and str(v_type.name).upper() in ("TRAM", "ROAD"):
+            self.variant.properties.pop("engine_class", None)
 
         if is_tram:
             self.variant.properties.pop("engine_class", None)

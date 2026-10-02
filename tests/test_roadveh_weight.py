@@ -84,6 +84,7 @@ class RoadVehicleWeightTests(unittest.TestCase):
         self.assertEqual(f"{ROADVEH_WEIGHT_PROPERTY_MAX_T} ton", variant.properties["weight"])
         self.assertEqual("392", variant.callbacks["weight"])
         self.assertNotIn("ROADVEH_FLAG_TRAM", variant.properties.get("misc_flags", ""))
+        self.assertNotIn("engine_class", variant.properties)
 
 
 class CapacityCallbackTests(unittest.TestCase):

@@ -280,9 +280,9 @@ class Builder:
         if len(ctx.successful_variants) == 0:
             raise RuntimeError(f"No successful variants were generated for project '{ctx.project.name}'. Halting build process.")
         if ctx.failed_variants:
-            raise RuntimeError(
+            logger.warning(
                 f"{len(ctx.failed_variants)} variant(s) failed for project "
-                f"'{ctx.project.name}'. Halting build process without publishing documentation."
+                f"'{ctx.project.name}'; continuing with successful variants."
             )
 
     def _process_candidate(self, candidate, ctx: BuildContext):
@@ -326,6 +326,7 @@ class Builder:
             # them is written: one overlay sheet per published sheet holds the union of their lamps.
             # A candidate whose profiles name spritesheets of their own gets one detector per sheet.
             variants = list(VariantIterator(vehicle))
+            failed_variant_ids = set()
             lightings: dict[str, VehicleLighting] = {}
             if allocator is not None and variants:
                 for sheet in self._declared_sheets(vehicle, resolved=True):
@@ -359,7 +360,8 @@ class Builder:
                     except Exception as exc:
                         logger.exception(f"Unable to assign sprites for variant {variant}: {exc}")
                         ctx.failed_variants.append(repr(variant))
-                        return
+                        failed_variant_ids.add(id(variant))
+                        continue
 
                 if allocator is not None and variant.spritesets:
                     lighting = lightings.get(str(allocator.sheet_for(variant.profile, variant.livery)))
@@ -376,6 +378,8 @@ class Builder:
                 lighting.write_images()
 
             for variant in variants:
+                if id(variant) in failed_variant_ids:
+                    continue
                 lighting = (
                     lightings.get(str(allocator.sheet_for(variant.profile, variant.livery)))
                     if allocator is not None
@@ -388,7 +392,6 @@ class Builder:
                 ):
                     variant.lighting_overlay_path = lighting.overlay_path
                     variant.lighting_transparent_path = lighting.transparent_path
-
                 assignment = ctx.sprite_id_registry.resolve(
                     vehicle.identifier,
                     variant.profile.identifier,
@@ -410,7 +413,8 @@ class Builder:
                 except Exception as exc:
                     logger.exception(f"Error processing variant {variant}: {exc}")
                     ctx.failed_variants.append(repr(variant))
-                    return
+                    failed_variant_ids.add(id(variant))
+                    continue
 
                 self._assign_variant_group(variant, variant_groups)
 
@@ -429,7 +433,8 @@ class Builder:
                 except Exception as exc:
                     logger.exception(f"Unable to write NML for variant {variant}: {exc}")
                     ctx.failed_variants.append(repr(variant))
-                    return
+                    failed_variant_ids.add(id(variant))
+                    continue
 
                 ctx.successful_variants.append(variant)
 

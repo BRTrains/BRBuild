@@ -33,6 +33,8 @@ from pathlib import Path
 
 from PIL import Image
 
+from .PalettedImage import PalettedImage
+
 logger = logging.getLogger(__name__)
 
 #: Lamp shades, brightest first. A lamp uses a lighter shade than the livery around it.
@@ -57,7 +59,7 @@ TRAILING_LAMP_RED = frozenset({0xB6, 0xB7})
 TRAILING_LAMP_LIT = 0x0F
 
 #: Bump when the rules above change, so every cache is re-derived.
-RULES_VERSION = 5
+RULES_VERSION = 6
 
 #: End-on views, where lamps are mirror-symmetric about the box centreline.
 END_ON_VIEWS = (0, 4)
@@ -628,12 +630,18 @@ def signature(parts: list[Part]) -> str:
 	return _digest(json.dumps(described, sort_keys=True).encode("utf-8"))[:16]
 
 
-def overlay_image(sheet_path: str | Path, detection: Detection):
+def overlay_image(sheet_path: str | Path, detection: Detection, palette: list[int] | None = None):
 	"""The overlay sheet: same geometry as the base sheet, transparent apart from the lamp pixels,
 	which take the counterpart's value. Returns None when nothing was detected."""
 	if not detection.pixels:
 		return None
-	base = Image.open(sheet_path).convert("P")
+	if palette is None:
+		base = Image.open(sheet_path).convert("P")
+	else:
+		base = PalettedImage.load(sheet_path, palette)
+		if not base.is_using_palette():
+			base.set_palette()
+		base = base.image
 	overlay = Image.new("P", base.size, TRANSPARENT)
 	overlay.putpalette(base.getpalette())
 	for (x, y), value in detection.pixels.items():
@@ -657,6 +665,7 @@ class VehicleLighting:
 		sheet_path: str | None = None,
 	):
 		self.vehicle = vehicle
+		self.palette = palette
 		#: One instance per spritesheet: a candidate whose profiles name their own sheets gets a
 		#: detector (and an overlay sheet) per sheet it draws from.
 		self.sheet_path = Path(sheet_path or vehicle.spritesheet_path)
@@ -672,7 +681,10 @@ class VehicleLighting:
 	@property
 	def image(self):
 		if self._image is None:
-			self._image = Image.open(self.sheet_path).convert("P")
+			image = PalettedImage.load(self.sheet_path, self.palette)
+			if not image.is_using_palette():
+				image.set_palette()
+			self._image = image.image
 		return self._image
 
 	def detection_for(self, parts: list[Part], trailing_only: bool = False) -> Detection:
@@ -715,7 +727,7 @@ class VehicleLighting:
 		if not self._combined.pixels:
 			return
 
-		overlay = overlay_image(self.sheet_path, self._combined)
+		overlay = overlay_image(self.sheet_path, self._combined, self.palette)
 		if overlay is None:
 			return
 		path = self.output_folder / (self.sheet_path.stem + OVERLAY_SUFFIX)
