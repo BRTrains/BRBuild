@@ -188,6 +188,11 @@ class VehicleSpriteAllocator:
 
 		v_type = vehicle.vehicle_type
 		vehicle_type_str = v_type.name.lower() if hasattr(v_type, "name") else str(v_type).lower()
+		# Road vehicles use the train-template geometry as their source artwork; the
+		# allocator maps the matched train template to its tram counterpart when writing
+		# the road-vehicle feature.
+		if vehicle_type_str in ("road", "roadveh"):
+			vehicle_type_str = "train"
 
 		self._palette = palette
 		#: The template definitions and vehicle type the detections were made with, needed again
