@@ -60,7 +60,10 @@ class BadgeRegistry:
         if not normalized:
             raise ValueError("badge_path must not be empty")
 
-        parts = normalized.strip("/").split("/")
+        parts = [
+            re.sub(r"\s+", "_", part.strip())
+            for part in normalized.strip("/").split("/")
+        ]
         if any(not part for part in parts):
             raise ValueError("badge_path must not contain empty segments")
 

@@ -10,6 +10,14 @@ def test_badge_paths_are_case_insensitive_for_nml_identity():
     assert registry.badges() == ["Operator", "Operator/LU"]
 
 
+def test_badge_paths_use_underscore_safe_segments():
+    registry = BadgeRegistry()
+    registry.clear()
+    assert registry.add_badge("operator/London Underground") == "operator/London_Underground"
+    assert registry.add_badge("operator/Docklands Light Railway") == "operator/Docklands_Light_Railway"
+    assert registry.badges() == ["operator", "operator/Docklands_Light_Railway", "operator/London_Underground"]
+
+
 def test_badge_labels_preserve_title_case_and_acronyms():
     assert format_badge_label("operator/London Underground") == "London Underground"
     assert format_badge_label("operator/Docklands Light Railway") == "Docklands Light Railway"
