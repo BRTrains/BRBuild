@@ -122,7 +122,7 @@ class NmlCollator:
                     f.write(infile.read())
 
             # 2. Write badgetable and FEAT_BADGES item definitions
-            NmlBadgeWriter().write_all(f)
+            NmlBadgeWriter(badge_dir=str(project_root / "Badge" / "images")).write_all(f)
 
             # 3. Each vehicle's own NML, immediately before its generated blocks.
             written_vehicle_nml: set[str] = set()
