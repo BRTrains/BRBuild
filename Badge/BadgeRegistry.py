@@ -26,7 +26,7 @@ def format_badge_label(badge_path: str) -> str:
         if w.isupper() and len(w) > 1:
             parts.append(w)
         else:
-            parts.append(w.capitalize())
+            parts.append(w[:1].upper() + w[1:])
 
     return " ".join(parts)
 
