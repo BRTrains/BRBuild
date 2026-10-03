@@ -907,10 +907,16 @@ class Builder:
             try:
                 converter = SpritesheetLegacyConverter(definitions, ctx.palette)
                 kept = converter.process(sheet, v_type_str)
-                logger.info(
-                    f"Converted spritesheet '{Path(sheet).name}' for '{vehicle.identifier}': "
-                    f"kept {len(kept)} recognised row(s)."
-                )
+                if kept is None:
+                    logger.info(
+                        f"Reused cached normalized spritesheet '{Path(sheet).name}' for "
+                        f"'{vehicle.identifier}'."
+                    )
+                else:
+                    logger.info(
+                        f"Converted spritesheet '{Path(sheet).name}' for '{vehicle.identifier}': "
+                        f"kept {len(kept)} recognised row(s)."
+                    )
             except Exception as exc:
                 logger.exception(f"Unable to convert spritesheet '{sheet}' for '{vehicle.identifier}': {exc}")
 

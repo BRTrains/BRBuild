@@ -39,7 +39,7 @@ class SpritesheetLegacyConverter:
 			raise FileNotFoundError(path)
 		if self._normalization_cache_valid(path, vehicle_type):
 			logger.debug(f"Reused normalized spritesheet '{path}'.")
-			return []
+			return None
 
 		extractor = SpritesheetExtractor(str(path), self.palette)
 		raw_rows = extractor.extract_spritesets()

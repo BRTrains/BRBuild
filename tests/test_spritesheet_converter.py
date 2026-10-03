@@ -58,9 +58,10 @@ class SpritesheetConverterTests(unittest.TestCase):
             ):
                 converter.process(str(path), "train")
                 extractor.reset_mock()
-                converter.process(str(path), "train")
+                reused = converter.process(str(path), "train")
 
             extractor.assert_not_called()
+            self.assertIsNone(reused)
 
 
 if __name__ == "__main__":
