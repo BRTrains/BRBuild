@@ -1,3 +1,5 @@
+import hashlib
+import json
 import time
 import logging
 import re
@@ -810,9 +812,16 @@ class Builder:
             source = Path((getattr(vehicle, "spritesheet_overrides", None) or {}).get(declared, declared))
             if not source.is_file():
                 continue
-            image = PalettedImage.load(source, ctx.palette)
             destination = staging_root / Path(declared).name
             destination.parent.mkdir(parents=True, exist_ok=True)
+            if self._palette_stage_cache_valid(source, destination, ctx.palette):
+                if declared == vehicle.spritesheet_path:
+                    vehicle.spritesheet_override = str(destination)
+                else:
+                    vehicle.spritesheet_overrides[declared] = str(destination)
+                continue
+
+            image = PalettedImage.load(source, ctx.palette)
             if image.is_using_palette():
                 if not destination.is_file() or destination.read_bytes() != source.read_bytes():
                     shutil.copy2(source, destination)
@@ -825,6 +834,7 @@ class Builder:
                 data = buffer.getvalue()
                 if not destination.is_file() or destination.read_bytes() != data:
                     destination.write_bytes(data)
+            self._write_palette_stage_cache(source, destination, ctx.palette)
             if declared == vehicle.spritesheet_path:
                 vehicle.spritesheet_override = str(destination)
             else:
@@ -832,6 +842,43 @@ class Builder:
             logger.info(
                 f"Staged palette-normalized spritesheet '{source.name}' for '{vehicle.identifier}'."
             )
+
+    @staticmethod
+    def _palette_digest(palette):
+        return hashlib.sha256(bytes(bytearray(palette))).hexdigest()
+
+    @staticmethod
+    def _file_digest(path):
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+    @staticmethod
+    def _palette_stage_cache_path(destination):
+        return Path(destination).with_name(Path(destination).name + ".stagecache.json")
+
+    def _palette_stage_cache_valid(self, source, destination, palette):
+        if not Path(destination).is_file():
+            return False
+        try:
+            payload = json.loads(self._palette_stage_cache_path(destination).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        return payload == {
+            "format": "brbuild-palette-stage",
+            "version": 1,
+            "source_sha256": self._file_digest(source),
+            "palette_sha256": self._palette_digest(palette),
+        }
+
+    def _write_palette_stage_cache(self, source, destination, palette):
+        payload = {
+            "format": "brbuild-palette-stage",
+            "version": 1,
+            "source_sha256": self._file_digest(source),
+            "palette_sha256": self._palette_digest(palette),
+        }
+        self._palette_stage_cache_path(destination).write_text(
+            json.dumps(payload, indent=1) + "\n", encoding="utf-8"
+        )
 
     def _convert_spritesheet(self, vehicle, ctx: BuildContext):
         """Normalise the vehicle's spritesheets in place to only their recognised template rows.
