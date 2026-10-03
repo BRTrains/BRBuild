@@ -210,9 +210,6 @@ class VehicleSpriteAllocator:
 		# staged out of `new/` while that sheet is being ingested.
 		self._own_sheet = str(vehicle.spritesheet_path)
 		if Path(self._own_sheet).is_file():
-			extractor = SpritesheetExtractor(self._own_sheet, palette)
-			self._image = extractor.image
-
 			# Detecting rows is the build's most expensive step and answers the same question
 			# for an unchanged sheet, so the result is cached beside the sheet and reused while
 			# the sheet bytes, palette, template definitions and vehicle type all match.
@@ -221,8 +218,12 @@ class VehicleSpriteAllocator:
 			)
 			rows = cache.load()
 			if rows is None:
+				extractor = SpritesheetExtractor(self._own_sheet, palette)
 				rows = self._match_vehicle_rows(extractor, vehicle_type_str, definitions)
 				cache.store(rows)
+				self._image = extractor.image
+			else:
+				self._image = None
 
 			self.vehicle_rows: list[tuple[Spriteset, TemplateDefinition]] = rows
 		else:
@@ -399,26 +400,34 @@ class VehicleSpriteAllocator:
 				f"candidate's own sheet."
 			)
 
-		extractor = SpritesheetExtractor(str(path), self._palette)
 		cache = SheetDetectionCache(
 			str(path), self._palette, self._template_definitions, self._vehicle_type_str
 		)
 		rows = cache.load()
 		if rows is None:
+			extractor = SpritesheetExtractor(str(path), self._palette)
 			rows = self._match_vehicle_rows(
 				extractor, self._vehicle_type_str, self._template_definitions
 			)
 			cache.store(rows)
+			image = extractor.image
+		else:
+			image = None
 
-		pool = {"path": str(path), "image": extractor.image, "rows": rows, "cursor": 0}
+		pool = {"path": str(path), "image": image, "rows": rows, "cursor": 0}
 		self._extra_pools[key] = pool
 		return pool
 
 	def image_for(self, sheet_path: str | None):
 		"""The image rows drawn from `sheet_path` live on: an extra sheet, or the candidate's own."""
 		if sheet_path is None or _same_path(sheet_path, self.vehicle.spritesheet_path):
+			if self._image is None:
+				self._image = SpritesheetExtractor(self._own_sheet, self._palette).image
 			return self._image
-		return self._extra_pool(sheet_path)["image"]
+		pool = self._extra_pool(sheet_path)
+		if pool["image"] is None:
+			pool["image"] = SpritesheetExtractor(pool["path"], self._palette).image
+		return pool["image"]
 
 	def sheet_for(self, profile: Profile, livery: Livery) -> str:
 		"""The sheet a group's rows live on, once the group has been resolved."""

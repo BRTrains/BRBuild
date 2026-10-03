@@ -187,6 +187,34 @@ class SheetDetectionCacheTests(unittest.TestCase):
             [(spriteset.y, definition.name) for spriteset, definition in first.vehicle_rows],
         )
 
+    def test_allocator_does_not_load_image_when_detection_is_cached(self):
+        """A warm detection-cache hit must avoid opening the sheet image."""
+        definitions = TemplateLoaderNML().read_folder(str(REPO_ROOT / "Templates"))
+        template = next(d for d in definitions if d.name == "tmpl_train_7")
+        sheet = Image.new("P", (200, 30), color=0)
+        sheet.putpalette(PALETTE)
+        sheet.save(self.sheet)
+
+        views = [
+            Sprite(left_x=box.left_x, upper_y=box.upper_y, width=box.width, height=box.height, offset_x=0, offset_y=0)
+            for box in template.bounding_boxes
+        ]
+        detected = [Spriteset("spriteset_y0", str(self.sheet), Template("row_0", sprites=views), 0, 0)]
+
+        from Vehicle.VariantSpriteGroups import VehicleSpriteAllocator
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=str(self.root), identifier="example", name="Example")
+        vehicle.yaml_path = str(self.root / "sheet.yaml")
+        vehicle.vehicle_type = "train"
+        vehicle.power_type = ["diesel"]
+
+        with patch("Sprites.SpritesheetExtractor.SpritesheetExtractor.extract_spritesets", return_value=detected):
+            VehicleSpriteAllocator(vehicle, PALETTE, definitions)
+
+        with patch("Sprites.SpritesheetExtractor.SpritesheetExtractor.__init__", side_effect=AssertionError("warm cache loaded the image")):
+            VehicleSpriteAllocator(vehicle, PALETTE, definitions)
+
     def test_generated_sprites_are_only_rewritten_when_they_change(self):
         from Vehicle.VariantSpriteGroups import VehicleSpriteAllocator
 

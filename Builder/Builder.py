@@ -814,10 +814,17 @@ class Builder:
             destination = staging_root / Path(declared).name
             destination.parent.mkdir(parents=True, exist_ok=True)
             if image.is_using_palette():
-                shutil.copy2(source, destination)
+                if not destination.is_file() or destination.read_bytes() != source.read_bytes():
+                    shutil.copy2(source, destination)
             else:
                 image.set_palette(fill_transparent_with_white=True)
-                image.image.save(destination)
+                from io import BytesIO
+
+                buffer = BytesIO()
+                image.image.save(buffer, format="PNG")
+                data = buffer.getvalue()
+                if not destination.is_file() or destination.read_bytes() != data:
+                    destination.write_bytes(data)
             if declared == vehicle.spritesheet_path:
                 vehicle.spritesheet_override = str(destination)
             else:

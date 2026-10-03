@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from pathlib import Path
 
@@ -10,6 +12,7 @@ from Sprites.SpritesheetExtractor import SpritesheetExtractor
 
 from .TemplateDefinition import TemplateDefinition
 from .TemplateMatcher import classify_row
+from Sprites.SheetDetectionCache import _templates_digest
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +37,9 @@ class SpritesheetLegacyConverter:
 		path = Path(png_path)
 		if not path.is_file():
 			raise FileNotFoundError(path)
+		if self._normalization_cache_valid(path, vehicle_type):
+			logger.debug(f"Reused normalized spritesheet '{path}'.")
+			return []
 
 		extractor = SpritesheetExtractor(str(path), self.palette)
 		raw_rows = extractor.extract_spritesets()
@@ -53,10 +59,62 @@ class SpritesheetLegacyConverter:
 			return kept_rows
 
 		cleaned = self._rebuild_clean_sheet(extractor, kept)
-		cleaned.save(path)
+		self._write_if_changed(path, cleaned)
+		self._store_normalization_cache(path, vehicle_type)
 
 		logger.info(f"Converted '{path}': kept {len(kept_rows)}/{len(raw_rows)} row(s)")
 		return kept_rows
+
+	@property
+	def _palette_digest(self) -> str:
+		return hashlib.sha256(bytes(bytearray(self.palette))).hexdigest()
+
+	@staticmethod
+	def _file_digest(path: Path) -> str:
+		return hashlib.sha256(path.read_bytes()).hexdigest()
+
+	@staticmethod
+	def _cache_path(path: Path) -> Path:
+		return path.with_name(path.name + ".normalization.json")
+
+	def _normalization_cache_valid(self, path: Path, vehicle_type: str) -> bool:
+		try:
+			payload = json.loads(self._cache_path(path).read_text(encoding="utf-8"))
+		except (OSError, json.JSONDecodeError):
+			return False
+
+		return payload == {
+			"format": "brbuild-spritesheet-normalization",
+			"version": 1,
+			"sheet_sha256": self._file_digest(path),
+			"palette_sha256": self._palette_digest,
+			"templates_sha256": _templates_digest(self.definitions),
+			"vehicle_type": vehicle_type,
+		}
+
+	def _store_normalization_cache(self, path: Path, vehicle_type: str) -> None:
+		payload = {
+			"format": "brbuild-spritesheet-normalization",
+			"version": 1,
+			"sheet_sha256": self._file_digest(path),
+			"palette_sha256": self._palette_digest,
+			"templates_sha256": _templates_digest(self.definitions),
+			"vehicle_type": vehicle_type,
+		}
+		self._cache_path(path).write_text(
+			json.dumps(payload, indent=1) + "\n", encoding="utf-8"
+		)
+
+	@staticmethod
+	def _write_if_changed(path: Path, image) -> None:
+		from io import BytesIO
+
+		buffer = BytesIO()
+		image.save(buffer, format="PNG")
+		data = buffer.getvalue()
+		if path.is_file() and path.read_bytes() == data:
+			return
+		path.write_bytes(data)
 
 	def _rebuild_clean_sheet(self, extractor: SpritesheetExtractor, rows) -> Image.Image:
 		"""Paste the recognised rows into the layout their templates describe.
