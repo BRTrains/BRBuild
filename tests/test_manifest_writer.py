@@ -39,6 +39,7 @@ def test_manifest_contains_every_materialised_variant_and_real_rows(tmp_path):
     assert manifest["schema_version"] == 1
     assert manifest["project"] == "Demo"
     assert manifest["build_success"] is True
+    assert manifest["build_date"] == manifest["generated_at"]
     assert len(manifest["variants"]) == 1
     item = manifest["variants"][0]
     assert item["vehicle"]["identifier"] == "a"

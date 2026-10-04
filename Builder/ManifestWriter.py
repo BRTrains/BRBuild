@@ -56,10 +56,12 @@ class ManifestWriter:
 
     def build_document(self, builder_commit: str | None = None) -> dict[str, Any]:
         variants = [self._variant(variant) for variant in self.successful_variants]
+        build_date = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         return {
             "schema_version": 1,
             "project": str(self.project.name),
-            "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "generated_at": build_date,
+            "build_date": build_date,
             "builder_commit": builder_commit,
             "build_success": True,
             "vehicles": self._vehicles(),
