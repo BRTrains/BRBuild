@@ -13,6 +13,12 @@ MAX_NON_WHITE_ROW_GUTTER_PIXELS = 10
 LEGACY_PURCHASE_MARKER_WIDTH = 36
 LEGACY_PURCHASE_MARKER_RED = (255, 0, 0)
 LEGACY_PURCHASE_MARKER_YELLOW = (255, 255, 0)
+#: How far a marker pixel may sit from the marker's own colour and still count as one. A sheet
+#: that is not already paletted reaches this through the palette stage's quantisation, which
+#: lands the marker's exact red and yellow on the palette's nearest shades ((252,0,0) and
+#: (252,252,0)), so an exact comparison never sees a marker at all. The same reach as the
+#: gutters' white, which is what that staging does to a sheet's whites.
+LEGACY_PURCHASE_MARKER_TOLERANCE = 3
 
 
 class SpritesheetExtractor:
@@ -109,9 +115,17 @@ class SpritesheetExtractor:
 
 		colours = [self._get_rgb(x, y) for x in non_white]
 		return (
-			colours[:4] == [LEGACY_PURCHASE_MARKER_RED] * 4
-			and colours[4:24] == [LEGACY_PURCHASE_MARKER_YELLOW] * 20
-			and colours[24:] == [LEGACY_PURCHASE_MARKER_RED] * 12
+			all(self._is_marker_colour(colour, LEGACY_PURCHASE_MARKER_RED) for colour in colours[:4])
+			and all(self._is_marker_colour(colour, LEGACY_PURCHASE_MARKER_YELLOW) for colour in colours[4:24])
+			and all(self._is_marker_colour(colour, LEGACY_PURCHASE_MARKER_RED) for colour in colours[24:])
+		)
+
+	@staticmethod
+	def _is_marker_colour(colour: tuple[int, int, int], expected: tuple[int, int, int]) -> bool:
+		"""True if a pixel is the marker's colour, or as near to it as the palette allows."""
+		return all(
+			abs(channel - target) <= LEGACY_PURCHASE_MARKER_TOLERANCE
+			for channel, target in zip(colour, expected)
 		)
 
 	# -- sprite detection within a row --------------------------------------
