@@ -34,6 +34,10 @@ from .ManifestWriter import ManifestWriter
 
 logger = logging.getLogger(__name__)
 
+#: The layout of the palette-stage cache files. Bumped whenever the staged sheets' own
+#: content changes for an unchanged source, so existing caches are not reused across it.
+PALETTE_STAGE_CACHE_VERSION = 2
+
 
 class Builder:
 
@@ -826,7 +830,7 @@ class Builder:
                 if not destination.is_file() or destination.read_bytes() != source.read_bytes():
                     shutil.copy2(source, destination)
             else:
-                image.set_palette(fill_transparent_with_white=True)
+                image.set_palette()
                 from io import BytesIO
 
                 buffer = BytesIO()
@@ -864,7 +868,7 @@ class Builder:
             return False
         return payload == {
             "format": "brbuild-palette-stage",
-            "version": 1,
+            "version": PALETTE_STAGE_CACHE_VERSION,
             "source_sha256": self._file_digest(source),
             "palette_sha256": self._palette_digest(palette),
         }
@@ -872,7 +876,7 @@ class Builder:
     def _write_palette_stage_cache(self, source, destination, palette):
         payload = {
             "format": "brbuild-palette-stage",
-            "version": 1,
+            "version": PALETTE_STAGE_CACHE_VERSION,
             "source_sha256": self._file_digest(source),
             "palette_sha256": self._palette_digest(palette),
         }

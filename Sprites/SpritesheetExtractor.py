@@ -8,7 +8,6 @@ from .Spriteset import Spriteset
 
 logger = logging.getLogger(__name__)
 
-NEAR_WHITE_TOLERANCE = 3  # gutter pixels are white or near-white
 MAX_SPRITES_PER_ROW = 8
 MAX_NON_WHITE_ROW_GUTTER_PIXELS = 10
 LEGACY_PURCHASE_MARKER_WIDTH = 36
@@ -29,17 +28,8 @@ class SpritesheetExtractor:
 
 		image = PalettedImage.load(filename, palette)
 
-		if image.image.mode == "PA":
-			raise ValueError(
-				f"Unsupported paletted+alpha mode 'PA' in {filename}. "
-				"8bpp OpenTTD sprites must not contain alpha."
-			)
-
-		if image.image.mode not in ("P", "RGB", "RGBA"):
+		if image.image.mode not in ("P", "RGB"):
 			raise ValueError(f"Unsupported image mode {image.image.mode!r} for {filename}")
-
-		if image.image.mode == "RGBA":
-			image.image = image.image.convert("RGB")
 
 		if not image.is_using_palette():
 			image.set_palette()
@@ -62,8 +52,7 @@ class SpritesheetExtractor:
 
 	def is_gutter(self, x: int, y: int) -> bool:
 		"""A gutter pixel is white or near-white, marking gaps between sprites/rows."""
-		r, g, b = self._get_rgb(x, y)
-		return max(abs(r - 255), abs(g - 255), abs(b - 255)) <= NEAR_WHITE_TOLERANCE
+		return PalettedImage.is_white(self._get_rgb(x, y))
 
 	# -- row (spriteset) detection -----------------------------------------
 
