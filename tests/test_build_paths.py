@@ -1563,5 +1563,89 @@ class BuildPathTests(unittest.TestCase):
             self.assertNotIn("nml", sys.modules)
 
 
+class LiveryOverrideTests(unittest.TestCase):
+    """Capacity and introduction date resolve livery, then profile, then vehicle."""
+
+    DOCUMENT = """
+info:
+  identifier: example
+  name: Class Example
+stats:
+  vehicle_type: train
+  train_type: multiple_unit
+  capacity: 100
+dates:
+  introduction_date: 1990
+profiles:
+  - identifier: two_car
+    name: 2-Car
+    capacity: 200
+    introduction_date: 1995
+  - identifier: bare
+    name: Bare
+liveries:
+  - name: Plain
+  - name: Long
+    capacity: 300
+    introduction_date: 2000
+"""
+
+    def variant(self, folder, livery_name, profile_identifier):
+        from Vehicle.Variant import Variant
+        from YamlHandler.VehicleLoader import VehicleLoader
+
+        path = Path(folder) / "Example.yaml"
+        path.write_text(self.DOCUMENT, encoding="utf-8")
+        vehicle = VehicleLoader.load(str(path))
+
+        livery = next(entry for entry in vehicle.liveries if entry.name == livery_name)
+        profile = next(entry for entry in vehicle.profiles if entry.identifier == profile_identifier)
+        variant = Variant(vehicle, livery, profile, VehicleType.TRAIN)
+        variant.sprite_id = 1001
+        variant.process()
+
+        return vehicle, variant
+
+    def test_the_vehicle_default_applies_when_neither_overrides_it(self):
+        with tempfile.TemporaryDirectory() as folder:
+            _, variant = self.variant(folder, "Plain", "bare")
+
+        self.assertEqual(
+            variant.callbacks["cargo_capacity"],
+            "param_capacity_scaling < 1 ? 100 : 100 * param_capacity_scaling",
+        )
+        self.assertEqual(variant.properties["introduction_date"], "date(1990, 1, 1)")
+
+    def test_a_profile_overrides_the_vehicle_default(self):
+        with tempfile.TemporaryDirectory() as folder:
+            _, variant = self.variant(folder, "Plain", "two_car")
+
+        self.assertEqual(
+            variant.callbacks["cargo_capacity"],
+            "param_capacity_scaling < 1 ? 200 : 200 * param_capacity_scaling",
+        )
+        self.assertEqual(variant.properties["introduction_date"], "date(1995, 1, 1)")
+
+    def test_a_livery_overrides_the_profile(self):
+        with tempfile.TemporaryDirectory() as folder:
+            _, variant = self.variant(folder, "Long", "two_car")
+
+        self.assertEqual(
+            variant.callbacks["cargo_capacity"],
+            "param_capacity_scaling < 1 ? 300 : 300 * param_capacity_scaling",
+        )
+        self.assertEqual(variant.properties["introduction_date"], "date(2000, 1, 1)")
+
+    def test_a_livery_override_leaves_the_other_liveries_alone(self):
+        with tempfile.TemporaryDirectory() as folder:
+            vehicle, variant = self.variant(folder, "Long", "two_car")
+
+            plain = next(entry for entry in vehicle.liveries if entry.name == "Plain")
+
+        self.assertEqual(variant.get_attr("capacity"), 300)
+        self.assertIsNone(plain.capacity)
+        self.assertIsNone(plain.introduction_date)
+
+
 if __name__ == "__main__":
     unittest.main()

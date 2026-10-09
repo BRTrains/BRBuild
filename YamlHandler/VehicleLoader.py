@@ -458,10 +458,14 @@ class VehicleLoader:
             sprite_override=lv.get("sprite_override"),
             sprite_exclude=lv.get("sprite_exclude"),
             profiles=lv.get("profiles"),
+            capacity=lv.get("capacity"),
             power=lv.get("power"),
             speed=lv.get("speed"),
             design_speed=lv.get("design_speed"),
             weight=lv.get("weight"),
+            introduction_date=VehicleLoader._parse_introduction_date(
+                lv.get("introduction_date"), f"'introduction_date' in livery {name}"
+            ),
             tilt=lv.get("tilt"),
             track_type=VehicleLoader._parse_track_type(
                 lv.get("track_type"), f"'track_type' in livery {name}"

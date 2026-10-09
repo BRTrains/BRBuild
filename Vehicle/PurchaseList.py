@@ -160,9 +160,9 @@ def facts_from_variant(variant, position: int) -> VehicleFacts:
     vehicle_type = getattr(variant, "vehicle_type", None) or getattr(vehicle, "vehicle_type", None)
     feature = getattr(vehicle_type, "nml_feature", None) or ""
 
-    introduction_date = getattr(vehicle, "introduction_date", None)
+    introduction_date = variant.get_attr("introduction_date")
     if introduction_date is None:
-        introduction_date = variant.get_attr("introduction_date")
+        introduction_date = getattr(vehicle, "introduction_date", None)
 
     return VehicleFacts(
         identifier=variant.identifier,

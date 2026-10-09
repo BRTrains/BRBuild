@@ -227,8 +227,11 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `name`: Name of the livery.
     *   `sprite_override`: Custom sprite template file to map.
     *   `profiles`: List of profile identifiers this livery applies to.
-    *   `power`: Power in hp for this livery; overrides the vehicle default, but not the profile.
-    *   `weight`: Weight in metric tons for this livery; overrides the vehicle default, but not the profile.
+    *   `capacity`: Cargo capacity for this livery's variants; resolves livery, then profile, then vehicle.
+    *   `power`: Power in hp for this livery; resolves livery, then profile, then vehicle.
+    *   `weight`: Weight in metric tons for this livery; resolves livery, then profile, then vehicle.
+    *   `speed`, `design_speed`: Service and design speed for this livery; resolve livery, then profile, then vehicle.
+    *   `introduction_date`: When this livery's variants appear, as a year or `YYYY-MM-DD`; resolves livery, then profile, then vehicle, and orders the purchase list where `purchase_list.order` sorts by date.
     *   `tilt`: Tilt strength for this livery; overrides the vehicle default, but not the profile.
     *   `track_type`: Track types for this livery; overrides both profile and vehicle (see Track types below).
     *   `has_cab`: `true` when this livery is a driving vehicle; overrides both profile and vehicle.

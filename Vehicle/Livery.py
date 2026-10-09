@@ -12,10 +12,13 @@ class Livery:
     sprite_override: Optional[List[int]] = None
     sprite_exclude: Optional[List[int]] = None
     profiles: Optional[List[str]] = None
+    capacity: Optional[int] = None
     power: Optional[int] = None
     speed: Optional[int] = None
     design_speed: Optional[int] = None
     weight: Optional[float] = None
+    #: When this livery's vehicles become available, as a year or `YYYY-MM-DD`.
+    introduction_date: Optional[Union[str, int]] = None
     tilt: Optional[Union[str, float]] = None
     track_type: Optional[List[str]] = None
     has_cab: Optional[bool] = None
