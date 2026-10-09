@@ -19,3 +19,7 @@ class Grf:
     #: Optional manual NML file, relative to the project's GRF folder. When set it
     #: replaces the generated purchase-list blocks.
     purchase_list_file: str | None = None
+    #: Optional project script, relative to the project root, that the build runs before
+    #: the list is read. It is handed the items the build produced, so a list that names
+    #: their symbols cannot go stale.
+    purchase_list_script: str | None = None

@@ -36,6 +36,18 @@ class GrfLoader:
                     f"'purchase_list.file' in {self.yaml_path} must be relative to the GRF folder"
                 )
 
+        purchase_list_script = purchase_list.get("script")
+        if purchase_list_script is not None:
+            if not isinstance(purchase_list_script, str) or not purchase_list_script.strip():
+                raise ValueError(
+                    f"'purchase_list.script' in {self.yaml_path} must be a non-empty relative path"
+                )
+            purchase_list_script = purchase_list_script.strip()
+            if Path(purchase_list_script).is_absolute():
+                raise ValueError(
+                    f"'purchase_list.script' in {self.yaml_path} must be relative to the project root"
+                )
+
         logging.getLogger(__name__).debug(f"Loaded GRF data from {self.yaml_path}")
 
         return Grf(
@@ -51,4 +63,5 @@ class GrfLoader:
             usage_filters = data.get("usage_filters", []),
             purchase_list_order = purchase_list_order,
             purchase_list_file = purchase_list_file,
+            purchase_list_script = purchase_list_script,
         )

@@ -5,10 +5,13 @@ A project opts in with `purchase_list: {order: grouped}` (or `date`) in its `GRF
 the vehicle-ID order it had.
 """
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
+from Builder import Builder
 from Grf import Grf
 from NmlWriter.NmlCollator import NmlCollator
 from PropertyCalculation.TrainType import TrainType
@@ -171,6 +174,33 @@ class PurchaseListOrderValidationTests(unittest.TestCase):
 
         self.assertEqual(grf.purchase_list_file, "custom_nml/append/sortpurchase.pnml")
 
+    def test_loader_reads_a_purchase_list_script(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "GRF.yaml"
+            path.write_text(
+                "grf:\n  grfid: TEST\n  short_name: Test\n  name: Test\n  description: Test\n"
+                "versioning:\n  version: 1\n  compatible_version: 1\n"
+                "purchase_list:\n  script: tools/generate_sortpurchase.py\n"
+                "  file: custom_nml/append/sortpurchase.pnml\n",
+                encoding="utf-8",
+            )
+            grf = GrfLoader(path).load()
+
+        self.assertEqual(grf.purchase_list_script, "tools/generate_sortpurchase.py")
+        self.assertEqual(grf.purchase_list_file, "custom_nml/append/sortpurchase.pnml")
+
+    def test_loader_rejects_an_absolute_purchase_list_script(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "GRF.yaml"
+            path.write_text(
+                "grf:\n  grfid: TEST\n  short_name: Test\n  name: Test\n  description: Test\n"
+                "versioning:\n  version: 1\n  compatible_version: 1\n"
+                "purchase_list:\n  script: /tmp/generate_sortpurchase.py\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                GrfLoader(path).load()
+
     def test_loader_defaults_to_no_sorting(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "GRF.yaml"
@@ -263,6 +293,130 @@ class PurchaseListCollationTests(unittest.TestCase):
             text = Path(collated).read_text(encoding="utf-8")
 
         self.assertEqual(text.count("sort(FEAT_TRAINS, [example]);"), 1)
+
+
+class PurchaseListScriptTests(unittest.TestCase):
+    """`purchase_list.script` runs the project's own generator before the block is read.
+
+    It is handed the items this build produced, so a list that names their symbols cannot
+    go stale. With a `file` named, the script is expected to bring that file up to date and
+    the file is what the build reads; without one, what the script prints is the block.
+    """
+
+    def context(self, folder) -> SimpleNamespace:
+        grf = Grf(grfid="TEST", short_name="Test", name="Test", description="Test", version="1", compatible_version="1")
+
+        return SimpleNamespace(
+            grf=grf,
+            project=SimpleNamespace(path=Path(folder), name="Example", grfFolder="src/grf"),
+            successful_variants=[
+                _Stub("thomas_default_blue_train", "Thomas", "date(1920, 1, 1)", TrainType.LOCOMOTIVE),
+                _Stub(
+                    "toby_default_brown_tram",
+                    "Toby",
+                    "date(1920, 1, 1)",
+                    TrainType.LOCOMOTIVE,
+                    feature="FEAT_ROADVEHS",
+                ),
+            ],
+            nml_output_folder=str(Path(folder) / "WorkingData" / "Example"),
+        )
+
+    def write_script(self, folder, body: str) -> Path:
+        script = Path(folder) / "tools" / "generate_sortpurchase.py"
+        script.parent.mkdir(parents=True, exist_ok=True)
+        script.write_text(body, encoding="utf-8")
+
+        return script
+
+    def test_script_is_handed_the_items_and_the_file_it_writes_is_read(self):
+        # The script writes the block from the items it is given, using a path relative to
+        # the project root, so it also proves the script runs with that as its directory.
+        script_body = (
+            "import argparse, json\n"
+            "from pathlib import Path\n"
+            "parser = argparse.ArgumentParser()\n"
+            "parser.add_argument('--items', required=True)\n"
+            "args = parser.parse_args()\n"
+            "payload = json.loads(Path(args.items).read_text())\n"
+            "trains = [item['identifier'] for item in payload['features']['FEAT_TRAINS']]\n"
+            "Path('src/grf/custom_nml/append/sortpurchase.pnml').write_text(\n"
+            "    'sort(FEAT_TRAINS, [\\n  ' + trains[0] + '\\n]);\\n')\n"
+            "print('rebuilt the list')\n"
+        )
+
+        with tempfile.TemporaryDirectory() as folder:
+            context = self.context(folder)
+            context.grf.purchase_list_script = "tools/generate_sortpurchase.py"
+            context.grf.purchase_list_file = "custom_nml/append/sortpurchase.pnml"
+            self.write_script(folder, script_body)
+            (Path(folder) / "src" / "grf" / "custom_nml" / "append").mkdir(parents=True)
+
+            blocks, replaced = Builder._purchase_list_nml(context)
+
+            written = (Path(folder) / "src" / "grf" / "custom_nml" / "append" / "sortpurchase.pnml").read_text()
+            items = json.loads((Path(context.nml_output_folder) / "purchase_list_items.json").read_text())
+
+        self.assertEqual(blocks, [written])
+        self.assertIn("thomas_default_blue_train", written)
+        self.assertEqual(replaced, [Path(folder) / "src" / "grf" / "custom_nml" / "append" / "sortpurchase.pnml"])
+        self.assertEqual(
+            [item["identifier"] for item in items["features"]["FEAT_TRAINS"]],
+            ["thomas_default_blue_train"],
+        )
+        self.assertEqual(
+            [item["identifier"] for item in items["features"]["FEAT_ROADVEHS"]],
+            ["toby_default_brown_tram"],
+        )
+
+    def test_what_the_script_prints_is_the_block_when_no_file_is_named(self):
+        with tempfile.TemporaryDirectory() as folder:
+            context = self.context(folder)
+            context.grf.purchase_list_script = "tools/generate_sortpurchase.py"
+            self.write_script(folder, "print('sort(FEAT_TRAINS, [\\n  thomas_default_blue_train\\n]);')\n")
+
+            blocks, replaced = Builder._purchase_list_nml(context)
+
+        self.assertEqual(blocks, ["sort(FEAT_TRAINS, [\n  thomas_default_blue_train\n]);\n"])
+        self.assertEqual(replaced, [])
+
+    def test_a_script_that_prints_nothing_emits_no_order(self):
+        with tempfile.TemporaryDirectory() as folder:
+            context = self.context(folder)
+            context.grf.purchase_list_script = "tools/generate_sortpurchase.py"
+            self.write_script(folder, "pass\n")
+
+            blocks, replaced = Builder._purchase_list_nml(context)
+
+        self.assertEqual(blocks, [])
+        self.assertEqual(replaced, [])
+
+    def test_a_failing_script_fails_the_build(self):
+        with tempfile.TemporaryDirectory() as folder:
+            context = self.context(folder)
+            context.grf.purchase_list_script = "tools/generate_sortpurchase.py"
+            self.write_script(folder, "import sys\nsys.stderr.write('no items\\n')\nsys.exit(3)\n")
+
+            with self.assertRaises(RuntimeError) as caught:
+                Builder._purchase_list_nml(context)
+
+        self.assertIn("no items", str(caught.exception))
+
+    def test_a_missing_script_is_reported(self):
+        with tempfile.TemporaryDirectory() as folder:
+            context = self.context(folder)
+            context.grf.purchase_list_script = "tools/generate_sortpurchase.py"
+
+            with self.assertRaises(FileNotFoundError):
+                Builder._purchase_list_nml(context)
+
+    def test_a_script_must_stay_inside_the_project(self):
+        with tempfile.TemporaryDirectory() as folder:
+            context = self.context(folder)
+            context.grf.purchase_list_script = "../elsewhere/generate.py"
+
+            with self.assertRaises(ValueError):
+                Builder._purchase_list_nml(context)
 
 
 class _Stub:

@@ -1,5 +1,7 @@
 import hashlib
 import json
+import subprocess
+import sys
 import time
 import logging
 import re
@@ -1060,32 +1062,123 @@ class Builder:
         (relative to the GRF folder). Its contents are returned as a generated block,
         and the path is returned as well so the collator does not compile the same
         file a second time from its `custom_nml` folder.
+
+        `purchase_list.script` names a project script the build runs before the list is
+        read, so a list that has to name the build's own item symbols cannot go stale.
+        The script is handed the items this build produced and is expected to bring the
+        file up to date; when no `file` is named, what the script prints is the block.
         """
         grf = getattr(ctx, "grf", None)
         manual_file = getattr(grf, "purchase_list_file", None)
-        if manual_file:
-            path = (ctx.project.path / ctx.project.grfFolder / manual_file).resolve()
-            grf_root = (ctx.project.path / ctx.project.grfFolder).resolve()
-            if grf_root not in path.parents:
-                raise ValueError(
-                    f"'purchase_list.file' must stay inside the GRF folder: {manual_file}"
-                )
+        script = getattr(grf, "purchase_list_script", None)
+
+        blocks: list[str] = []
+
+        if script:
+            printed = Builder._run_purchase_list_script(script, ctx)
+
+            if manual_file is None:
+                if printed.strip():
+                    blocks.append(printed)
+                else:
+                    logger.warning(
+                        f"Purchase-list script '{script}' printed no block and no "
+                        "'purchase_list.file' is named: no purchase-list order will be emitted."
+                    )
+
+        if manual_file is not None:
+            path = Builder._purchase_list_path(
+                ctx, manual_file, root=ctx.project.path / ctx.project.grfFolder, setting="purchase_list.file"
+            )
             if not path.is_file():
                 raise FileNotFoundError(f"Purchase-list file not found: {path}")
             logger.info(f"Using manual purchase-list NML file: {path}")
-            return [Builder._filter_manual_purchase_list(path.read_text(encoding="utf-8"), ctx)], [path]
+            blocks.append(Builder._filter_manual_purchase_list(path.read_text(encoding="utf-8"), ctx))
+            return blocks, [path]
+
+        if script:
+            return blocks, []
 
         order = getattr(grf, "purchase_list_order", PurchaseList.NONE)
         if order == PurchaseList.NONE:
             return [], []
 
-        blocks = PurchaseList.build_blocks(ctx.successful_variants, order)
-        if blocks:
+        generated = PurchaseList.build_blocks(ctx.successful_variants, order)
+        if generated:
             logger.info(
-                f"Purchase-list order '{order}': wrote {len(blocks)} sort block(s) "
+                f"Purchase-list order '{order}': wrote {len(generated)} sort block(s) "
                 f"for {len(ctx.successful_variants)} variant(s)."
             )
-        return blocks, []
+        return generated, []
+
+    @staticmethod
+    def _purchase_list_path(ctx: BuildContext, relative: str, *, root, setting: str) -> Path:
+        """Resolve a path a purchase list names, confined to the tree it belongs in."""
+        allowed = Path(root).expanduser().resolve()
+        path = (allowed / relative).resolve()
+
+        if path != allowed and allowed not in path.parents:
+            raise ValueError(f"'{setting}' must stay inside {allowed}: {relative}")
+
+        return path
+
+    @staticmethod
+    def _purchase_list_items(ctx: BuildContext) -> Path:
+        """Write the items this build produced, per feature and in build order, for a script."""
+        features: dict[str, list[dict]] = {}
+
+        for position, variant in enumerate(ctx.successful_variants):
+            facts = PurchaseList.facts_from_variant(variant, position)
+            features.setdefault(facts.feature, []).append(
+                {
+                    "identifier": facts.identifier,
+                    "vehicle": facts.unit,
+                    "profile": str(getattr(getattr(variant, "profile", None), "identifier", "") or ""),
+                    "livery": str(getattr(getattr(variant, "livery", None), "name", "") or ""),
+                    "name": facts.name,
+                }
+            )
+
+        destination = Path(ctx.nml_output_folder) / "purchase_list_items.json"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(
+            json.dumps({"project": ctx.project.name, "features": features}, indent=1) + "\n",
+            encoding="utf-8",
+        )
+
+        return destination
+
+    @staticmethod
+    def _run_purchase_list_script(relative: str, ctx: BuildContext) -> str:
+        """Run a project's purchase-list script against this build's items, returning what it printed."""
+        script = Builder._purchase_list_path(
+            ctx, relative, root=ctx.project.path, setting="purchase_list.script"
+        )
+        if not script.is_file():
+            raise FileNotFoundError(f"Purchase-list script not found: {script}")
+
+        items = Builder._purchase_list_items(ctx)
+        completed = subprocess.run(
+            [sys.executable, str(script), "--items", str(items)],
+            cwd=str(ctx.project.path),
+            capture_output=True,
+            text=True,
+        )
+
+        for line in completed.stdout.splitlines():
+            logger.debug(f"purchase-list script: {line}")
+
+        if completed.returncode != 0:
+            raise RuntimeError(
+                f"Purchase-list script '{script}' failed with exit code {completed.returncode}: "
+                f"{completed.stderr.strip() or 'no error output'}"
+            )
+
+        logger.info(
+            f"Ran purchase-list script '{relative}' for {len(ctx.successful_variants)} variant(s)."
+        )
+
+        return completed.stdout
 
     @staticmethod
     def _filter_manual_purchase_list(text: str, ctx: BuildContext) -> str:
