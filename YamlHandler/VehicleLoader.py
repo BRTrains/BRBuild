@@ -457,6 +457,7 @@ class VehicleLoader:
             formation=lv.get("formation"),
             sprite_override=lv.get("sprite_override"),
             sprite_exclude=lv.get("sprite_exclude"),
+            sprite_group=lv.get("sprite_group"),
             profiles=lv.get("profiles"),
             capacity=lv.get("capacity"),
             power=lv.get("power"),

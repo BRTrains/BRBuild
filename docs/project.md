@@ -222,11 +222,13 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `spritesheet`: A spritesheet of this profile's own, instead of the candidate's `<Vehicle>.png` (see Standalone spritesheets below).
     *   `cargo`: Cargo preset or classes for this profile, overriding the vehicle's `cargo`.
     *   `special_tags`: List of custom tags triggering special badges for this profile's variants.
+    *   `sprite_group`: Identifier of another profile of this unit whose drawings this profile reuses, instead of consuming rows of its own. Sharing is keyed by the *livery* name, so the two profiles draw from the sheet once: use it when two profiles differ only in statistics, or when one formation is drawn once for several names.
     *   `types`: Target vehicle type variants (e.g. `[train, tram]`). Rows are matched once per vehicle, against the vehicle's own `stats.vehicle_type`, so a variant emitted as a road vehicle is drawn with the `tmpl_tram_*` twin of whichever template its row matched: the twins are deliberately the same shape as the train templates and differ only in the offsets that place a tram on the road. Both variants of a profile therefore share one set of sprites, with different placement.
 *   **`liveries`**: Visual variations (liveries) available for the vehicle.
     *   `name`: Name of the livery.
     *   `sprite_override`: Custom sprite template file to map.
     *   `profiles`: List of profile identifiers this livery applies to.
+    *   `sprite_group`: Name of another livery of this profile whose drawings this livery reuses, instead of consuming rows of its own — the same idea as the profile field, across the other axis. Sharing is keyed by livery name within the profile, and the livery's statement wins where both are given, so a unit whose drawings serve several names needs one set of rows. The named livery must be a real livery of the unit (a group only has rows once it has been built).
     *   `capacity`: Cargo capacity for this livery's variants; resolves livery, then profile, then vehicle.
     *   `power`: Power in hp for this livery; resolves livery, then profile, then vehicle.
     *   `weight`: Weight in metric tons for this livery; resolves livery, then profile, then vehicle.

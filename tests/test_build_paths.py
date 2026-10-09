@@ -1085,6 +1085,89 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(before_sets, after_sets)
         self.assertEqual(allocator.cursor, 3)
 
+    def test_a_livery_can_share_another_liveries_sprite_rows(self):
+        """A livery `sprite_group` lets several liveries of one profile use one set of drawings."""
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        from Vehicle.VariantSpriteGroups import VehicleSpriteAllocator
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.yaml_path = "/tmp/example/example.yaml"
+        profile = Profile("DEFAULT", num_vehicles=3)
+        base = Livery("Old Shape, Pacific, Green")
+        shared = Livery("New shape, Green", sprite_group="Old Shape, Pacific, Green")
+        also_shared = Livery("Third shape, Green", sprite_group="old shape, pacific, green")
+        vehicle.profiles = [profile]
+        vehicle.liveries = [base, shared, also_shared]
+
+        rows = [(SimpleNamespace(name=f"row{index}"), SimpleNamespace(name="tmpl_train_6", length=4))
+                for index in range(1, 4)]
+
+        def fake_init(self, vehicle, palette, definitions):
+            self.vehicle = vehicle
+            self.is_ohle = False
+            self._image = None
+            self._palette = palette
+            self.vehicle_rows = rows
+            self.cursor = 0
+            self._assigned_rows = {}
+            self._spritesets = {}
+            self._template_names = {}
+            self._lengths = {}
+            self._definitions = {}
+
+        with patch.object(VehicleSpriteAllocator, "__init__", fake_init):
+            allocator = VehicleSpriteAllocator(vehicle, [], [])
+
+        base_sets, _, _ = allocator.get(profile, base)
+        shared_sets, _, _ = allocator.get(profile, shared)
+        other_sets, _, _ = allocator.get(profile, also_shared)
+
+        # Same drawings for all three, and the sheet was only consumed once.
+        self.assertEqual(base_sets, shared_sets)
+        self.assertEqual(base_sets, other_sets)
+        self.assertEqual(allocator.cursor, 3)
+
+    def test_a_livery_sprite_group_naming_nothing_fails_loudly(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        from Vehicle.VariantSpriteGroups import VehicleSpriteAllocator
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.yaml_path = "/tmp/example/example.yaml"
+        profile = Profile("DEFAULT", num_vehicles=1)
+        vehicle.profiles = [profile]
+        vehicle.liveries = [Livery("Green", sprite_group="Nowhere")]
+
+        def fake_init(self, vehicle, palette, definitions):
+            self.vehicle = vehicle
+            self.is_ohle = False
+            self._image = None
+            self._palette = palette
+            self.vehicle_rows = []
+            self.cursor = 0
+            self._assigned_rows = {}
+            self._spritesets = {}
+            self._template_names = {}
+            self._lengths = {}
+            self._definitions = {}
+
+        with patch.object(VehicleSpriteAllocator, "__init__", fake_init):
+            allocator = VehicleSpriteAllocator(vehicle, [], [])
+
+        with self.assertRaises(ValueError) as caught:
+            allocator.get(profile, vehicle.liveries[0])
+
+        self.assertIn("Nowhere", str(caught.exception))
+
     def test_a_profile_can_override_the_introduction_date(self):
         from Vehicle.Livery import Livery
         from Vehicle.Profile import Profile

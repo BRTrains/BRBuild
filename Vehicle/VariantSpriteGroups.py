@@ -292,14 +292,30 @@ class VehicleSpriteAllocator:
 		A profile declaring `sprite_group: <profile identifier>` reuses the rows already
 		assigned to that profile's matching livery instead of consuming its own, so two
 		profiles that differ only in statistics (e.g. a unit whose service speed changed
-		after a modification) need one set of drawings, not two.
+		after a modification) need one set of drawings, not two. A livery declaring
+		`sprite_group: <livery name>` does the same across the other axis: it reuses the
+		rows of that livery in this profile, so one set of drawings can serve several
+		liveries of one formation. The livery's statement wins where both are given.
 		"""
 		key = (str(profile.identifier), str(livery.name))
 
 		if key not in self._spritesets:
 			group = _build_group(profile, livery, self.vehicle, self.is_ohle)
 			source = getattr(profile, "sprite_group", None)
-			if source and str(source) != str(profile.identifier):
+			livery_source = getattr(livery, "sprite_group", None)
+
+			if livery_source and str(livery_source).strip().lower() != str(livery.name).strip().lower():
+				base_livery = self._source_livery(livery_source)
+				group_slice = self._shared_livery_rows(profile, base_livery)
+				# The shared rows keep the sheet the source group drew them from.
+				self._record_sheet(
+					key,
+					getattr(self, "_sheet_paths", {}).get(
+						(str(profile.identifier), str(base_livery.name)),
+						self.vehicle.spritesheet_path,
+					),
+				)
+			elif source and str(source) != str(profile.identifier):
 				group_slice = self._shared_rows(profile, livery, source)
 				# The shared rows keep the sheet the source group drew them from.
 				self._record_sheet(
@@ -455,6 +471,35 @@ class VehicleSpriteAllocator:
 			# Resolve the source group so its rows exist, whichever order the iterator
 			# asks for the two profiles in.
 			self.get(base, livery)
+
+		return self._assigned_rows[source_key]
+
+	def _source_livery(self, source: str) -> Livery:
+		"""Return the livery a `sprite_group` names, or fail loudly."""
+		base = next(
+			(
+				other
+				for other in self.vehicle.liveries
+				if str(other.name).strip().lower() == str(source).strip().lower()
+			),
+			None,
+		)
+
+		if base is None:
+			raise ValueError(
+				f"sprite_group '{source}' is not a livery of {self.vehicle.identifier}."
+			)
+
+		return base
+
+	def _shared_livery_rows(self, profile: Profile, base: Livery) -> list:
+		"""Return the rows assigned to another livery of this profile."""
+		source_key = (str(profile.identifier), str(base.name))
+
+		if source_key not in self._assigned_rows:
+			# Resolve the source group so its rows exist, whichever order the iterator
+			# asks for the two liveries in.
+			self.get(profile, base)
 
 		return self._assigned_rows[source_key]
 

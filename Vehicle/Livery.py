@@ -12,6 +12,9 @@ class Livery:
     sprite_override: Optional[List[int]] = None
     sprite_exclude: Optional[List[int]] = None
     profiles: Optional[List[str]] = None
+    #: Reuse another livery's drawings (of this profile) instead of consuming rows of its own.
+    #: The profile field of the same name reuses a profile's rows for the same livery.
+    sprite_group: Optional[str] = None
     capacity: Optional[int] = None
     power: Optional[int] = None
     speed: Optional[int] = None
