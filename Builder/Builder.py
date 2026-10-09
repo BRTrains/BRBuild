@@ -1063,28 +1063,14 @@ class Builder:
         and the path is returned as well so the collator does not compile the same
         file a second time from its `custom_nml` folder.
 
-        `purchase_list.script` names a project script the build runs before the list is
-        read, so a list that has to name the build's own item symbols cannot go stale.
-        The script is handed the items this build produced and is expected to bring the
-        file up to date; when no `file` is named, what the script prints is the block.
+        `purchase_list.script` names a project script the build runs, so a list that has to
+        name the build's own item symbols cannot go stale. The script is handed the items
+        this build produced and returns the list it built; the build stores that in its own
+        working data (never in the project) and compiles it.
         """
         grf = getattr(ctx, "grf", None)
         manual_file = getattr(grf, "purchase_list_file", None)
         script = getattr(grf, "purchase_list_script", None)
-
-        blocks: list[str] = []
-
-        if script:
-            printed = Builder._run_purchase_list_script(script, ctx)
-
-            if manual_file is None:
-                if printed.strip():
-                    blocks.append(printed)
-                else:
-                    logger.warning(
-                        f"Purchase-list script '{script}' printed no block and no "
-                        "'purchase_list.file' is named: no purchase-list order will be emitted."
-                    )
 
         if manual_file is not None:
             path = Builder._purchase_list_path(
@@ -1093,11 +1079,24 @@ class Builder:
             if not path.is_file():
                 raise FileNotFoundError(f"Purchase-list file not found: {path}")
             logger.info(f"Using manual purchase-list NML file: {path}")
-            blocks.append(Builder._filter_manual_purchase_list(path.read_text(encoding="utf-8"), ctx))
-            return blocks, [path]
+            return [Builder._filter_manual_purchase_list(path.read_text(encoding="utf-8"), ctx)], [path]
 
         if script:
-            return blocks, []
+            block = Builder._run_purchase_list_script(script, ctx)
+
+            if not block.strip():
+                logger.warning(
+                    f"Purchase-list script '{script}' returned no block: no purchase-list order "
+                    "will be emitted."
+                )
+                return [], []
+
+            stored = Builder._write_purchase_list(ctx, block)
+            logger.info(
+                f"Purchase-list script '{script}' returned {len(block.splitlines())} line(s), "
+                f"stored at {stored}."
+            )
+            return [block], []
 
         order = getattr(grf, "purchase_list_order", PurchaseList.NONE)
         if order == PurchaseList.NONE:
@@ -1110,6 +1109,15 @@ class Builder:
                 f"for {len(ctx.successful_variants)} variant(s)."
             )
         return generated, []
+
+    @staticmethod
+    def _write_purchase_list(ctx: BuildContext, block: str) -> Path:
+        """Store a script's purchase list in the build's own working data, not the project."""
+        destination = Path(ctx.nml_output_folder) / "purchase_list.pnml"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(block.rstrip("\n") + "\n", encoding="utf-8")
+
+        return destination
 
     @staticmethod
     def _purchase_list_path(ctx: BuildContext, relative: str, *, root, setting: str) -> Path:

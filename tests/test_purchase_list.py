@@ -180,14 +180,25 @@ class PurchaseListOrderValidationTests(unittest.TestCase):
             path.write_text(
                 "grf:\n  grfid: TEST\n  short_name: Test\n  name: Test\n  description: Test\n"
                 "versioning:\n  version: 1\n  compatible_version: 1\n"
-                "purchase_list:\n  script: tools/generate_sortpurchase.py\n"
-                "  file: custom_nml/append/sortpurchase.pnml\n",
+                "purchase_list:\n  script: tools/generate_sortpurchase.py\n",
                 encoding="utf-8",
             )
             grf = GrfLoader(path).load()
 
         self.assertEqual(grf.purchase_list_script, "tools/generate_sortpurchase.py")
-        self.assertEqual(grf.purchase_list_file, "custom_nml/append/sortpurchase.pnml")
+
+    def test_loader_rejects_naming_both_a_file_and_a_script(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "GRF.yaml"
+            path.write_text(
+                "grf:\n  grfid: TEST\n  short_name: Test\n  name: Test\n  description: Test\n"
+                "versioning:\n  version: 1\n  compatible_version: 1\n"
+                "purchase_list:\n  script: tools/generate_sortpurchase.py\n"
+                "  file: custom_nml/append/sortpurchase.pnml\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                GrfLoader(path).load()
 
     def test_loader_rejects_an_absolute_purchase_list_script(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -329,9 +340,10 @@ class PurchaseListScriptTests(unittest.TestCase):
 
         return script
 
-    def test_script_is_handed_the_items_and_the_file_it_writes_is_read(self):
-        # The script writes the block from the items it is given, using a path relative to
-        # the project root, so it also proves the script runs with that as its directory.
+    def test_script_is_handed_the_items_and_its_returned_block_is_stored(self):
+        # The script builds the block from the items it is given, so this also proves the
+        # items handover; it reports its own progress on stdout as well as the block, and
+        # nothing is written into the project.
         script_body = (
             "import argparse, json\n"
             "from pathlib import Path\n"
@@ -340,26 +352,27 @@ class PurchaseListScriptTests(unittest.TestCase):
             "args = parser.parse_args()\n"
             "payload = json.loads(Path(args.items).read_text())\n"
             "trains = [item['identifier'] for item in payload['features']['FEAT_TRAINS']]\n"
-            "Path('src/grf/custom_nml/append/sortpurchase.pnml').write_text(\n"
-            "    'sort(FEAT_TRAINS, [\\n  ' + trains[0] + '\\n]);\\n')\n"
-            "print('rebuilt the list')\n"
+            "print('sort(FEAT_TRAINS, [')\n"
+            "for identifier in trains:\n"
+            "    print('  ' + identifier + ',')\n"
+            "print(']);')\n"
         )
 
         with tempfile.TemporaryDirectory() as folder:
             context = self.context(folder)
             context.grf.purchase_list_script = "tools/generate_sortpurchase.py"
-            context.grf.purchase_list_file = "custom_nml/append/sortpurchase.pnml"
             self.write_script(folder, script_body)
-            (Path(folder) / "src" / "grf" / "custom_nml" / "append").mkdir(parents=True)
 
             blocks, replaced = Builder._purchase_list_nml(context)
 
-            written = (Path(folder) / "src" / "grf" / "custom_nml" / "append" / "sortpurchase.pnml").read_text()
+            stored = (Path(context.nml_output_folder) / "purchase_list.pnml").read_text()
             items = json.loads((Path(context.nml_output_folder) / "purchase_list_items.json").read_text())
+            project_files = sorted(path.name for path in Path(folder).glob("src/**/*.pnml"))
 
-        self.assertEqual(blocks, [written])
-        self.assertIn("thomas_default_blue_train", written)
-        self.assertEqual(replaced, [Path(folder) / "src" / "grf" / "custom_nml" / "append" / "sortpurchase.pnml"])
+        self.assertEqual(blocks, [stored])
+        self.assertIn("thomas_default_blue_train", stored)
+        self.assertEqual(replaced, [])
+        self.assertEqual(project_files, [], "the list must not be written into the project")
         self.assertEqual(
             [item["identifier"] for item in items["features"]["FEAT_TRAINS"]],
             ["thomas_default_blue_train"],
@@ -369,18 +382,22 @@ class PurchaseListScriptTests(unittest.TestCase):
             ["toby_default_brown_tram"],
         )
 
-    def test_what_the_script_prints_is_the_block_when_no_file_is_named(self):
+    def test_a_static_file_is_used_when_no_script_is_named(self):
         with tempfile.TemporaryDirectory() as folder:
             context = self.context(folder)
-            context.grf.purchase_list_script = "tools/generate_sortpurchase.py"
-            self.write_script(folder, "print('sort(FEAT_TRAINS, [\\n  thomas_default_blue_train\\n]);')\n")
+            context.grf.purchase_list_file = "custom_nml/append/sortpurchase.pnml"
+            block = Path(folder) / "src" / "grf" / "custom_nml" / "append" / "sortpurchase.pnml"
+            block.parent.mkdir(parents=True)
+            block.write_text("sort(FEAT_TRAINS, [\n  thomas_default_blue_train\n]);\n", encoding="utf-8")
 
             blocks, replaced = Builder._purchase_list_nml(context)
 
-        self.assertEqual(blocks, ["sort(FEAT_TRAINS, [\n  thomas_default_blue_train\n]);\n"])
-        self.assertEqual(replaced, [])
+            expected = block.read_text(encoding="utf-8")
 
-    def test_a_script_that_prints_nothing_emits_no_order(self):
+        self.assertEqual(blocks, [expected])
+        self.assertEqual(replaced, [block])
+
+    def test_a_script_that_returns_nothing_emits_no_order(self):
         with tempfile.TemporaryDirectory() as folder:
             context = self.context(folder)
             context.grf.purchase_list_script = "tools/generate_sortpurchase.py"
@@ -388,8 +405,11 @@ class PurchaseListScriptTests(unittest.TestCase):
 
             blocks, replaced = Builder._purchase_list_nml(context)
 
+            stored = Path(context.nml_output_folder) / "purchase_list.pnml"
+
         self.assertEqual(blocks, [])
         self.assertEqual(replaced, [])
+        self.assertFalse(stored.exists())
 
     def test_a_failing_script_fails_the_build(self):
         with tempfile.TemporaryDirectory() as folder:

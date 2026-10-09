@@ -48,6 +48,12 @@ class GrfLoader:
                     f"'purchase_list.script' in {self.yaml_path} must be relative to the project root"
                 )
 
+        if purchase_list_file is not None and purchase_list_script is not None:
+            raise ValueError(
+                f"'purchase_list' in {self.yaml_path} names both a 'file' and a 'script': "
+                "name the static list, or the script that produces it, not both"
+            )
+
         logging.getLogger(__name__).debug(f"Loaded GRF data from {self.yaml_path}")
 
         return Grf(
