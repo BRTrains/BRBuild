@@ -45,8 +45,13 @@ class TemplateLoaderNML:
 
 	def read_folder(self, folder: str) -> list[TemplateDefinition]:
 		"""Read every .pnml file in a folder and return their combined template definitions."""
+		root = Path(folder)
+		paths = sorted(root.glob("*.pnml"))
+		if not paths and (root / "archive").is_dir():
+			paths = sorted((root / "archive").glob("*.pnml"))
+
 		definitions: list[TemplateDefinition] = []
-		for path in sorted(Path(folder).glob("*.pnml")):
+		for path in paths:
 			definitions.extend(self.read(str(path)))
 		return definitions
 
