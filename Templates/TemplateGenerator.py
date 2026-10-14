@@ -42,7 +42,19 @@ class TemplateGenerator:
         for definition in self.definitions():
             lines.extend(self._render_definition(definition))
             lines.append("")
+            if self._is_modern_train(definition):
+                lines.extend(self._render_definition(self._generic_definition(definition)))
+                lines.append("")
         return "\n".join(lines)
+
+    @staticmethod
+    def _generic_definition(definition: TemplateDefinition) -> TemplateDefinition:
+        boxes = [
+            replace(box, offset_x=box.offset_x - (2 if index in (1, 3, 5, 7) else 0),
+                    offset_y=box.offset_y - (1 if index in (1, 3, 5, 7) else 0))
+            for index, box in enumerate(definition.bounding_boxes)
+        ]
+        return replace(definition, name=f"{definition.name}_generic", bounding_boxes=boxes)
 
     def _correct(self, definition: TemplateDefinition) -> TemplateDefinition:
         if not self._is_modern_train(definition):
@@ -67,13 +79,15 @@ class TemplateGenerator:
         lines = [f"template {definition.name}(x, y)", "{"]
         for box in definition.bounding_boxes:
             flags = "|".join(box.flags)
+            offset_x = str(box.offset_x)
+            offset_y = str(box.offset_y)
             fields = [
                 f"x+{box.left_x}",
                 f"y+{box.upper_y}",
                 str(box.width),
                 str(box.height),
-                str(box.offset_x),
-                str(box.offset_y),
+                offset_x,
+                offset_y,
             ]
             if flags or box.filename or box.mask:
                 fields.append(flags or "0")

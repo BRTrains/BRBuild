@@ -35,6 +35,12 @@ class TemplateGeneratorTests(unittest.TestCase):
             (-3, -19), (-12, -13), (-15, -15), (-8, -16),
         ])
 
+    def test_renders_iron_horse_and_generic_templates(self):
+        rendered = TemplateGenerator(REPO_ROOT / "Templates" / "archive").render()
+        self.assertIn("template tmpl_train_8_generic", rendered)
+        self.assertIn("[x+9, y+0, 22, 19, -17, -12, NOANIM]", rendered)
+        self.assertNotIn("param_align_with", rendered)
+
     def test_does_not_adjust_legacy_train_offsets(self):
         boxes = self.by_name["tmpl_train_8_old"].bounding_boxes
         self.assertEqual((boxes[0].offset_x, boxes[0].offset_y), (-3, -11))

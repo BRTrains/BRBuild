@@ -11,11 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 class NmlVariantWriter(BaseNmlWriter):
-    def __init__(self, variant_model, output_path):
+    def __init__(self, variant_model, output_path, alignment_param_index=4):
         super().__init__()
         self.variant = variant_model
         self.switch_writer = NmlSwitchWriter()
-        self.spriteset_writer = NmlSpritesetWriter()
+        self.spriteset_writer = NmlSpritesetWriter(alignment_param_index)
 
         self.filepath = str(Path(output_path) / variant_model.nml_filename)
 
@@ -122,7 +122,12 @@ class NmlVariantWriter(BaseNmlWriter):
         for spriteset, template_name, name in zip(spritesets, template_names, names):
             if name in written_names:
                 continue
-            self.spriteset_writer.write(f, spriteset, template_name, name=name)
+            if self._is_alignable_template(template_name):
+                self.spriteset_writer.write_aligned(
+                    f, spriteset, template_name, name, self.switch_writer, self._feature(variant)
+                )
+            else:
+                self.spriteset_writer.write(f, spriteset, template_name, name=name)
             written_names.add(name)
 
         switch_name = getattr(variant, "sprite_switch_name", None)
@@ -166,9 +171,17 @@ class NmlVariantWriter(BaseNmlWriter):
                 x=0,
                 y=0,
             )
-            self.spriteset_writer.write(f, blank, template_name, name=name)
+            self.spriteset_writer.write_aligned(
+                f, blank, template_name, name, self.switch_writer, self._feature(variant)
+            ) if self._is_alignable_template(template_name) else self.spriteset_writer.write(
+                f, blank, template_name, name=name
+            )
             emitted[template_name] = name
         return emitted[template_name]
+
+    @staticmethod
+    def _is_alignable_template(template_name):
+        return template_name.startswith("tmpl_train_") and "_old" not in template_name
 
     def _write_lighting(self, f, variant):
         """Write the second sprite layer: the published drawing with the lamps of the other state.
@@ -205,10 +218,13 @@ class NmlVariantWriter(BaseNmlWriter):
             plain_name = f"{name}_no_light"
             has_lamps = base.y in lamp_rows
             if overlay_name not in written:
-                self.spriteset_writer.write(
-                    f, as_spriteset(overlay_path if has_lamps else transparent_path, base, overlay_name),
-                    template_name, name=overlay_name,
-                )
+                overlay_sprite = as_spriteset(overlay_path if has_lamps else transparent_path, base, overlay_name)
+                if self._is_alignable_template(template_name):
+                    self.spriteset_writer.write_aligned(
+                        f, overlay_sprite, template_name, overlay_name, self.switch_writer, feature
+                    )
+                else:
+                    self.spriteset_writer.write(f, overlay_sprite, template_name, name=overlay_name)
                 written.add(overlay_name)
             if has_lamps:
                 plain_name = self._transparent_spriteset(f, variant, base, template_name, transparent_path)

@@ -148,10 +148,27 @@ class Builder:
     def _load_grf(self, ctx: BuildContext):
         loader = GrfLoader(ctx.project.path / ctx.project.grfFolder / "GRF.yaml")
         grf = loader.load()
+        if self._is_default_template_folder(self._resolve_template_folder(ctx)):
+            ctx.template_alignment_param_index = self._ensure_template_alignment_param(grf)
         ctx.grf = grf
         writer = NmlGrfWriter(grf)
         output_path = Path(ctx.nml_output_folder) / "GRF.gnml"
         ctx.nml_files.append(writer.write_grf_gnml(output_path))
+
+    @staticmethod
+    def _ensure_template_alignment_param(grf):
+        if any(param.get("identifier") == "param_align_with" for param in grf.params):
+            return next(i for i, param in enumerate(grf.params) if param.get("identifier") == "param_align_with")
+        grf.params.append({
+            "identifier": "param_align_with",
+            "name_str": "Align with",
+            "desc_str": "Choose the sprite offset alignment convention",
+            "min_value": 0,
+            "max_value": 1,
+            "def_value": 1,
+            "names": {0: "Generic", 1: "Iron Horse"},
+        })
+        return len(grf.params) - 1
 
     def _load_railtypes(self, ctx: BuildContext):
         """Load the project's `RailTypes.yaml`, if it has one, and emit it as NML.
@@ -218,8 +235,8 @@ class Builder:
         ctx.nml_files.append(str(output_path))
 
     @staticmethod
-    def _is_default_template_folder(template_dir: Path) -> bool:
-        return template_dir.resolve() == (Path(__file__).resolve().parent.parent / "Templates").resolve()
+    def _is_default_template_folder(template_dir: Path | None) -> bool:
+        return template_dir is not None and template_dir.resolve() == (Path(__file__).resolve().parent.parent / "Templates").resolve()
 
     def _resolve_template_folder(self, ctx: BuildContext) -> Path | None:
         if ctx.project is not None and ctx.project.templateFolder:
@@ -236,11 +253,7 @@ class Builder:
         if ctx.template_definitions is None:
             template_dir = self._resolve_template_folder(ctx)
             if template_dir and self._is_default_template_folder(template_dir):
-                generated_path = Path(ctx.nml_output_folder) / "Templates.gnml"
-                if generated_path.is_file():
-                    ctx.template_definitions = TemplateLoaderNML().read(str(generated_path))
-                else:
-                    ctx.template_definitions = TemplateGenerator(template_dir / "archive").definitions()
+                ctx.template_definitions = TemplateGenerator(template_dir / "archive").definitions()
             else:
                 ctx.template_definitions = TemplateLoaderNML().read_folder(str(template_dir)) if template_dir else []
 
@@ -455,7 +468,10 @@ class Builder:
                 self._assign_variant_group(variant, variant_groups)
 
                 try:
-                    variant_writer = NmlVariantWriter(variant, ctx.nml_output_folder)
+                    variant_writer = NmlVariantWriter(
+                        variant, ctx.nml_output_folder,
+                        ctx.template_alignment_param_index if ctx.template_alignment_param_index is not None else 4,
+                    )
                     nml_file = variant_writer.write()
                     ctx.nml_files.append(nml_file)
                     ctx.variant_owners[str(nml_file)] = vehicle.identifier
