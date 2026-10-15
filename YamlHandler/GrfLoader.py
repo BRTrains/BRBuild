@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from Grf import Grf
+from Grf import DEFAULT_GLOBAL_PROPERTIES, Grf
 from Vehicle.PurchaseList import parse_order
 
 
@@ -54,6 +54,11 @@ class GrfLoader:
                 "name the static list, or the script that produces it, not both"
             )
 
+        global_properties = dict(DEFAULT_GLOBAL_PROPERTIES)
+        configured_global_properties = data.get("global_properties", {}) or {}
+        if not isinstance(configured_global_properties, dict):
+            raise ValueError(f"'global_properties' in {self.yaml_path} must be a mapping")
+        global_properties.update(configured_global_properties)
         logging.getLogger(__name__).debug(f"Loaded GRF data from {self.yaml_path}")
 
         return Grf(
@@ -66,6 +71,7 @@ class GrfLoader:
             params = data.get("params", []),
             global_vehicle_switches = data.get("global_vehicle_switches", []),
             global_actions = data.get("global_actions", []),
+            global_properties = global_properties,
             usage_filters = data.get("usage_filters", []),
             purchase_list_order = purchase_list_order,
             purchase_list_file = purchase_list_file,

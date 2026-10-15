@@ -56,6 +56,7 @@ class NmlGrfWriter(BaseNmlWriter):
 
             self.writeline(f, "}\n\n", indent=0)
 
+            self.write_global_properties(f)
             self.write_vehicle_switches(f)
             self.write_global_actions(f)
 
@@ -80,6 +81,13 @@ class NmlGrfWriter(BaseNmlWriter):
 
         logger.info(f"Railtype table written to {output_path}")
         return output_path
+
+    def write_global_properties(self, f):
+        """Write compile-time NML globals from the project's key-value map."""
+        for key, value in self.config.global_properties.items():
+            self.writeline(f, f"{key} = {value};", indent=0)
+        if self.config.global_properties:
+            self.writeline(f, "", indent=0)
 
     def write_global_actions(self, f):
         """Write parameter-controlled top-level NML actions."""

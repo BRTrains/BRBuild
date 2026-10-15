@@ -1,6 +1,12 @@
 from dataclasses import dataclass, field
 
 
+DEFAULT_GLOBAL_PROPERTIES = {
+    "traininfo_y_offset": 2,
+    "train_width_32_px": 1,
+}
+
+
 @dataclass
 class Grf:
     grfid: str
@@ -12,6 +18,7 @@ class Grf:
     params: list = field(default_factory=list)
     global_vehicle_switches: list = field(default_factory=list)
     global_actions: list = field(default_factory=list)
+    global_properties: dict = field(default_factory=lambda: dict(DEFAULT_GLOBAL_PROPERTIES))
     usage_filters: list = field(default_factory=list)
     #: How the purchase list is ordered: `none` (vehicle-ID order, the default),
     #: `date`, or `grouped` (see `Vehicle/PurchaseList.py`).

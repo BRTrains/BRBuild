@@ -18,6 +18,10 @@ class GlobalActionsTests(unittest.TestCase):
             grf = GrfLoader(path).load()
 
         self.assertEqual(
+            grf.global_properties,
+            {"traininfo_y_offset": 2, "train_width_32_px": 1},
+        )
+        self.assertEqual(
             grf.global_actions,
             [{"condition": "param_hide == 1", "action": "disable_item(FEAT_TRAINS)"}],
         )
@@ -38,6 +42,7 @@ class GlobalActionsTests(unittest.TestCase):
             output = NmlGrfWriter(grf).write_grf_gnml(Path(folder) / "GRF.gnml")
             text = output.read_text(encoding="utf-8")
 
+        self.assertIn("traininfo_y_offset = 2;\ntrain_width_32_px = 1;", text)
         self.assertIn(
             "if (param_hide == 1)\n{\n\tdisable_item(FEAT_TRAINS);\n}",
             text,
