@@ -24,6 +24,15 @@ class Livery:
     introduction_date: Optional[Union[str, int]] = None
     years_available: Optional[int] = None
     vehicle_life: Optional[int] = None
+    effect_vehicles: Optional[List[int]] = None
+    effect_vehicles_by_power: Optional[dict] = None
+    pantograph_car: Optional[Union[int, List[int]]] = None
+    effect_x_offset: Optional[int] = None
+    effect_y_offset: Optional[int] = None
+    effect_z_offset: Optional[int] = None
+    effect_offsets_by_power: Optional[dict] = None
+    effect_sprite: Optional[str] = None
+    effect_sprites_by_power: Optional[dict] = None
     tilt: Optional[Union[str, float]] = None
     track_type: Optional[List[str]] = None
     has_cab: Optional[bool] = None

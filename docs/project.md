@@ -344,8 +344,13 @@ mechanics OpenTTD does have (see `PropertyCalculation/FuelDefaults.py` and
   `SOUND_*` constant, a `sound("file")` from this GRF, or a switch name. It is emitted as
   the `sound_effect` graphics callback.
 - **Advanced visual effects**: standard trains receive the power-type-specific
-  `effect_spawn_model_and_powered` property. Custom `create_effect` switches remain
-  intentionally unsupported until the special legacy offsets are modelled.
+  `effect_spawn_model_and_powered` property and a generated `create_effect` switch. The
+  default effect positions are steam position 1, every diesel/DMU position, every powered-rail
+  position, and an inferred OHLE pantograph position. Use `effect_vehicles`,
+  `effect_vehicles_by_power`, or `pantograph_car` to override positions; use
+  `effect_x_offset`, `effect_y_offset`, `effect_z_offset`, and the corresponding
+  `effect_offsets_by_power` map to override placement. `effect_sprite` and
+  `effect_sprites_by_power` select the built-in OpenTTD effect sprite.
 - **Visual effect**: emitted only when the fuel's effect differs from what the engine class
   already gives. Hydrogen, battery and gas turbine get `VISUAL_EFFECT_DISABLE` because
   OpenTTD has no water-vapour effect and a self-powered unit should not clag like a diesel.

@@ -1297,6 +1297,34 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(road["running_cost_base"], "RUNNING_COST_ROADVEH")
         self.assertNotIn("effect_spawn_model_and_powered", road)
 
+    def test_effect_generation_uses_power_type_offsets_and_articulated_positions(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+
+        electric = Vehicle(
+            folder_path=".", identifier="emu", name="EMU", power_type=["electric"],
+            effect_offsets_by_power={"ohle": {"x": 2, "z": 7}},
+        )
+        variant = Variant(electric, Livery("Default"), Profile("Default"), VehicleType.TRAIN)
+        variant.sprite_pattern = [1, 4, 3, 4, 4, 4, 2]
+        variant.process()
+        self.assertEqual(variant.effect_positions, [3])
+        self.assertEqual(variant.effect_offsets, {"x": 2, "y": 0, "z": 7})
+        self.assertEqual(variant.effect_sprite, "EFFECT_SPRITE_ELECTRIC")
+
+        rail = Vehicle(
+            folder_path=".", identifier="rail", name="Rail", power_type=["electric"],
+            track_type=["THIRD"], effect_vehicles=[2],
+            effect_z_offset=9, effect_offsets_by_power={"powered_rail": {"z": -6}},
+        )
+        variant = Variant(rail, Livery("Default"), Profile("Default"), VehicleType.TRAIN)
+        variant.sprite_pattern = [1, 3, 2]
+        variant.process()
+        self.assertEqual(variant.effect_positions, [2])
+        self.assertEqual(variant.effect_offsets["z"], -6)
+
     def test_yaml_loads_life_fields_at_vehicle_profile_and_livery_scope(self):
         from YamlHandler.VehicleLoader import VehicleLoader
 

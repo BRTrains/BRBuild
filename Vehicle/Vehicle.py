@@ -72,6 +72,15 @@ class Vehicle:
     model_life: Optional[str] = None
     retire_early: Optional[int] = None
     vehicle_life: Optional[int] = None
+    effect_vehicles: Optional[List[int]] = None
+    effect_vehicles_by_power: Optional[dict] = None
+    pantograph_car: Optional[Union[int, List[int]]] = None
+    effect_x_offset: Optional[int] = None
+    effect_y_offset: Optional[int] = None
+    effect_z_offset: Optional[int] = None
+    effect_offsets_by_power: Optional[dict] = None
+    effect_sprite: Optional[str] = None
+    effect_sprites_by_power: Optional[dict] = None
     cargo_age_period: Optional[int] = None
     loading_speed: Optional[int] = None
     sound_effect: Optional[str] = None

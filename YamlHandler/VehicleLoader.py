@@ -168,6 +168,15 @@ class VehicleLoader:
             model_life=data.get("model_life"),
             retire_early=data.get("retire_early"),
             vehicle_life=data.get("vehicle_life"),
+            effect_vehicles=VehicleLoader._parse_effect_vehicles(data.get("effect_vehicles"), path),
+            effect_vehicles_by_power=VehicleLoader._parse_effect_vehicle_map(data.get("effect_vehicles_by_power"), path),
+            pantograph_car=VehicleLoader._parse_effect_vehicles(data.get("pantograph_car"), path),
+            effect_x_offset=data.get("effect_x_offset"),
+            effect_y_offset=data.get("effect_y_offset"),
+            effect_z_offset=data.get("effect_z_offset"),
+            effect_offsets_by_power=VehicleLoader._parse_effect_offset_map(data.get("effect_offsets_by_power"), path),
+            effect_sprite=data.get("effect_sprite"),
+            effect_sprites_by_power=VehicleLoader._parse_effect_sprite_map(data.get("effect_sprites_by_power"), path),
             cargo_age_period=data.get("cargo_age_period"),
             loading_speed=data.get("loading_speed"),
             # Accept either the root or `stats` block, since authoring one way and
@@ -331,6 +340,53 @@ class VehicleLoader:
         return parsed or None
 
     @staticmethod
+    def _parse_effect_vehicles(raw: Any, where: str) -> list[int] | None:
+        if raw is None:
+            return None
+        values = [raw] if isinstance(raw, int) and not isinstance(raw, bool) else raw
+        if not isinstance(values, (list, tuple)):
+            raise ValueError(f"effect vehicle positions in {where} must be an integer or list")
+        parsed = []
+        for value in values:
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError(f"effect vehicle positions in {where} must be positive integers")
+            if value not in parsed:
+                parsed.append(value)
+        return parsed
+
+    @staticmethod
+    def _parse_effect_vehicle_map(raw: Any, where: str) -> dict | None:
+        if raw is None:
+            return None
+        if not isinstance(raw, dict):
+            raise ValueError(f"'effect_vehicles_by_power' in {where} must be a mapping")
+        return {str(key).strip().lower(): VehicleLoader._parse_effect_vehicles(value, where) for key, value in raw.items()}
+
+    @staticmethod
+    def _parse_effect_offset_map(raw: Any, where: str) -> dict | None:
+        if raw is None:
+            return None
+        if not isinstance(raw, dict):
+            raise ValueError(f"'effect_offsets_by_power' in {where} must be a mapping")
+        parsed = {}
+        for key, value in raw.items():
+            if not isinstance(value, dict):
+                raise ValueError(f"effect offsets for '{key}' in {where} must be a mapping")
+            unknown = set(value) - {"x", "y", "z"}
+            if unknown:
+                raise ValueError(f"effect offsets for '{key}' in {where} contain unknown keys: {sorted(unknown)}")
+            parsed[str(key).strip().lower()] = dict(value)
+        return parsed
+
+    @staticmethod
+    def _parse_effect_sprite_map(raw: Any, where: str) -> dict | None:
+        if raw is None:
+            return None
+        if not isinstance(raw, dict):
+            raise ValueError(f"'effect_sprites_by_power' in {where} must be a mapping")
+        return {str(key).strip().lower(): str(value).strip() for key, value in raw.items()}
+
+    @staticmethod
     def _parse_usage(raw: Any, where: str) -> VehicleUsage | None:
         if raw is None:
             return None
@@ -427,6 +483,15 @@ class VehicleLoader:
             ),
             years_available=p.get("years_available"),
             vehicle_life=p.get("vehicle_life"),
+            effect_vehicles=VehicleLoader._parse_effect_vehicles(p.get("effect_vehicles"), f"profile {identifier}"),
+            effect_vehicles_by_power=VehicleLoader._parse_effect_vehicle_map(p.get("effect_vehicles_by_power"), f"profile {identifier}"),
+            pantograph_car=VehicleLoader._parse_effect_vehicles(p.get("pantograph_car"), f"profile {identifier}"),
+            effect_x_offset=p.get("effect_x_offset"),
+            effect_y_offset=p.get("effect_y_offset"),
+            effect_z_offset=p.get("effect_z_offset"),
+            effect_offsets_by_power=VehicleLoader._parse_effect_offset_map(p.get("effect_offsets_by_power"), f"profile {identifier}"),
+            effect_sprite=p.get("effect_sprite"),
+            effect_sprites_by_power=VehicleLoader._parse_effect_sprite_map(p.get("effect_sprites_by_power"), f"profile {identifier}"),
             tilt=p.get("tilt"),
             track_type=VehicleLoader._parse_track_type(
                 p.get("track_type"), f"'track_type' in profile {identifier}"
@@ -472,6 +537,15 @@ class VehicleLoader:
             ),
             years_available=lv.get("years_available"),
             vehicle_life=lv.get("vehicle_life"),
+            effect_vehicles=VehicleLoader._parse_effect_vehicles(lv.get("effect_vehicles"), f"livery {name}"),
+            effect_vehicles_by_power=VehicleLoader._parse_effect_vehicle_map(lv.get("effect_vehicles_by_power"), f"livery {name}"),
+            pantograph_car=VehicleLoader._parse_effect_vehicles(lv.get("pantograph_car"), f"livery {name}"),
+            effect_x_offset=lv.get("effect_x_offset"),
+            effect_y_offset=lv.get("effect_y_offset"),
+            effect_z_offset=lv.get("effect_z_offset"),
+            effect_offsets_by_power=VehicleLoader._parse_effect_offset_map(lv.get("effect_offsets_by_power"), f"livery {name}"),
+            effect_sprite=lv.get("effect_sprite"),
+            effect_sprites_by_power=VehicleLoader._parse_effect_sprite_map(lv.get("effect_sprites_by_power"), f"livery {name}"),
             tilt=lv.get("tilt"),
             track_type=VehicleLoader._parse_track_type(
                 lv.get("track_type"), f"'track_type' in livery {name}"

@@ -92,6 +92,8 @@ class Variant:
         self.length_switch_name = None
         self.articulated_switch_name = None
         self.articulated_count = None
+        self.effect_callback_name = None
+        self.effect_switch_name = None
         self.nml_override: dict = {}
 
         self.identifier = None
@@ -112,7 +114,6 @@ class Variant:
             self.handlePhysics,
             self.handleFuelType,
             self.handleRunningCostBase,
-            self.handleEffectSpawnModel,
             self.handleTrackType,
             self.handleFuelPresentation,
             self.handleCosts,
@@ -120,6 +121,7 @@ class Variant:
             self.handleAdditionalText,
             self.handleColourMapping,
             self.handleSprites,
+            self.handleEffectSpawnModel,
             self.handleLighting,
             self.handleMiscFlags,
             self.handleExtraFlags,
@@ -646,25 +648,108 @@ class Variant:
             base = "RUNNING_COST_NONE"
         self.properties["running_cost_base"] = base
 
-    def handleEffectSpawnModel(self):
-        """Select the standard train effect-spawn model from the power type.
+    def _effect_power_key(self):
+        tokens = self._power_type_tokens()
+        if "STEAM" in tokens:
+            return "steam"
+        if tokens & {"DIESEL", "DIESEL_HYDRAULIC", "DIESEL_ELECTRIC", "DIESEL_MECHANICAL", "HYDRAULIC", "GAS_TURBINE", "GAS_TURBINE_ELECTRIC", "TURBINE"}:
+            return "diesel"
+        if set(self.track_types) & {"THIRD", "FOURTH"}:
+            return "powered_rail"
+        if tokens or getattr(self, "fuel_type", None) == FuelType.ELECTRIC:
+            return "ohle"
+        return "none"
 
-        Custom effect callback switches are deliberately left for a later override mechanism.
-        Novel fuels continue using the existing simple visual-effect path.
-        """
+    def _power_override(self, attr, key):
+        for source in (self.livery, self.profile, self.vehicle):
+            values = getattr(source, attr, None) or {}
+            if key in values:
+                return values[key]
+        return None
+
+    def _effect_positions(self, power_key):
+        positions = self._power_override("effect_vehicles_by_power", power_key)
+        if positions is None and power_key == "ohle":
+            positions = self.get_attr("pantograph_car")
+        if positions is None:
+            positions = self.get_attr("effect_vehicles")
+        if positions is not None:
+            return list(positions)
+
+        pattern = list(self.sprite_pattern or [1])
+        if power_key == "steam":
+            return [1]
+        if power_key in {"diesel", "powered_rail"}:
+            return list(range(1, len(pattern) + 1))
+        if power_key != "ohle":
+            return []
+        if len(pattern) <= 2:
+            return [1]
+        if len(pattern) == 3:
+            return [2]
+
+        end_groups = {pattern[0], pattern[-1]}
+        candidates = sorted(set(pattern) - end_groups)
+        if not candidates:
+            return [len(pattern)]
+        counts = {group: pattern.count(group) for group in candidates}
+        selected = max(candidates, key=lambda group: (-counts[group], group))
+        return [index + 1 for index, group in enumerate(pattern) if group == selected]
+
+    def _effect_sprite(self, power_key):
+        sprite = self._power_override("effect_sprites_by_power", power_key)
+        if sprite is None:
+            sprite = self.get_attr("effect_sprite")
+        if sprite is not None:
+            return str(sprite).strip()
+        return {
+            "steam": "EFFECT_SPRITE_STEAM",
+            "diesel": "EFFECT_SPRITE_DIESEL",
+            "ohle": "EFFECT_SPRITE_ELECTRIC",
+            "powered_rail": "EFFECT_SPRITE_ELECTRIC",
+        }.get(power_key, "EFFECT_SPRITE_NONE")
+
+    def _effect_offsets(self, power_key):
+        values = {
+            "x": self.get_attr("effect_x_offset"),
+            "y": self.get_attr("effect_y_offset"),
+            "z": self.get_attr("effect_z_offset"),
+        }
+        if values["z"] is None:
+            values["z"] = -6 if power_key == "powered_rail" else 10
+        override = self._power_override("effect_offsets_by_power", power_key) or {}
+        for axis in ("x", "y", "z"):
+            if axis in override:
+                values[axis] = override[axis]
+        return {axis: int(value or 0) for axis, value in values.items()}
+
+    def handleEffectSpawnModel(self):
+        """Generate standard effect properties and the articulated effect callback."""
         vehicle_type = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
         if vehicle_type != "TRAIN":
             return
-
+        power_key = self._effect_power_key()
         effect_models = {
-            FuelType.STEAM: "EFFECT_SPAWN_MODEL_STEAM",
-            FuelType.DIESEL: "EFFECT_SPAWN_MODEL_DIESEL",
-            FuelType.ELECTRIC: "EFFECT_SPAWN_MODEL_ELECTRIC",
-            FuelType.UNPOWERED: "EFFECT_SPAWN_MODEL_NONE",
+            "steam": "EFFECT_SPAWN_MODEL_STEAM",
+            "diesel": "EFFECT_SPAWN_MODEL_DIESEL",
+            "ohle": "EFFECT_SPAWN_MODEL_ELECTRIC",
+            "powered_rail": "EFFECT_SPAWN_MODEL_ELECTRIC",
+            "none": "EFFECT_SPAWN_MODEL_NONE",
         }
-        effect_model = effect_models.get(getattr(self, "fuel_type", None))
-        if effect_model is not None:
-            self.properties["effect_spawn_model_and_powered"] = effect_model
+        self.properties["effect_spawn_model_and_powered"] = effect_models[power_key]
+        if self.nml_override_callbacks() and "create_effect" in self.nml_override_callbacks():
+            self.callbacks["create_effect"] = self.resolve_nml_override()["create_effect"]
+            return
+        sprite = self._effect_sprite(power_key)
+        if sprite == "EFFECT_SPRITE_NONE":
+            return
+        offsets = self._effect_offsets(power_key)
+        self.effect_callback_name = f"sw_{self.identifier}_create_effect"
+        self.effect_switch_name = f"sw_{self.identifier}_create_effect_value"
+        self.callbacks["create_effect"] = self.effect_callback_name
+        self.effect_sprite = sprite
+        self.effect_offsets = offsets
+        self.effect_positions = self._effect_positions(power_key)
 
     def handleTrackType(self):
         """Emit the track types the vehicle can use, as NML railtype indices.

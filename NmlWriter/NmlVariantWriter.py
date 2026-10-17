@@ -36,6 +36,31 @@ class NmlVariantWriter(BaseNmlWriter):
         self._write_articulated_switch(f, variant)
         self._write_name_switches(f, variant)
         self._write_spritesets(f, variant)
+        self._write_effect(f, variant)
+
+    def _write_effect(self, f, variant):
+        """Write the generated create_effect callback and its articulated-position selector."""
+        callback = getattr(variant, "effect_callback_name", None)
+        helper = getattr(variant, "effect_switch_name", None)
+        sprite = getattr(variant, "effect_sprite", None)
+        offsets = getattr(variant, "effect_offsets", None)
+        positions = getattr(variant, "effect_positions", None)
+        if not callback or not helper or not sprite or offsets is None or positions is None:
+            return
+
+        expression = (
+            f"[STORE_TEMP(create_effect({sprite}, {offsets['x']}, "
+            f"{offsets['y']}, {offsets['z']}), 0x100)]"
+        )
+        self.switch_writer.write_switch(
+            f, self._feature(variant), "SELF", helper, expression, {"default": "return 1"}
+        )
+        values = {position - 1: helper for position in positions if position > 0}
+        values["default"] = "return 0"
+        self.switch_writer.write_switch(
+            f, self._feature(variant), "SELF", callback,
+            "position_in_articulated_veh", values
+        )
 
     def _write_articulated_switch(self, f, variant):
         articulated_switch_name = getattr(variant, "articulated_switch_name", None)
