@@ -111,6 +111,8 @@ class Variant:
             self.handleCapacity,
             self.handlePhysics,
             self.handleFuelType,
+            self.handleRunningCostBase,
+            self.handleEffectSpawnModel,
             self.handleTrackType,
             self.handleFuelPresentation,
             self.handleCosts,
@@ -619,6 +621,50 @@ class Variant:
 
     def handleFuelType(self):
         PowerTypeClassifier(self).process()
+
+    def _power_type_tokens(self):
+        raw_power = self.get_attr("power_type") or self.get_attr("fuel_type")
+        if isinstance(raw_power, str):
+            raw_power = [raw_power]
+        return {str(value).strip().upper() for value in (raw_power or [])}
+
+    def handleRunningCostBase(self):
+        """Select the NML running-cost category from the resolved vehicle type."""
+        vehicle_type = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
+        if vehicle_type in {"TRAM", "ROAD", "ROADVEH"}:
+            self.properties["running_cost_base"] = "RUNNING_COST_ROADVEH"
+            return
+
+        tokens = self._power_type_tokens()
+        if "STEAM" in tokens:
+            base = "RUNNING_COST_STEAM"
+        elif tokens & {"DIESEL", "DIESEL_HYDRAULIC", "DIESEL_ELECTRIC", "DIESEL_MECHANICAL", "HYDRAULIC", "GAS_TURBINE", "GAS_TURBINE_ELECTRIC", "TURBINE"}:
+            base = "RUNNING_COST_DIESEL"
+        elif tokens or getattr(self, "fuel_type", None) == FuelType.ELECTRIC:
+            base = "RUNNING_COST_ELECTRIC"
+        else:
+            base = "RUNNING_COST_NONE"
+        self.properties["running_cost_base"] = base
+
+    def handleEffectSpawnModel(self):
+        """Select the standard train effect-spawn model from the power type.
+
+        Custom effect callback switches are deliberately left for a later override mechanism.
+        Novel fuels continue using the existing simple visual-effect path.
+        """
+        vehicle_type = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
+        if vehicle_type != "TRAIN":
+            return
+
+        effect_models = {
+            FuelType.STEAM: "EFFECT_SPAWN_MODEL_STEAM",
+            FuelType.DIESEL: "EFFECT_SPAWN_MODEL_DIESEL",
+            FuelType.ELECTRIC: "EFFECT_SPAWN_MODEL_ELECTRIC",
+            FuelType.UNPOWERED: "EFFECT_SPAWN_MODEL_NONE",
+        }
+        effect_model = effect_models.get(getattr(self, "fuel_type", None))
+        if effect_model is not None:
+            self.properties["effect_spawn_model_and_powered"] = effect_model
 
     def handleTrackType(self):
         """Emit the track types the vehicle can use, as NML railtype indices.

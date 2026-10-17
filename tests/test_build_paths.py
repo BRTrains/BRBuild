@@ -1265,6 +1265,38 @@ class BuildPathTests(unittest.TestCase):
         variant.process()
         self.assertEqual(variant.properties["vehicle_life"], "60")
 
+    def test_power_type_defaults_running_cost_base_and_train_effect_model(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+
+        def process(power_type, vehicle_type=VehicleType.TRAIN, power=1000):
+            vehicle = Vehicle(
+                folder_path=".", identifier="example", name="Example", power_type=power_type,
+                power=power,
+            )
+            variant = Variant(vehicle, Livery("Default"), Profile("Default"), vehicle_type)
+            variant.process()
+            return variant.properties
+
+        steam = process(["steam"])
+        diesel = process(["diesel"])
+        electric = process(["electric"])
+        unpowered = process([], power=0)
+        road = process(["diesel"], vehicle_type=VehicleType.ROAD)
+
+        self.assertEqual(steam["running_cost_base"], "RUNNING_COST_STEAM")
+        self.assertEqual(steam["effect_spawn_model_and_powered"], "EFFECT_SPAWN_MODEL_STEAM")
+        self.assertEqual(diesel["running_cost_base"], "RUNNING_COST_DIESEL")
+        self.assertEqual(diesel["effect_spawn_model_and_powered"], "EFFECT_SPAWN_MODEL_DIESEL")
+        self.assertEqual(electric["running_cost_base"], "RUNNING_COST_ELECTRIC")
+        self.assertEqual(electric["effect_spawn_model_and_powered"], "EFFECT_SPAWN_MODEL_ELECTRIC")
+        self.assertEqual(unpowered["running_cost_base"], "RUNNING_COST_NONE")
+        self.assertEqual(unpowered["effect_spawn_model_and_powered"], "EFFECT_SPAWN_MODEL_NONE")
+        self.assertEqual(road["running_cost_base"], "RUNNING_COST_ROADVEH")
+        self.assertNotIn("effect_spawn_model_and_powered", road)
+
     def test_yaml_loads_life_fields_at_vehicle_profile_and_livery_scope(self):
         from YamlHandler.VehicleLoader import VehicleLoader
 

@@ -336,11 +336,16 @@ mechanics OpenTTD does have (see `PropertyCalculation/FuelDefaults.py` and
 
 - **Costs**: the per-fuel multipliers in `PropertyCalculation/FuelType.py` shape purchase
   and running cost relative to each other. They are BRBuild conventions rather than
-  OpenTTD values, and are expected to be refined.
+  OpenTTD values, and are expected to be refined. The NML running-cost base is selected
+  automatically from the vehicle type and power type (`RUNNING_COST_STEAM`, `DIESEL`,
+  `ELECTRIC`, `ROADVEH` or `NONE`).
 - **Sound**: OpenTTD's built-in sound set has no diesel, electric or turbine entry, so no
   sound is set by default. Set `sound_effect` on the vehicle, profile or livery to a
   `SOUND_*` constant, a `sound("file")` from this GRF, or a switch name. It is emitted as
   the `sound_effect` graphics callback.
+- **Advanced visual effects**: standard trains receive the power-type-specific
+  `effect_spawn_model_and_powered` property. Custom `create_effect` switches remain
+  intentionally unsupported until the special legacy offsets are modelled.
 - **Visual effect**: emitted only when the fuel's effect differs from what the engine class
   already gives. Hydrogen, battery and gas turbine get `VISUAL_EFFECT_DISABLE` because
   OpenTTD has no water-vapour effect and a self-powered unit should not clag like a diesel.
