@@ -1208,7 +1208,46 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(process(old, profile, Livery("Default")), "18")
         self.assertEqual(process(old, profile, livery), "24")
 
-    def test_vehicle_life_defaults_to_thirty_and_supports_livery_override(self):
+    def test_vehicle_life_defaults_to_steam_or_old_stock_else_forty(self):
+        from PropertyCalculation.TrainType import TrainType
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+
+        def process(vehicle):
+            variant = Variant(vehicle, Livery("Default"), Profile("Default"), VehicleType.TRAIN)
+            variant.process()
+            return variant.properties["vehicle_life"]
+
+        steam = Vehicle(
+            folder_path=".", identifier="steam", name="Steam", power_type=["steam"],
+            introduction_date="date(2000, 1, 1)",
+        )
+        old_coach = Vehicle(
+            folder_path=".", identifier="coach", name="Coach", train_type=TrainType.COACH,
+            introduction_date="date(1959, 1, 1)",
+        )
+        old_wagon = Vehicle(
+            folder_path=".", identifier="wagon", name="Wagon", train_type=TrainType.WAGON,
+            introduction_date="date(1959, 1, 1)",
+        )
+        modern_coach = Vehicle(
+            folder_path=".", identifier="modern_coach", name="Modern Coach", train_type=TrainType.COACH,
+            introduction_date="date(1960, 1, 1)",
+        )
+        diesel = Vehicle(
+            folder_path=".", identifier="diesel", name="Diesel", power_type=["diesel"],
+            introduction_date="date(1950, 1, 1)",
+        )
+
+        self.assertEqual(process(steam), "30")
+        self.assertEqual(process(old_coach), "30")
+        self.assertEqual(process(old_wagon), "30")
+        self.assertEqual(process(modern_coach), "40")
+        self.assertEqual(process(diesel), "40")
+
+    def test_vehicle_life_defaults_to_forty_and_supports_livery_override(self):
         from Vehicle.Livery import Livery
         from Vehicle.Profile import Profile
         from Vehicle.Vehicle import Vehicle
@@ -1217,7 +1256,7 @@ class BuildPathTests(unittest.TestCase):
         vehicle = Vehicle(folder_path=".", identifier="example", name="Example")
         variant = Variant(vehicle, Livery("Default"), Profile("Default"), VehicleType.TRAIN)
         variant.process()
-        self.assertEqual(variant.properties["vehicle_life"], "30")
+        self.assertEqual(variant.properties["vehicle_life"], "40")
 
         vehicle.vehicle_life = 40
         profile = Profile("profile", vehicle_life=50)

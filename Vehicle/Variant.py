@@ -305,7 +305,7 @@ class Variant:
         if vehicle_life is not None:
             vehicle_life = self.clamp(int(vehicle_life), 1, 255) # Clamp to NML range
         else:
-            vehicle_life = 30 # Default
+            vehicle_life = self._default_vehicle_life(intro_date)
         self.properties["vehicle_life"] = str(vehicle_life)
 
         length = self.get_attr("length")
@@ -324,6 +324,27 @@ class Variant:
             if match:
                 return int(match.group(1))
         return None
+
+    def _default_vehicle_life(self, introduction_date):
+        """Return the default lifespan for the resolved vehicle facts."""
+        power_type = self.get_attr("power_type")
+        if isinstance(power_type, str):
+            power_types = {power_type.lower()}
+        else:
+            power_types = {str(value).lower() for value in (power_type or [])}
+        if "steam" in power_types:
+            return 30
+
+        train_type = getattr(self.vehicle, "train_type", None)
+        train_type_name = getattr(train_type, "name", str(train_type)).upper()
+        introduction_year = self._introduction_year(introduction_date)
+        if (
+            train_type_name in {"COACH", "WAGON"}
+            and introduction_year is not None
+            and introduction_year < 1960
+        ):
+            return 30
+        return 40
 
     def handleSpeed(self):
         """Emit the vehicle's speed, and the design/service selector when they differ.

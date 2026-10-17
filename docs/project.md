@@ -249,7 +249,7 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `classification`: Categorization string.
     *   `model_life`: Deprecated internal alias for `years_available`; use `years_available` in YAML.
     *   `retire_early`: Number of years to retire before normal model life ends.
-    *   `vehicle_life`: Expected lifespan of individual vehicles; defaults to 30 years and may be overridden by a profile or livery.
+    *   `vehicle_life`: Expected lifespan of individual vehicles; defaults to 30 years for steam vehicles and coaches/wagons introduced before 1960, otherwise 40 years, and may be overridden by a profile or livery.
     *   `cargo_age_period`: Duration for cargo aging penalties.
     *   `loading_speed`: Base speed for loading cargo.
     *   `sound effect`: Custom sound effect string.
