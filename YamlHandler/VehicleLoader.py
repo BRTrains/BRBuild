@@ -164,7 +164,7 @@ class VehicleLoader:
                 dates.get("introduction_date") or data.get("introduction_date"), path
             ),
 
-            years_available=data.get("years_available"),
+            years_available=dates.get("years_available") or data.get("years_available"),
             model_life=data.get("model_life"),
             retire_early=data.get("retire_early"),
             vehicle_life=data.get("vehicle_life"),

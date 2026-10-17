@@ -1233,7 +1233,7 @@ class BuildPathTests(unittest.TestCase):
             {
                 "info": {"identifier": "example", "name": "Example"},
                 "stats": {"vehicle_type": "train", "train_type": "multiple_unit"},
-                "years_available": 20,
+                "dates": {"years_available": 20},
                 "vehicle_life": 31,
                 "profiles": [{"identifier": "profile", "years_available": 21, "vehicle_life": 32}],
                 "liveries": [{"name": "Livery", "years_available": 22, "vehicle_life": 33}],
