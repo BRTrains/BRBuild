@@ -1348,8 +1348,30 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(vehicle.liveries[0].years_available, 22)
         self.assertEqual(vehicle.liveries[0].vehicle_life, 33)
 
-    def test_introduction_date_forms_are_emitted_as_nml_dates(self):
+    def test_vehicle_settings_companion_merges_by_profile_and_livery_identity(self):
         from YamlHandler.VehicleLoader import VehicleLoader
+
+        with tempfile.TemporaryDirectory() as folder:
+            primary = Path(folder) / "170.yaml"
+            primary.write_text(
+                """info:\n  identifier: 170\n  name: Class 170\nstats:\n  vehicle_type: train\n  train_type: multiple_unit\n  power: 1000\nprofiles:\n  - identifier: default\n    capacity: 50\nliveries:\n  - name: BR Blue\n""",
+                encoding="utf-8",
+            )
+            primary.with_name("170_settings.yaml").write_text(
+                """effect_sprite: EFFECT_SPRITE_DIESEL\neffect_vehicles_by_power:\n  diesel: [1, 3]\nprofiles:\n  - identifier: default\n    capacity: 60\n    effect_z_offset: 12\nliveries:\n  - name: BR Blue\n    effect_x_offset: 2\n  - name: Regional Railways\n""",
+                encoding="utf-8",
+            )
+
+            vehicle = VehicleLoader.load(str(primary))
+
+        self.assertEqual(vehicle.name, "Class 170")
+        self.assertEqual(vehicle.effect_sprite, "EFFECT_SPRITE_DIESEL")
+        self.assertEqual((vehicle.effect_vehicles_by_power or {})["diesel"], [1, 3])
+        self.assertEqual(vehicle.profiles[0].capacity, 60)
+        self.assertEqual(vehicle.profiles[0].effect_z_offset, 12)
+        self.assertEqual([livery.name for livery in vehicle.liveries], ["BR Blue", "Regional Railways"])
+        self.assertEqual(vehicle.liveries[0].effect_x_offset, 2)
+
 
         parse = VehicleLoader._parse_introduction_date
         self.assertEqual(parse(1952, "test"), "date(1952, 1, 1)")

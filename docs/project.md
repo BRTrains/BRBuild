@@ -167,6 +167,14 @@ purchase_list:
 
 Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and must contain a YAML file named exactly after that directory (e.g. `Thomas.yaml`).
 
+An optional companion file named `[VehicleName]_settings.yaml` may sit beside it. BRBuild merges that file over the main vehicle document before loading it, so either file may contain any supported field. Mapping sections merge recursively; profiles merge by `identifier`, liveries by `name`, and settings-file values win when the same field is present. This makes the companion suitable for technical/game-mechanic details without creating a second schema.
+
+```text
+170/
+├── 170.yaml
+└── 170_settings.yaml
+```
+
 ### Data Fields
 
 *   **`info`**:

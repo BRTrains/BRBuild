@@ -59,13 +59,52 @@ class VehicleLoader:
 
     @staticmethod
     def load(path: str) -> Vehicle:
-        with open(path, "r") as f:
-            data = yaml.safe_load(f)
+        source = Path(path)
+        with open(source, "r") as f:
+            data = yaml.safe_load(f) or {}
+        settings_path = source.with_name(f"{source.stem}_settings{source.suffix}")
+        if settings_path.is_file():
+            with open(settings_path, "r") as f:
+                settings = yaml.safe_load(f) or {}
+            data = VehicleLoader._merge_vehicle_documents(data, settings)
         return VehicleLoader._parse_vehicle(
             data,
             folder_path=str(Path(path).parent),
             path=path
         )
+
+    @staticmethod
+    def _merge_vehicle_documents(base: Dict[str, Any], settings: Dict[str, Any]) -> Dict[str, Any]:
+        """Merge an optional ``<vehicle>_settings.yaml`` over the main document.
+
+        Mapping values merge recursively. Profiles merge by identifier and liveries by name,
+        preserving the main file's order and appending entries introduced by the settings file.
+        Every other settings value replaces the main-file value, so the technical companion is
+        an intentional override rather than an accidentally concatenated second schema.
+        """
+        if not isinstance(base, dict) or not isinstance(settings, dict):
+            raise ValueError("vehicle YAML and its settings companion must both contain mappings")
+
+        def merge(left, right, key=None):
+            if isinstance(left, dict) and isinstance(right, dict):
+                merged = dict(left)
+                for name, value in right.items():
+                    merged[name] = merge(merged[name], value, name) if name in merged else value
+                return merged
+            if isinstance(left, list) and isinstance(right, list) and key in {"profiles", "liveries"}:
+                identity = "identifier" if key == "profiles" else "name"
+                positions = {entry.get(identity): index for index, entry in enumerate(left) if isinstance(entry, dict)}
+                merged = list(left)
+                for entry in right:
+                    if not isinstance(entry, dict) or entry.get(identity) not in positions:
+                        merged.append(entry)
+                    else:
+                        index = positions[entry[identity]]
+                        merged[index] = merge(merged[index], entry)
+                return merged
+            return right
+
+        return dict(merge(base, settings))
 
     @staticmethod
     def _parse_vehicle(data: Dict[str, Any], folder_path: str, path: str) -> Vehicle:
