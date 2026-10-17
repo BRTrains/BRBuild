@@ -164,6 +164,7 @@ class VehicleLoader:
                 dates.get("introduction_date") or data.get("introduction_date"), path
             ),
 
+            years_available=data.get("years_available"),
             model_life=data.get("model_life"),
             retire_early=data.get("retire_early"),
             vehicle_life=data.get("vehicle_life"),
@@ -424,6 +425,8 @@ class VehicleLoader:
             introduction_date=VehicleLoader._parse_introduction_date(
                 p.get("introduction_date"), f"'introduction_date' in profile {identifier}"
             ),
+            years_available=p.get("years_available"),
+            vehicle_life=p.get("vehicle_life"),
             tilt=p.get("tilt"),
             track_type=VehicleLoader._parse_track_type(
                 p.get("track_type"), f"'track_type' in profile {identifier}"
@@ -467,6 +470,8 @@ class VehicleLoader:
             introduction_date=VehicleLoader._parse_introduction_date(
                 lv.get("introduction_date"), f"'introduction_date' in livery {name}"
             ),
+            years_available=lv.get("years_available"),
+            vehicle_life=lv.get("vehicle_life"),
             tilt=lv.get("tilt"),
             track_type=VehicleLoader._parse_track_type(
                 lv.get("track_type"), f"'track_type' in livery {name}"

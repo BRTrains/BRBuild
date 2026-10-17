@@ -1186,6 +1186,69 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(variant.properties["speed"], "90 mph")
         self.assertEqual(variant.callbacks["speed"], "param_speed_mode == 1 ? 120 : 144")
 
+    def test_model_life_defaults_from_introduction_year_and_overrides_at_each_scope(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+
+        def process(vehicle, profile, livery):
+            variant = Variant(vehicle, livery, profile, VehicleType.TRAIN)
+            variant.process()
+            return variant.properties["model_life"]
+
+        old = Vehicle(folder_path=".", identifier="old", name="Old", introduction_date="date(1998, 1, 1)")
+        modern = Vehicle(folder_path=".", identifier="modern", name="Modern", introduction_date="date(1999, 1, 1)")
+        self.assertEqual(process(old, Profile("Default"), Livery("Default")), "30")
+        self.assertEqual(process(modern, Profile("Default"), Livery("Default")), "VEHICLE_NEVER_EXPIRES")
+
+        old.years_available = 12
+        profile = Profile("profile", years_available=18)
+        livery = Livery("Livery", years_available=24)
+        self.assertEqual(process(old, profile, Livery("Default")), "18")
+        self.assertEqual(process(old, profile, livery), "24")
+
+    def test_vehicle_life_defaults_to_thirty_and_supports_livery_override(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Example")
+        variant = Variant(vehicle, Livery("Default"), Profile("Default"), VehicleType.TRAIN)
+        variant.process()
+        self.assertEqual(variant.properties["vehicle_life"], "30")
+
+        vehicle.vehicle_life = 40
+        profile = Profile("profile", vehicle_life=50)
+        livery = Livery("Livery", vehicle_life=60)
+        variant = Variant(vehicle, livery, profile, VehicleType.TRAIN)
+        variant.process()
+        self.assertEqual(variant.properties["vehicle_life"], "60")
+
+    def test_yaml_loads_life_fields_at_vehicle_profile_and_livery_scope(self):
+        from YamlHandler.VehicleLoader import VehicleLoader
+
+        vehicle = VehicleLoader._parse_vehicle(
+            {
+                "info": {"identifier": "example", "name": "Example"},
+                "stats": {"vehicle_type": "train", "train_type": "multiple_unit"},
+                "years_available": 20,
+                "vehicle_life": 31,
+                "profiles": [{"identifier": "profile", "years_available": 21, "vehicle_life": 32}],
+                "liveries": [{"name": "Livery", "years_available": 22, "vehicle_life": 33}],
+            },
+            ".",
+            "example.yaml",
+        )
+
+        self.assertEqual(vehicle.years_available, 20)
+        self.assertEqual(vehicle.vehicle_life, 31)
+        self.assertEqual(vehicle.profiles[0].years_available, 21)
+        self.assertEqual(vehicle.profiles[0].vehicle_life, 32)
+        self.assertEqual(vehicle.liveries[0].years_available, 22)
+        self.assertEqual(vehicle.liveries[0].vehicle_life, 33)
+
     def test_introduction_date_forms_are_emitted_as_nml_dates(self):
         from YamlHandler.VehicleLoader import VehicleLoader
 

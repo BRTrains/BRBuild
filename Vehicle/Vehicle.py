@@ -67,6 +67,8 @@ class Vehicle:
 
     introduction_date: Optional[Union[str, int]] = None
 
+    #: Number of years the vehicle remains in the purchase list after introduction.
+    years_available: Optional[int] = None
     model_life: Optional[str] = None
     retire_early: Optional[int] = None
     vehicle_life: Optional[int] = None

@@ -22,6 +22,8 @@ class Livery:
     weight: Optional[float] = None
     #: When this livery's vehicles become available, as a year or `YYYY-MM-DD`.
     introduction_date: Optional[Union[str, int]] = None
+    years_available: Optional[int] = None
+    vehicle_life: Optional[int] = None
     tilt: Optional[Union[str, float]] = None
     track_type: Optional[List[str]] = None
     has_cab: Optional[bool] = None

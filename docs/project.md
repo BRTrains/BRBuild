@@ -205,7 +205,8 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
 *   **`loading_speed`**: cargo units loaded/unloaded per loading interval.
 *   **`cargo_age_period`**: custom cargo ageing period in ticks.
 *   **`dates`**:
-    *   `introduction_date`: when the vehicle becomes available. Write a year (`1952`), `YYYY-MM` (`1952-04`) or `YYYY-MM-DD` (`1952-04-21`); it is emitted as an NML `date(...)`, so a bare date is never read as the arithmetic expression it looks like. A profile may set its own `introduction_date` to become available later than the vehicle.
+    *   `introduction_date`: when the vehicle becomes available. Write a year (`1952`), `YYYY-MM` (`1952-04`) or `YYYY-MM-DD` (`1952-04-21`); it is emitted as an NML `date(...)`, so a bare date is never read as the arithmetic expression it looks like. A profile or livery may set its own `introduction_date` to become available later than the vehicle.
+    *   `years_available`: optional model life in years. If omitted, vehicles introduced through 1998 default to 30 years and vehicles introduced from 1999 onward never expire. Resolves livery, then profile, then vehicle.
 *   **`profiles`** *(optional)*: A list of performance/size variations available for this vehicle. If omitted or empty, BRBuild creates an implicit `DEFAULT` profile with no additional modifiers; this is equivalent to `profiles: [{identifier: DEFAULT}]`.
     *   `identifier`: Short profile identifier.
     *   `name`: Name of the profile.
@@ -215,6 +216,8 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `speed`, `design_speed`: Speeds in mph for this profile; override the vehicle-level `stats.speed` and `stats.design_speed`.
     *   `weight`: Weight in metric tons for this profile; overrides the vehicle-level `stats.weight`.
     *   `introduction_date`: Date when this profile becomes available; overrides the vehicle-level `dates.introduction_date`.
+    *   `years_available`: Model life in years; overrides the vehicle-level value and resolves before it for this profile.
+    *   `vehicle_life`: Expected lifespan of individual vehicles; overrides the vehicle-level value.
     *   `tilt`: Tilt strength for this profile, as a named level or a number.
     *   `track_type`: Track types for this profile (see Track types below), e.g. a dual-voltage formation alongside a single-system one.
     *   `has_cab`: `true` when this profile is a driving vehicle (see Driving vehicles below).
@@ -234,6 +237,8 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `weight`: Weight in metric tons for this livery; resolves livery, then profile, then vehicle.
     *   `speed`, `design_speed`: Service and design speed for this livery; resolve livery, then profile, then vehicle.
     *   `introduction_date`: When this livery's variants appear, as a year or `YYYY-MM-DD`; resolves livery, then profile, then vehicle, and orders the purchase list where `purchase_list.order` sorts by date.
+    *   `years_available`: Model life in years; resolves livery, then profile, then vehicle.
+    *   `vehicle_life`: Expected lifespan of individual vehicles; resolves livery, then profile, then vehicle.
     *   `tilt`: Tilt strength for this livery; overrides the vehicle default, but not the profile.
     *   `track_type`: Track types for this livery; overrides both profile and vehicle (see Track types below).
     *   `has_cab`: `true` when this livery is a driving vehicle; overrides both profile and vehicle.
@@ -242,9 +247,9 @@ Each vehicle is located in its own directory (e.g. `src/vehicles/Thomas/`) and m
     *   `special_tags`: List of custom tags triggering special badges for this livery's variants.
 *   **Other root fields**:
     *   `classification`: Categorization string.
-    *   `model_life`: How long the vehicle remains in the purchase list.
+    *   `model_life`: Deprecated internal alias for `years_available`; use `years_available` in YAML.
     *   `retire_early`: Number of years to retire before normal model life ends.
-    *   `vehicle_life`: Expected lifespan of individual vehicles.
+    *   `vehicle_life`: Expected lifespan of individual vehicles; defaults to 30 years and may be overridden by a profile or livery.
     *   `cargo_age_period`: Duration for cargo aging penalties.
     *   `loading_speed`: Base speed for loading cargo.
     *   `sound effect`: Custom sound effect string.

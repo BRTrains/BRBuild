@@ -132,6 +132,7 @@ class Variant:
                 raise
 
     # Clamp ranges
+    @staticmethod
     def clamp(n, smallest, largest):
         return max(smallest, min(n, largest))
 
@@ -283,7 +284,15 @@ class Variant:
             else:
                 self.properties["introduction_date"] = str(intro_date)
 
-        model_life = self.get_attr("model_life")
+        model_life = self.get_attr("years_available")
+        if model_life is None:
+            # Keep accepting the old internal name for callers constructing Vehicle objects
+            # directly. YAML authoring should use years_available.
+            model_life = self.get_attr("model_life")
+        if model_life is None:
+            introduction_year = self._introduction_year(intro_date)
+            if introduction_year is not None and introduction_year <= 1998:
+                model_life = 30
         if model_life is None or int(model_life) == 0:
             model_life = "VEHICLE_NEVER_EXPIRES"
         else:
@@ -302,6 +311,19 @@ class Variant:
         length = self.get_attr("length")
         if length is not None:
             self.properties["length"] = str(length)
+
+    @staticmethod
+    def _introduction_year(value):
+        """Extract the year from the resolved NML date expression."""
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str):
+            if value.isdigit():
+                return int(value)
+            match = re.match(r"\s*date\s*\(\s*(\d+)", value)
+            if match:
+                return int(match.group(1))
+        return None
 
     def handleSpeed(self):
         """Emit the vehicle's speed, and the design/service selector when they differ.
