@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 import yaml
 
-from PropertyCalculation import TrainType, VehicleType, VehicleUsage
+from PropertyCalculation import DoorType, TrainType, VehicleType, VehicleUsage
 from PropertyCalculation.CargoClasses import parse_cargo
 from Sprites.LightingOverlay import LIGHTING_SETTINGS
 from Vehicle import Livery, Profile, Vehicle
@@ -163,6 +163,7 @@ class VehicleLoader:
 
             vehicle_type=vehicle_type,
             usage=VehicleLoader._parse_usage(data.get("usage"), path),
+            doors=VehicleLoader._parse_doors(data.get("doors"), path),
             train_type=train_type,
             weight=stats.get("weight"),
             length=stats.get("length"),
@@ -436,6 +437,12 @@ class VehicleLoader:
         return VehicleUsage.from_identifier(raw)
 
     @staticmethod
+    def _parse_doors(raw: Any, where: str) -> DoorType | None:
+        if raw is None:
+            return None
+        return DoorType.from_identifier(raw)
+
+    @staticmethod
     def _parse_vehicle_type(raw_vehicle_type: Any) -> VehicleType:
         try:
             return VehicleType[str(raw_vehicle_type).upper()]
@@ -538,6 +545,7 @@ class VehicleLoader:
                 p.get("track_type"), f"'track_type' in profile {identifier}"
             ),
             has_cab=VehicleLoader._parse_has_cab(p.get("has_cab"), f"profile {identifier}"),
+            doors=VehicleLoader._parse_doors(p.get("doors"), f"doors in profile {identifier}"),
             lighting=VehicleLoader._parse_lighting(p.get("lighting"), f"profile {identifier}"),
             spritesheet=VehicleLoader._parse_spritesheet(
                 p.get("spritesheet"), f"profile {identifier}", folder_path
@@ -592,6 +600,7 @@ class VehicleLoader:
                 lv.get("track_type"), f"'track_type' in livery {name}"
             ),
             has_cab=VehicleLoader._parse_has_cab(lv.get("has_cab"), f"livery {name}"),
+            doors=VehicleLoader._parse_doors(lv.get("doors"), f"doors in livery {name}"),
             lighting=VehicleLoader._parse_lighting(lv.get("lighting"), f"livery {name}"),
             spritesheet=VehicleLoader._parse_spritesheet(
                 lv.get("spritesheet"), f"livery {name}", folder_path

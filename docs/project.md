@@ -198,6 +198,7 @@ An optional companion file named `[VehicleName]_settings.yaml` may sit beside it
     *   `power_type`: List of traction types (e.g., `[steam, coal]`).
     *   `track_type`: List of the project's logical track types the train can use (see Track types below). Defaults to `RAIL`; trains only.
     *   `has_cab`: `true` marks an unpowered driving vehicle (a DVT, DBSO or driving trailer) so the train may back up with it leading (see Driving vehicles below). Also accepted on a profile or a livery.
+    *   `doors`: Passenger-door arrangement: `intercity`, `commuter_double`, `commuter_triple`, or `multiple`. Accepted on the vehicle, profile, or livery; resolved livery → profile → vehicle.
     *   `lighting`: `auto` (the default), `exact` or `none` — see Lighting overlays below. Also accepted on a profile or a livery.
     *   `sound_effect`, `visual_effect`: Override the presentation implied by the traction type (see Traction types below). Also accepted on a profile or a livery.
 *   **`cargo`**: what the vehicle can be refitted to, as a preset name, an explicit NML class, or a list of either:

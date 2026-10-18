@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Union
 
 from PropertyCalculation.VehicleType import VehicleType
+from PropertyCalculation.DoorType import DoorType
 
 
 @dataclass
@@ -37,6 +38,7 @@ class Profile:
     has_cab: Optional[bool] = None
     #: `auto` (default), `exact` or `none`; see Vehicle.lighting.
     lighting: Optional[str] = None
+    doors: Optional[DoorType] = None
     #: Draw this profile's rows from a spritesheet of its own, instead of the candidate's
     #: own `<Vehicle>.png`. Keeps the drawings of one profile out of the shared sheet.
     spritesheet: Optional[str] = None

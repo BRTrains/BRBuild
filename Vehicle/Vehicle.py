@@ -1,3 +1,4 @@
+from PropertyCalculation.DoorType import DoorType
 from PropertyCalculation.VehicleType import VehicleType
 from PropertyCalculation.VehicleUsage import VehicleUsage
 from PropertyCalculation.TrainType import TrainType
@@ -32,6 +33,7 @@ class Vehicle:
 
     vehicle_type: Optional[VehicleType] = None
     usage: Optional[Union[VehicleUsage, List[VehicleUsage]]] = None
+    doors: Optional[DoorType] = None
     train_type: Optional[TrainType] = None
 
     weight: Optional[float] = None

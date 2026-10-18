@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import List, Optional, Union
 
+from PropertyCalculation.DoorType import DoorType
+
 
 @dataclass
 class Livery:
@@ -38,6 +40,7 @@ class Livery:
     has_cab: Optional[bool] = None
     #: `auto` (default), `exact` or `none`; see Vehicle.lighting.
     lighting: Optional[str] = None
+    doors: Optional[DoorType] = None
     #: Draw this livery's rows from a spritesheet of its own; see Profile.spritesheet.
     spritesheet: Optional[str] = None
     sound_effect: Optional[str] = None
