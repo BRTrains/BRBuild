@@ -31,7 +31,7 @@ class Vehicle:
     additional_text: Optional[str] = None
 
     vehicle_type: Optional[VehicleType] = None
-    usage: Optional[VehicleUsage] = None
+    usage: Optional[Union[VehicleUsage, List[VehicleUsage]]] = None
     train_type: Optional[TrainType] = None
 
     weight: Optional[float] = None

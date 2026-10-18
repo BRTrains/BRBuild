@@ -426,11 +426,13 @@ class VehicleLoader:
         return {str(key).strip().lower(): str(value).strip() for key, value in raw.items()}
 
     @staticmethod
-    def _parse_usage(raw: Any, where: str) -> VehicleUsage | None:
+    def _parse_usage(raw: Any, where: str) -> VehicleUsage | list[VehicleUsage] | None:
         if raw is None:
             return None
         if isinstance(raw, (list, tuple)):
-            raise ValueError(f"'usage' in {where} must be one identifier, not a list")
+            if not raw:
+                raise ValueError(f"'usage' in {where} must contain at least one identifier")
+            return [VehicleUsage.from_identifier(item) for item in raw]
         return VehicleUsage.from_identifier(raw)
 
     @staticmethod

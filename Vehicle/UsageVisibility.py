@@ -16,9 +16,14 @@ def disable_condition(base_type, output_type, usage, filters):
 
     parameter = str(rule["parameter"])
     minimums = rule.get("minimum", {}) or {}
-    threshold = minimums.get(usage.name if isinstance(usage, VehicleUsage) else None)
-    if threshold is None:
-        threshold = rule.get("default_minimum")
-    if threshold is None:
+    usages = usage if isinstance(usage, (list, tuple)) else [usage]
+    thresholds = []
+    for item in usages:
+        threshold = minimums.get(item.name) if isinstance(item, VehicleUsage) else None
+        if threshold is None:
+            threshold = rule.get("default_minimum")
+        if threshold is not None:
+            thresholds.append(threshold)
+    if not thresholds:
         return feature, f"{parameter} >= 0"
-    return feature, f"{parameter} < {int(threshold)}"
+    return feature, f"{parameter} < {int(min(thresholds))}"

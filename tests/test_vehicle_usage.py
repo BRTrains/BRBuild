@@ -19,6 +19,15 @@ def test_vehicle_loader_reads_optional_usage_identifier(tmp_path):
     assert vehicle.usage is VehicleUsage.METRO
 
 
+def test_vehicle_loader_reads_multiple_usage_identifiers(tmp_path):
+    path = tmp_path / "vehicle.yaml"
+    path.write_text(
+        """info:\n  identifier: test\n  name: Test\nstats:\n  vehicle_type: train\n  train_type: multiple_unit\nusage:\n  - METRO\n  - INTERCITY\nprofiles: []\nliveries: []\n"""
+    )
+    vehicle = VehicleLoader.load(str(path))
+    assert vehicle.usage == [VehicleUsage.METRO, VehicleUsage.INTERCITY]
+
+
 def test_invalid_vehicle_usage_identifier_is_rejected(tmp_path):
     path = tmp_path / "vehicle.yaml"
     path.write_text(
@@ -45,3 +54,17 @@ def test_unmapped_tram_usage_uses_filter_default():
     assert disable_condition(VehicleType.TRAM, VehicleType.TRAIN, VehicleUsage.METRO, filters) == (
         "FEAT_TRAINS", "show < 2"
     )
+
+
+def test_multiple_vehicle_usages_use_least_restrictive_filter_threshold():
+    filters = [{
+        "feature": "FEAT_TRAINS",
+        "parameter": "show",
+        "minimum": {"METRO": 3, "INTERCITY": 1},
+    }]
+    assert disable_condition(
+        VehicleType.TRAM,
+        VehicleType.TRAIN,
+        [VehicleUsage.METRO, VehicleUsage.INTERCITY],
+        filters,
+    ) == ("FEAT_TRAINS", "show < 1")
