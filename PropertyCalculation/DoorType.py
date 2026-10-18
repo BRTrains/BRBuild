@@ -8,6 +8,7 @@ class DoorType(Enum):
     COMMUTER_DOUBLE = "commuter_double"
     COMMUTER_TRIPLE = "commuter_triple"
     MULTIPLE = "multiple"
+    SLAM = "slam"
 
     @classmethod
     def from_identifier(cls, raw: str) -> "DoorType":

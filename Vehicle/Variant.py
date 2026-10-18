@@ -7,6 +7,7 @@ from PropertyCalculation import (
     CostCalculator,
     FuelDefaults,
     FuelType,
+    loading_speed_for,
     Physics,
     PowerTypeClassifier,
     TrainType,
@@ -500,6 +501,14 @@ class Variant:
             self.properties["default_cargo_type"] = str(default_cargo).strip().upper()
 
         loading_speed = self.get_attr("loading_speed")
+        if loading_speed is None:
+            loading_speed = loading_speed_for(
+                doors=self.get_attr("doors"),
+                usage=self.get_attr("usage"),
+                speed=self.get_attr("speed"),
+                train_type=getattr(self.vehicle, "train_type", None),
+                cargo_classes=self.get_attr("cargo_classes"),
+            )
         if loading_speed is not None:
             self.properties["loading_speed"] = str(int(loading_speed))
 

@@ -8,6 +8,7 @@ from .CostCalculator import CostCalculator
 from .DoorType import DoorType
 from .FuelDefaults import FuelDefaults
 from .FuelType import FuelType
+from .LoadingSpeed import loading_speed_for
 from .Physics import Physics
 from .PowerTypeClassifier import PowerTypeClassifier
 from .TrainType import TrainType
@@ -21,6 +22,7 @@ __all__ = [
 	"DoorType",
 	"FuelDefaults",
 	"FuelType",
+	"loading_speed_for",
 	"PowerTypeClassifier",
 	"WagonType",
 	"TrainType",

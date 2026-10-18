@@ -15,7 +15,8 @@ def test_doors_accepts_all_identifiers():
         "commuter_double",
         "commuter_triple",
         "multiple",
-    )] == ["intercity", "commuter_double", "commuter_triple", "multiple"]
+        "slam",
+    )] == ["intercity", "commuter_double", "commuter_triple", "multiple", "slam"]
 
 
 def test_doors_resolve_livery_then_profile_then_vehicle():

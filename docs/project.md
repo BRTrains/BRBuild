@@ -198,7 +198,7 @@ An optional companion file named `[VehicleName]_settings.yaml` may sit beside it
     *   `power_type`: List of traction types (e.g., `[steam, coal]`).
     *   `track_type`: List of the project's logical track types the train can use (see Track types below). Defaults to `RAIL`; trains only.
     *   `has_cab`: `true` marks an unpowered driving vehicle (a DVT, DBSO or driving trailer) so the train may back up with it leading (see Driving vehicles below). Also accepted on a profile or a livery.
-    *   `doors`: Passenger-door arrangement: `intercity`, `commuter_double`, `commuter_triple`, or `multiple`. Accepted on the vehicle, profile, or livery; resolved livery → profile → vehicle.
+    *   `doors`: Passenger-door arrangement: `intercity`, `commuter_double`, `commuter_triple`, `multiple`, or `slam`. Accepted on the vehicle, profile, or livery; resolved livery → profile → vehicle. Unless `loading_speed` is explicitly set, the arrangement determines the loading speed; `slam` applies a one-third reduction to the inferred base.
     *   `lighting`: `auto` (the default), `exact` or `none` — see Lighting overlays below. Also accepted on a profile or a livery.
     *   `sound_effect`, `visual_effect`: Override the presentation implied by the traction type (see Traction types below). Also accepted on a profile or a livery.
 *   **`cargo`**: what the vehicle can be refitted to, as a preset name, an explicit NML class, or a list of either:
@@ -211,7 +211,7 @@ An optional companion file named `[VehicleName]_settings.yaml` may sit beside it
 *   **`non_cargo_classes`**: classes the vehicle can never be refitted to. Resolves classes only, never presets.
 *   **`default_cargo_type`**: which cargo a newly bought vehicle carries. Currently only NML's label-free `DEFAULT_CARGO_FIRST_REFITTABLE` is accepted — naming a cargo label such as `GOOD` needs a `cargotable`, which BRBuild does not generate yet, and would abort the compile.
 *   **`autorefit`**: `true` sets `TRAIN_FLAG_AUTOREFIT`, so the vehicle adopts the consist's cargo instead of needing its own refit.
-*   **`loading_speed`**: cargo units loaded/unloaded per loading interval.
+*   **`loading_speed`**: Explicit cargo units loaded/unloaded per loading interval. When omitted, BRBuild infers it from `doors`, then `usage`, then speed (`>100` mph is intercity, otherwise commuter); a coach with no usable speed signal defaults to intercity. Door baselines are `intercity: 10`, `commuter_double: 20`, `commuter_triple: 25`, and `multiple: 30`; `slam` multiplies the selected base by two-thirds.
 *   **`cargo_age_period`**: custom cargo ageing period in ticks.
 *   **`dates`**:
     *   `introduction_date`: when the vehicle becomes available. Write a year (`1952`), `YYYY-MM` (`1952-04`) or `YYYY-MM-DD` (`1952-04-21`); it is emitted as an NML `date(...)`, so a bare date is never read as the arithmetic expression it looks like. A profile or livery may set its own `introduction_date` to become available later than the vehicle.
