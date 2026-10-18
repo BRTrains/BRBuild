@@ -9,11 +9,12 @@ def test_loading_speed_order_matches_door_access():
         loading_speed_for(doors=door)
         for door in (
             DoorType.INTERCITY,
+            DoorType.COMMUTER_SINGLE,
             DoorType.COMMUTER_DOUBLE,
             DoorType.COMMUTER_TRIPLE,
             DoorType.MULTIPLE,
         )
-    ] == [10, 20, 25, 30]
+    ] == [10, 20, 20, 25, 30]
 
 
 def test_slam_doors_reduce_the_inferred_speed_by_one_third():

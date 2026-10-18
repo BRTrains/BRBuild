@@ -5,6 +5,7 @@ from PropertyCalculation.DoorType import DoorType
 # intercity examples commonly used 10, while commuter stock used 20-30.
 DOOR_LOADING_SPEEDS = {
     DoorType.INTERCITY: 10,
+    DoorType.COMMUTER_SINGLE: 20,
     DoorType.COMMUTER_DOUBLE: 20,
     DoorType.COMMUTER_TRIPLE: 25,
     DoorType.MULTIPLE: 30,

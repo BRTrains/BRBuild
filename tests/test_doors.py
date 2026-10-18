@@ -12,11 +12,12 @@ from YamlHandler.VehicleLoader import VehicleLoader
 def test_doors_accepts_all_identifiers():
     assert [DoorType.from_identifier(value).value for value in (
         "intercity",
+        "commuter_single",
         "commuter_double",
         "commuter_triple",
         "multiple",
         "slam",
-    )] == ["intercity", "commuter_double", "commuter_triple", "multiple", "slam"]
+    )] == ["intercity", "commuter_single", "commuter_double", "commuter_triple", "multiple", "slam"]
 
 
 def test_doors_resolve_livery_then_profile_then_vehicle():

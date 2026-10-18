@@ -5,6 +5,7 @@ class DoorType(Enum):
     """Passenger-door arrangement used by loading-speed calculations."""
 
     INTERCITY = "intercity"
+    COMMUTER_SINGLE = "commuter_single"
     COMMUTER_DOUBLE = "commuter_double"
     COMMUTER_TRIPLE = "commuter_triple"
     MULTIPLE = "multiple"
