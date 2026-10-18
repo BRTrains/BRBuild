@@ -184,7 +184,7 @@ An optional companion file named `[VehicleName]_settings.yaml` may sit beside it
     *   `sub_name`: Subtitle/alternative name.
     *   `based_on`: Reference/source vehicle.
     *   `operator`: Original railway operator.
-*   **`usage`** *(optional)*: Operational category identifier, or a list of identifiers, for project-specific rules. Supported values are `TRAM`, `TRAM_TRAIN`, `LIGHT_RAIL`, `UNDERGROUND`, `METRO`, `SUBURBAN`, `COMMUTER`, `LOCAL`, `REGIONAL`, `INTERCITY`, and `HIGH_SPEED`. Multiple values use OR semantics in `usage_filters`: the least restrictive matching threshold applies. The value(s) are parsed into the reusable `VehicleUsage` enumeration; they do not change the vehicle's base feature by themselves.
+*   **`usage`** *(optional)*: Operational category identifier, or a list of identifiers, for project-specific rules. Supported values are `TRAM`, `TRAM_TRAIN`, `LIGHT_RAIL`, `UNDERGROUND`, `METRO`, `SUBURBAN`, `COMMUTER`, `LOCAL`, `REGIONAL`, `INTERCITY`, `HIGH_SPEED`, `DEPARTMENTAL`, `PROTOTYPE`, `UTILITY`, `FREIGHT`, `PASSENGER`, `SLEEPER`, and `MAIL`. Multiple values use OR semantics in `usage_filters`: the least restrictive matching threshold applies. The value(s) are parsed into the reusable `VehicleUsage` enumeration; they do not change the vehicle's base feature by themselves.
 *   **`stats`**:
     *   `vehicle_type`: Core type. Supported values: `train`, `tram`, `road_vehicle`, `ship`, `plane`.
     *   `train_type` *(only for `vehicle_type: train`)*: Enum defining sub-type. Supported: `locomotive`, `multiple_unit`, `wagon`, `coach`.

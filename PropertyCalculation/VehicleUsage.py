@@ -15,6 +15,13 @@ class VehicleUsage(Enum):
     REGIONAL = "REGIONAL"
     INTERCITY = "INTERCITY"
     HIGH_SPEED = "HIGH_SPEED"
+    DEPARTMENTAL = "DEPARTMENTAL"
+    PROTOTYPE = "PROTOTYPE"
+    UTILITY = "UTILITY"
+    FREIGHT = "FREIGHT"
+    PASSENGER = "PASSENGER"
+    SLEEPER = "SLEEPER"
+    MAIL = "MAIL"
 
     @classmethod
     def from_identifier(cls, raw: str) -> "VehicleUsage":

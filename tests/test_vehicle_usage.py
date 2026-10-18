@@ -6,8 +6,14 @@ from Vehicle.UsageVisibility import disable_condition
 from YamlHandler.VehicleLoader import VehicleLoader
 
 
-def test_vehicle_usage_enum_accepts_yaml_identifier():
-    assert VehicleUsage.from_identifier("UNDERGROUND") is VehicleUsage.UNDERGROUND
+def test_vehicle_usage_enum_accepts_all_yaml_identifiers():
+    identifiers = (
+        "TRAM", "TRAM_TRAIN", "LIGHT_RAIL", "UNDERGROUND", "METRO",
+        "SUBURBAN", "COMMUTER", "LOCAL", "REGIONAL", "INTERCITY",
+        "HIGH_SPEED", "DEPARTMENTAL", "PROTOTYPE", "UTILITY", "FREIGHT",
+        "PASSENGER", "SLEEPER", "MAIL",
+    )
+    assert [VehicleUsage.from_identifier(value).name for value in identifiers] == list(identifiers)
 
 
 def test_vehicle_loader_reads_optional_usage_identifier(tmp_path):
