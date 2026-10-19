@@ -576,8 +576,12 @@ class Variant:
         purchase_cost = calculator.purchase_cost(False)
         running_cost = calculator.running_cost(False)
 
-        self.callbacks["cost_factor"] = calculator.runtime_expression(purchase_cost)
-        self.callbacks["running_cost_factor"] = calculator.runtime_expression(running_cost)
+        self.callbacks["cost_factor"] = calculator.runtime_expression(
+            purchase_cost, "param_purchase_cost_multiplier"
+        )
+        self.callbacks["running_cost_factor"] = calculator.runtime_expression(
+            running_cost, "param_running_cost_multiplier"
+        )
     
     #todo: this doesn't need to be per variant, can be done per vehicle instead
     def handleAdditionalText(self):

@@ -69,9 +69,11 @@ class CostCalculatorTests(unittest.TestCase):
         from PropertyCalculation.CostCalculator import CostCalculator
         from PropertyCalculation.TrainType import TrainType
 
-        expression = CostCalculator(self._variant(TrainType.LOCOMOTIVE)).runtime_expression(100)
+        expression = CostCalculator(self._variant(TrainType.LOCOMOTIVE)).runtime_expression(
+            100, "param_running_cost_multiplier"
+        )
 
-        self.assertIn("param_cost_multiplier", expression)
+        self.assertIn("param_running_cost_multiplier", expression)
         self.assertIn("25", expression)
         self.assertIn("300", expression)
         self.assertIn("400", expression)
@@ -82,9 +84,9 @@ class CostCalculatorTests(unittest.TestCase):
         from Grf import Grf
 
         grf = Grf("TEST", "TEST", "Test", "Test", "1", "1")
-        Builder._ensure_cost_parameter(grf)
+        Builder._ensure_cost_parameters(grf)
 
-        parameter = next(param for param in grf.params if param["identifier"] == "param_cost_multiplier")
+        parameter = next(param for param in grf.params if param["identifier"] == "param_running_cost_multiplier")
         self.assertEqual(parameter["def_value"], 3)
         self.assertEqual(parameter["max_value"], 6)
         self.assertEqual(parameter["names"][0], "1/4")
@@ -96,12 +98,16 @@ class CostCalculatorTests(unittest.TestCase):
         from Grf import Grf
 
         grf = Grf("TEST", "TEST", "Test", "Test", "1", "1", params=[{"identifier": "project_param"}])
-        Builder._ensure_cost_parameter(grf)
+        Builder._ensure_cost_parameters(grf)
         Builder._ensure_template_alignment_param(grf)
 
         self.assertEqual(
-            [param["identifier"] for param in grf.params[:2]],
-            ["param_cost_multiplier", "param_align_with"],
+            [param["identifier"] for param in grf.params[:3]],
+            [
+                "param_running_cost_multiplier",
+                "param_purchase_cost_multiplier",
+                "param_align_with",
+            ],
         )
 
 
@@ -812,8 +818,8 @@ class BuildPathTests(unittest.TestCase):
         self.assertGreater(
             CostCalculator(turbine).purchase_cost(), CostCalculator(diesel).purchase_cost()
         )
-        self.assertIn("param_cost_multiplier", turbine.callbacks["running_cost_factor"])
-        self.assertIn("param_cost_multiplier", turbine.callbacks["cost_factor"])
+        self.assertIn("param_running_cost_multiplier", turbine.callbacks["running_cost_factor"])
+        self.assertIn("param_purchase_cost_multiplier", turbine.callbacks["cost_factor"])
 
     def test_explicit_engine_class_wins_over_the_fuel_default(self):
         variant = self._variant(

@@ -148,7 +148,7 @@ class Builder:
     def _load_grf(self, ctx: BuildContext):
         loader = GrfLoader(ctx.project.path / ctx.project.grfFolder / "GRF.yaml")
         grf = loader.load()
-        self._ensure_cost_parameter(grf)
+        self._ensure_cost_parameters(grf)
         if self._is_default_template_folder(self._resolve_template_folder(ctx)):
             ctx.template_alignment_param_index = self._ensure_template_alignment_param(grf)
         ctx.grf = grf
@@ -157,31 +157,40 @@ class Builder:
         ctx.nml_files.append(writer.write_grf_gnml(output_path))
 
     @staticmethod
-    def _ensure_cost_parameter(grf):
-        """Inject the runtime purchase/running-cost multiplier parameter once."""
-        existing = [param for param in grf.params if param.get("identifier") == "param_cost_multiplier"]
-        if existing:
-            parameter = existing[0]
-            grf.params.remove(parameter)
-            grf.params.insert(0, parameter)
-            return
-        grf.params.insert(0, {
-            "identifier": "param_cost_multiplier",
-            "name_str": "Cost Multiplier",
-            "desc_str": "Adjust purchase and running costs",
-            "min_value": 0,
-            "max_value": 6,
-            "def_value": 3,
-            "names": {
-                0: "1/4",
-                1: "1/3",
-                2: "1/2",
-                3: "1x",
-                4: "2x",
-                5: "3x",
-                6: "4x",
-            },
-        })
+    def _ensure_cost_parameters(grf):
+        """Inject separate runtime purchase/running-cost parameters first."""
+        choices = {
+            0: "1/4",
+            1: "1/3",
+            2: "1/2",
+            3: "1x",
+            4: "2x",
+            5: "3x",
+            6: "4x",
+        }
+        definitions = [
+            ("param_running_cost_multiplier", "Running Cost Multiplier"),
+            ("param_purchase_cost_multiplier", "Purchase Cost Multiplier"),
+        ]
+
+        # Remove the previous combined parameter if a caller is reusing a loaded
+        # config object from the earlier builder version.
+        grf.params[:] = [param for param in grf.params if param.get("identifier") != "param_cost_multiplier"]
+        for identifier, name in reversed(definitions):
+            existing = next((param for param in grf.params if param.get("identifier") == identifier), None)
+            if existing is None:
+                existing = {
+                    "identifier": identifier,
+                    "name_str": name,
+                    "desc_str": f"Adjust {name.lower()}",
+                    "min_value": 0,
+                    "max_value": 6,
+                    "def_value": 3,
+                    "names": choices,
+                }
+            else:
+                grf.params.remove(existing)
+            grf.params.insert(0, existing)
 
     @staticmethod
     def _ensure_template_alignment_param(grf):
@@ -191,14 +200,14 @@ class Builder:
             grf.params.remove(parameter)
             insertion_index = next(
                 (index for index, param in enumerate(grf.params)
-                 if param.get("identifier") not in {"param_cost_multiplier", "param_align_with"}),
+                 if param.get("identifier") not in {"param_running_cost_multiplier", "param_purchase_cost_multiplier", "param_align_with"}),
                 len(grf.params),
             )
             grf.params.insert(insertion_index, parameter)
             return insertion_index
         insertion_index = next(
             (index for index, param in enumerate(grf.params)
-             if param.get("identifier") not in {"param_cost_multiplier", "param_align_with"}),
+             if param.get("identifier") not in {"param_running_cost_multiplier", "param_purchase_cost_multiplier", "param_align_with"}),
             len(grf.params),
         )
         grf.params.insert(insertion_index, {

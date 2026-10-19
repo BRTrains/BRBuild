@@ -102,7 +102,7 @@ Two optional files sit beside it in the same folder:
     *   `max_value`: Maximum allowed value.
     *   `def_value`: Default value.
     *   `names` *(optional)*: Map of integer values to user-facing strings (e.g., `0: "Enabled", 1: "Disabled"`).
-*   **`cost_scale`** *(optional)*: Project-wide calibration for generated purchase and running-cost callbacks. Defaults to `1.0`; it changes absolute prices without changing their relative ordering. BRBuild injects a runtime **Cost Multiplier** parameter with choices `1/4`, `1/3`, `1/2`, `1x` (default), `2x`, `3x`, and `4x`; the selected value is applied by each vehicle's cost callback.
+*   **`cost_scale`** *(optional)*: Project-wide calibration for generated purchase and running-cost callbacks. Defaults to `1.0`; it changes absolute prices without changing their relative ordering. BRBuild injects separate runtime **Running Cost Multiplier** and **Purchase Cost Multiplier** parameters, each with choices `1/4`, `1/3`, `1/2`, `1x` (default), `2x`, `3x`, and `4x`; each selected value is applied by the corresponding vehicle cost callback.
 *   **`global_vehicle_switches`**: List of NML switch definitions that apply globally. Each switch requires:
     *   `vehicle_type`: The feature/type (e.g., `TRAIN`, `ROADVEH`).
     *   `target_type`: Target for variables evaluation, e.g., `SELF` (default) or `PARENT`.

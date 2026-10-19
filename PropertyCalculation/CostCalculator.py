@@ -100,8 +100,8 @@ class CostCalculator:
         min_val = 0 if allow_zero else 1
         return int(max(min_val, min(CALLBACK_MAX, round(value))))
 
-    def runtime_expression(self, value: int) -> str:
-        """Return the callback expression for the injected runtime cost parameter."""
+    def runtime_expression(self, value: int, parameter: str) -> str:
+        """Return the callback expression for one runtime cost parameter."""
         values = [
             max(1, round(value / 4)),
             max(1, round(value / 3)),
@@ -113,7 +113,7 @@ class CostCalculator:
         ]
         expression = str(values[-1])
         for index in range(len(values) - 2, -1, -1):
-            expression = f"param_cost_multiplier == {index} ? {values[index]} : {expression}"
+            expression = f"{parameter} == {index} ? {values[index]} : {expression}"
         return expression
 
     def running_cost(self, allow_zero: bool = False) -> int:
