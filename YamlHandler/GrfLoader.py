@@ -79,7 +79,7 @@ class GrfLoader:
             description = grf_data.get("description"),
             version = versioning_data.get("version"),
             compatible_version = versioning_data.get("compatible_version"),
-            params = data.get("params", []),
+            params = data.get("params") or [],
             global_vehicle_switches = data.get("global_vehicle_switches", []),
             global_actions = data.get("global_actions", []),
             global_properties = global_properties,

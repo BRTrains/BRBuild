@@ -110,6 +110,29 @@ class CostCalculatorTests(unittest.TestCase):
             ],
         )
 
+    def test_general_parameters_include_road_controls_only_for_road_sets(self):
+        from Builder.Builder import Builder
+        from Grf import Grf
+
+        trains = Grf("TEST", "TEST", "Test", "Test", "1", "1")
+        Builder._ensure_general_parameters(trains)
+        self.assertEqual(
+            [param["identifier"] for param in trains.params],
+            [
+                "param_speed_mode",
+                "param_passenger_multiplier",
+                "param_mail_multiplier",
+                "param_freight_multiplier",
+                "param_disable_default_trains",
+                "param_disable_default_roadvehicles",
+            ],
+        )
+
+        mixed = Grf("TEST", "TEST", "Test", "Test", "1", "1")
+        Builder._ensure_general_parameters(mixed)
+        self.assertIn("param_disable_default_roadvehicles", [param["identifier"] for param in mixed.params])
+        self.assertEqual(len(mixed.global_actions), 2)
+
 
 #: Root of the BRBuild checkout, so tests never depend on a machine-specific absolute path.
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -1979,7 +2002,7 @@ liveries:
 
         self.assertEqual(
             variant.callbacks["cargo_capacity"],
-            "param_capacity_scaling < 1 ? 100 : 100 * param_capacity_scaling",
+            "param_passenger_multiplier < 1 ? 100 : 100 * param_passenger_multiplier",
         )
         self.assertEqual(variant.properties["introduction_date"], "date(1990, 1, 1)")
 
@@ -1989,7 +2012,7 @@ liveries:
 
         self.assertEqual(
             variant.callbacks["cargo_capacity"],
-            "param_capacity_scaling < 1 ? 200 : 200 * param_capacity_scaling",
+            "param_passenger_multiplier < 1 ? 200 : 200 * param_passenger_multiplier",
         )
         self.assertEqual(variant.properties["introduction_date"], "date(1995, 1, 1)")
 
@@ -1999,7 +2022,7 @@ liveries:
 
         self.assertEqual(
             variant.callbacks["cargo_capacity"],
-            "param_capacity_scaling < 1 ? 300 : 300 * param_capacity_scaling",
+            "param_passenger_multiplier < 1 ? 300 : 300 * param_passenger_multiplier",
         )
         self.assertEqual(variant.properties["introduction_date"], "date(2000, 1, 1)")
 

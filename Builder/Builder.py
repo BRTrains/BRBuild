@@ -149,6 +149,7 @@ class Builder:
         loader = GrfLoader(ctx.project.path / ctx.project.grfFolder / "GRF.yaml")
         grf = loader.load()
         self._ensure_cost_parameters(grf)
+        self._ensure_general_parameters(grf)
         if self._is_default_template_folder(self._resolve_template_folder(ctx)):
             ctx.template_alignment_param_index = self._ensure_template_alignment_param(grf)
         ctx.grf = grf
@@ -191,6 +192,124 @@ class Builder:
             else:
                 grf.params.remove(existing)
             grf.params.insert(0, existing)
+
+    @staticmethod
+    def _ensure_general_parameters(grf):
+        """Inject shared speed, capacity, and default-vehicle controls first."""
+        definitions = [
+            (
+                "param_speed_mode",
+                "Speed Mode",
+                "Use each unit's design speed, or its permitted service speed",
+                0,
+                1,
+                1,
+                {0: "Service Speed", 1: "Design Speed"},
+            ),
+            (
+                "param_passenger_multiplier",
+                "Passenger Capacity Multiplier",
+                "Increase capacities of passenger vehicles",
+                1,
+                4,
+                1,
+                {1: "1x", 2: "2x", 3: "3x", 4: "4x"},
+            ),
+            (
+                "param_mail_multiplier",
+                "Mail Capacity Multiplier",
+                "Increase capacities of mail vehicles",
+                1,
+                4,
+                1,
+                {1: "1x", 2: "2x", 3: "3x", 4: "4x"},
+            ),
+            (
+                "param_freight_multiplier",
+                "Freight Capacity Multiplier",
+                "Increase capacities of freight vehicles",
+                1,
+                4,
+                1,
+                {1: "1x", 2: "2x", 3: "3x", 4: "4x"},
+            ),
+            (
+                "param_disable_default_trains",
+                "Hide Default OpenTTD trains?",
+                "Hide the default OpenTTD trains from the vehicle list",
+                0,
+                1,
+                1,
+                {0: "Show Default OpenTTD trains", 1: "Hide Default OpenTTD trains"},
+            ),
+        ]
+        definitions.append(
+            (
+                "param_disable_default_roadvehicles",
+                "Hide Default OpenTTD road vehicles?",
+                "Hide the default OpenTTD road vehicles from the vehicle list",
+                0,
+                1,
+                1,
+                {0: "Show Default OpenTTD road vehicles", 1: "Hide Default OpenTTD road vehicles"},
+            )
+        )
+
+        builder_ids = {
+            "param_running_cost_multiplier",
+            "param_purchase_cost_multiplier",
+            "param_passenger_multiplier",
+            "param_mail_multiplier",
+            "param_freight_multiplier",
+            "param_disable_default_trains",
+            "param_disable_default_roadvehicles",
+            "param_align_with",
+        }
+        # Remove legacy combined/default-vehicle identifiers before re-inserting the
+        # canonical builder-owned definitions.
+        legacy_ids = {"param_disable_default_vehicles"}
+        grf.params[:] = [
+            param for param in grf.params
+            if param.get("identifier") not in legacy_ids
+        ]
+        insertion_index = next(
+            (index for index, param in enumerate(grf.params)
+             if param.get("identifier") not in builder_ids),
+            len(grf.params),
+        )
+        for identifier, name, description, minimum, maximum, default, names in definitions:
+            existing = next((param for param in grf.params if param.get("identifier") == identifier), None)
+            if existing is not None:
+                grf.params.remove(existing)
+            else:
+                existing = {
+                    "identifier": identifier,
+                    "name_str": name,
+                    "desc_str": description,
+                    "min_value": minimum,
+                    "max_value": maximum,
+                    "def_value": default,
+                    "names": names,
+                }
+            grf.params.insert(insertion_index, existing)
+            insertion_index += 1
+
+        grf.global_actions[:] = [
+            action for action in grf.global_actions
+            if action.get("condition") not in {
+                "param_disable_default_trains == 1",
+                "param_disable_default_roadvehicles == 1",
+                "param_disable_default_vehicles == 1",
+            }
+        ]
+        actions = [
+            {"condition": "param_disable_default_trains == 1", "action": "disable_item(FEAT_TRAINS)"}
+        ]
+        actions.append(
+            {"condition": "param_disable_default_roadvehicles == 1", "action": "disable_item(FEAT_ROADVEHS)"}
+        )
+        grf.global_actions[0:0] = actions
+
 
     @staticmethod
     def _ensure_template_alignment_param(grf):

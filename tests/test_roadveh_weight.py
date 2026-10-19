@@ -105,7 +105,7 @@ class CapacityCallbackTests(unittest.TestCase):
         # callback does not simply multiply — a stored 0 must still read 120.
         self.assertEqual("1", str(variant.properties["cargo_capacity"]))
         self.assertEqual(
-            "param_capacity_scaling < 1 ? 120 : 120 * param_capacity_scaling",
+            "param_passenger_multiplier < 1 ? 120 : 120 * param_passenger_multiplier",
             variant.callbacks["cargo_capacity"],
         )
 

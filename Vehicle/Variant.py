@@ -523,15 +523,20 @@ class Variant:
         capacity = self.get_attr("capacity")
         if capacity is None:
             capacity = 0
-        # The scaling factor is a *stored* GRF parameter: OpenTTD uses whatever the savegame or
-        # the config holds (`GRFConfig::GetValue` returns `param[nr]` as-is, and a slot that was
-        # never written reads as 0 - which is what a savegame predating the parameter's current
-        # index holds). Multiplying unguarded would then zero every capacity in the set, so the
-        # callback falls back to the plain figure whenever the parameter is unset or below 1.
+        cargo_classes = self.get_attr("cargo_classes") or []
+        cargo_classes = {str(cargo).upper() for cargo in cargo_classes}
+        if not cargo_classes or "PASSENGERS" in cargo_classes:
+            parameter = "param_passenger_multiplier"
+        elif "MAIL" in cargo_classes:
+            parameter = "param_mail_multiplier"
+        else:
+            parameter = "param_freight_multiplier"
+        # Each parameter defaults to one, but an unset slot in an older save reads
+        # as zero, so retain the authored capacity instead of zeroing it.
         self.callbacks["cargo_capacity"] = (
-            f"param_capacity_scaling < 1 "
+            f"{parameter} < 1 "
             f"? {int(capacity)} "
-            f": {int(capacity)} * param_capacity_scaling"
+            f": {int(capacity)} * {parameter}"
         )
         self.properties["cargo_capacity"] = 1 # Needed for NML to allow the callback override
 
