@@ -161,8 +161,11 @@ class Builder:
         """Inject the runtime purchase/running-cost multiplier parameter once."""
         existing = [param for param in grf.params if param.get("identifier") == "param_cost_multiplier"]
         if existing:
+            parameter = existing[0]
+            grf.params.remove(parameter)
+            grf.params.insert(0, parameter)
             return
-        grf.params.append({
+        grf.params.insert(0, {
             "identifier": "param_cost_multiplier",
             "name_str": "Cost Multiplier",
             "desc_str": "Adjust purchase and running costs",
@@ -182,9 +185,23 @@ class Builder:
 
     @staticmethod
     def _ensure_template_alignment_param(grf):
-        if any(param.get("identifier") == "param_align_with" for param in grf.params):
-            return next(i for i, param in enumerate(grf.params) if param.get("identifier") == "param_align_with")
-        grf.params.append({
+        existing = [param for param in grf.params if param.get("identifier") == "param_align_with"]
+        if existing:
+            parameter = existing[0]
+            grf.params.remove(parameter)
+            insertion_index = next(
+                (index for index, param in enumerate(grf.params)
+                 if param.get("identifier") not in {"param_cost_multiplier", "param_align_with"}),
+                len(grf.params),
+            )
+            grf.params.insert(insertion_index, parameter)
+            return insertion_index
+        insertion_index = next(
+            (index for index, param in enumerate(grf.params)
+             if param.get("identifier") not in {"param_cost_multiplier", "param_align_with"}),
+            len(grf.params),
+        )
+        grf.params.insert(insertion_index, {
             "identifier": "param_align_with",
             "name_str": "Align with",
             "desc_str": "Choose the sprite offset alignment convention",
@@ -193,7 +210,7 @@ class Builder:
             "def_value": 1,
             "names": {0: "Generic", 1: "Iron Horse"},
         })
-        return len(grf.params) - 1
+        return insertion_index
 
     def _load_railtypes(self, ctx: BuildContext):
         """Load the project's `RailTypes.yaml`, if it has one, and emit it as NML.

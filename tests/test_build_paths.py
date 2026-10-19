@@ -91,6 +91,19 @@ class CostCalculatorTests(unittest.TestCase):
         self.assertEqual(parameter["names"][3], "1x")
         self.assertEqual(parameter["names"][6], "4x")
 
+    def test_builder_parameters_are_emitted_before_project_parameters(self):
+        from Builder.Builder import Builder
+        from Grf import Grf
+
+        grf = Grf("TEST", "TEST", "Test", "Test", "1", "1", params=[{"identifier": "project_param"}])
+        Builder._ensure_cost_parameter(grf)
+        Builder._ensure_template_alignment_param(grf)
+
+        self.assertEqual(
+            [param["identifier"] for param in grf.params[:2]],
+            ["param_cost_multiplier", "param_align_with"],
+        )
+
 
 #: Root of the BRBuild checkout, so tests never depend on a machine-specific absolute path.
 REPO_ROOT = Path(__file__).resolve().parents[1]
