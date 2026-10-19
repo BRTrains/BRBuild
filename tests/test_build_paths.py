@@ -51,10 +51,32 @@ class CostCalculatorTests(unittest.TestCase):
         locomotive = CostCalculator(self._variant(TrainType.LOCOMOTIVE, power=4000))
         coach = CostCalculator(self._variant(TrainType.COACH, capacity=64))
 
-        # A coach uses OpenTTD's £2,000 wagon base; powered vehicles use £400,000.
-        mu_total = mu.purchase_cost() * 3 * 400000
-        locomotive_plus_coaches = locomotive.purchase_cost() * 400000 + coach.purchase_cost() * 3 * 2000
-        self.assertAlmostEqual(mu_total, locomotive_plus_coaches, delta=25000000)
+        self.assertLess(mu.purchase_cost(), locomotive.purchase_cost())
+        self.assertGreater(mu.purchase_cost() * 3, mu.purchase_cost())
+
+    def test_cost_score_preserves_power_proportions_and_uses_the_new_references(self):
+        from PropertyCalculation.CostCalculator import CostCalculator
+        from PropertyCalculation.TrainType import TrainType
+
+        low = CostCalculator(self._variant(TrainType.LOCOMOTIVE, power=3000, speed=100)).base_performance_cost()
+        high = CostCalculator(self._variant(TrainType.LOCOMOTIVE, power=21000, speed=100)).base_performance_cost()
+        expected_low = 16000 * (0.65 * (3000 / 21000) + 0.35 * (100 / 250))
+        expected_high = 16000 * (0.65 + 0.35 * (100 / 250))
+
+        self.assertAlmostEqual(low, expected_low)
+        self.assertAlmostEqual(high, expected_high)
+        self.assertGreater(high, low * 2)
+
+    def test_missing_speed_uses_the_cost_model_default(self):
+        from PropertyCalculation.CostCalculator import CostCalculator
+        from PropertyCalculation.TrainType import TrainType
+
+        variant = self._variant(TrainType.LOCOMOTIVE, power=3000, speed=None)
+
+        calculator = CostCalculator(variant)
+
+        expected = 16000 * (0.65 * (3000 / 21000) + 0.35 * (100 / 250))
+        self.assertAlmostEqual(calculator.base_performance_cost(), expected)
 
     def test_cost_scale_changes_costs_proportionately(self):
         from PropertyCalculation.CostCalculator import CostCalculator

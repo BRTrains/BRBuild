@@ -6,11 +6,18 @@ from Grf import COST_SCORE_MAX
 
 CALLBACK_MAX = 65535
 
-# OpenTTD's train and wagon purchase bases differ by 200x. These factors are in
-# callback units, not percentages: a wagon/coach must use a larger factor to reach
-# a sensible absolute price than a powered train vehicle.
-WAGON_BASE_FACTOR = 4200.0
-COACH_BASE_FACTOR = 3300.0
+# Reference values for the normalised cost model. Values above a reference saturate
+# that component at 1.0; COST_SCORE_MAX is the shared callback-score scale.
+SPEED_REFERENCE_MPH = 250.0
+POWER_REFERENCE_HP = 21000.0
+MU_CAPACITY_REFERENCE = 1500.0
+STOCK_CAPACITY_REFERENCE = 250.0
+FORMATION_REFERENCE = 16.0
+
+LOCOMOTIVE_WEIGHTS = (0.65, 0.35)  # power, speed
+MU_WEIGHTS = (0.40, 0.30, 0.25, 0.05)  # power, capacity, speed, unit overhead
+COACH_WEIGHTS = (0.65, 0.35)  # capacity, speed
+WAGON_WEIGHTS = (0.65, 0.35)  # capacity, speed
 
 
 class CostCalculator:
@@ -20,9 +27,6 @@ class CostCalculator:
 
         raw_power = getattr(variant, "power", None) or variant.get_attr("power")
         self.power: float = float(raw_power) if raw_power is not None else 0.0
-
-        raw_size = variant.get_attr("size") or getattr(variant, "size", None)
-        self.size: float = float(raw_size) if raw_size is not None else 1.0
 
         raw_capacity = variant.get_attr("capacity") or getattr(variant, "capacity", None)
         self.capacity: float = float(raw_capacity) if raw_capacity is not None else 0.0
@@ -65,33 +69,29 @@ class CostCalculator:
         return max(0.0, min(1.0, value / maximum))
 
     def base_performance_cost(self) -> float:
-        """Return the unscaled callback factor for one vehicle.
-
-        Wagon and coach factors are deliberately much larger than powered-train
-        factors because OpenTTD uses a £2,000 purchase base for both, versus
-        £400,000 for locomotives and powered MU parts.
-        """
-        speed = self._proportion(self.speed, 200.0)
-        power = self._proportion(self.power, 21000.0)
-        capacity = self._proportion(self.capacity, 120.0)
-        size = self._proportion(self.size, 8.0)
+        """Return the normalised, unscaled callback score for one vehicle."""
+        speed = self._proportion(self.speed, SPEED_REFERENCE_MPH)
+        power = self._proportion(self.power, POWER_REFERENCE_HP)
 
         if self._train_type_name == TrainType.WAGON.name:
-            # Freight stock stays below passenger stock despite capacity.
-            return WAGON_BASE_FACTOR * (1.0 + 0.25 * speed + 0.50 * capacity + 0.15 * size)
+            capacity = self._proportion(self.capacity, STOCK_CAPACITY_REFERENCE)
+            index = WAGON_WEIGHTS[0] * capacity + WAGON_WEIGHTS[1] * speed
+        elif self._train_type_name == TrainType.COACH.name:
+            capacity = self._proportion(self.capacity, STOCK_CAPACITY_REFERENCE)
+            index = COACH_WEIGHTS[0] * capacity + COACH_WEIGHTS[1] * speed
+        elif self._train_type_name == TrainType.MULTIPLE_UNIT.name:
+            capacity = self._proportion(self.capacity, MU_CAPACITY_REFERENCE)
+            overhead = 1.0 / min(self.num_vehicles, FORMATION_REFERENCE)
+            index = (
+                MU_WEIGHTS[0] * power
+                + MU_WEIGHTS[1] * capacity
+                + MU_WEIGHTS[2] * speed
+                + MU_WEIGHTS[3] * overhead
+            )
+        else:
+            index = LOCOMOTIVE_WEIGHTS[0] * power + LOCOMOTIVE_WEIGHTS[1] * speed
 
-        if self._train_type_name == TrainType.COACH.name:
-            return COACH_BASE_FACTOR * (1.0 + 0.25 * speed + 0.50 * capacity + 0.10 * size)
-
-        if self._train_type_name == TrainType.MULTIPLE_UNIT.name:
-            # The fixed unit overhead is spread across its cars: two short
-            # coupled MUs therefore cost more than one long MU with the same
-            # car count.
-            return 20.0 / self.num_vehicles + 90.0 + 15.0 * speed + 35.0 * power + 10.0 * capacity
-
-        # Locomotives carry the strongest power weighting and a modest speed/size
-        # contribution. The result is a per-locomotive factor.
-        return 180.0 + 80.0 * power + 40.0 * speed + 10.0 * size
+        return COST_SCORE_MAX * index
 
     def _apply_scale(self, value: float) -> int:
         return self.clean_value(min(COST_SCORE_MAX, value) * self.cost_scale, allow_zero=False)
