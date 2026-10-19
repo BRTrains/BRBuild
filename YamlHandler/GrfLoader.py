@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from Grf import DEFAULT_GLOBAL_PROPERTIES, Grf
+from Grf import COST_SCORE_MAX, DEFAULT_GLOBAL_PROPERTIES, Grf
 from Vehicle.PurchaseList import parse_order
 
 
@@ -17,6 +17,17 @@ class GrfLoader:
 
         grf_data = data.get("grf", {}) or {}
         versioning_data = data.get("versioning", {}) or {}
+        cost_scale = data.get("cost_scale", 1.0)
+        if isinstance(cost_scale, bool) or not isinstance(cost_scale, (int, float)):
+            raise ValueError(f"'cost_scale' in {self.yaml_path} must be a positive number")
+        cost_scale = float(cost_scale)
+        if cost_scale <= 0:
+            raise ValueError(f"'cost_scale' in {self.yaml_path} must be greater than zero")
+        if cost_scale * 4 * COST_SCORE_MAX > 65535:
+            raise ValueError(
+                f"'cost_scale' in {self.yaml_path} is too large: a 4x cost parameter "
+                f"could exceed the 65535 callback limit"
+            )
         purchase_list = data.get("purchase_list") or {}
         if not isinstance(purchase_list, dict):
             raise ValueError(
@@ -76,4 +87,5 @@ class GrfLoader:
             purchase_list_order = purchase_list_order,
             purchase_list_file = purchase_list_file,
             purchase_list_script = purchase_list_script,
+            cost_scale = cost_scale,
         )

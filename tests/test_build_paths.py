@@ -15,6 +15,57 @@ from Sprites.Sprite import Sprite
 from Sprites.Spriteset import Spriteset
 from Templates.Template import Template
 
+class CostCalculatorTests(unittest.TestCase):
+    def _variant(self, train_type, *, power=0, speed=100, capacity=0, size=1, num_vehicles=1, cost_scale=1.0):
+        class Variant:
+            def __init__(self):
+                self.train_type = train_type
+                self.power = power
+                self.speed = speed
+                self.capacity = capacity
+                self.size = size
+                self.num_vehicles = num_vehicles
+                self.cost_scale = cost_scale
+
+            def get_attr(self, name):
+                return getattr(self, name, None)
+
+        return Variant()
+
+    def test_cost_model_accounts_for_the_lower_wagon_price_base(self):
+        from PropertyCalculation.CostCalculator import CostCalculator
+        from PropertyCalculation.TrainType import TrainType
+
+        wagon = CostCalculator(self._variant(TrainType.WAGON, capacity=20))
+        coach = CostCalculator(self._variant(TrainType.COACH, capacity=64))
+
+        self.assertLess(wagon.purchase_cost(), coach.purchase_cost())
+        self.assertGreater(wagon.purchase_cost(), 255)
+        self.assertGreater(coach.purchase_cost(), 255)
+
+    def test_three_car_mu_is_about_a_locomotive_and_three_coaches(self):
+        from PropertyCalculation.CostCalculator import CostCalculator
+        from PropertyCalculation.TrainType import TrainType
+
+        mu = CostCalculator(self._variant(TrainType.MULTIPLE_UNIT, power=1500, capacity=80, num_vehicles=3))
+        locomotive = CostCalculator(self._variant(TrainType.LOCOMOTIVE, power=4000))
+        coach = CostCalculator(self._variant(TrainType.COACH, capacity=64))
+
+        # A coach uses OpenTTD's £2,000 wagon base; powered vehicles use £400,000.
+        mu_total = mu.purchase_cost() * 3 * 400000
+        locomotive_plus_coaches = locomotive.purchase_cost() * 400000 + coach.purchase_cost() * 3 * 2000
+        self.assertAlmostEqual(mu_total, locomotive_plus_coaches, delta=25000000)
+
+    def test_cost_scale_changes_costs_proportionately(self):
+        from PropertyCalculation.CostCalculator import CostCalculator
+        from PropertyCalculation.TrainType import TrainType
+
+        normal = CostCalculator(self._variant(TrainType.LOCOMOTIVE, power=4000, cost_scale=1.0)).purchase_cost()
+        reduced = CostCalculator(self._variant(TrainType.LOCOMOTIVE, power=4000, cost_scale=0.8)).purchase_cost()
+
+        self.assertAlmostEqual(reduced / normal, 0.8, delta=0.02)
+
+
 #: Root of the BRBuild checkout, so tests never depend on a machine-specific absolute path.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 

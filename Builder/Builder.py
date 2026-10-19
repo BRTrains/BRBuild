@@ -372,6 +372,10 @@ class Builder:
             # Materialised so the lighting overlays for every variant can be resolved before any of
             # them is written: one overlay sheet per published sheet holds the union of their lamps.
             # A candidate whose profiles name spritesheets of their own gets one detector per sheet.
+            # Cost scale is a GRF-level setting, but variants are the calculation boundary.
+            # Keep it on the candidate so direct Variant/CostCalculator callers retain the
+            # same default when no project context is present.
+            vehicle.cost_scale = ctx.grf.cost_scale
             variants = list(VariantIterator(vehicle))
             failed_variant_ids = set()
             lightings: dict[str, VehicleLighting] = {}

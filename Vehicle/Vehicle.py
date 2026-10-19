@@ -63,6 +63,8 @@ class Vehicle:
 
     size: Optional[int] = None
     num_vehicles: Optional[int] = None
+    #: Set by the builder from GRF.yaml; not a vehicle-authored field.
+    cost_scale: Optional[float] = None
     formation: Optional[str] = None
     sprite_override: Optional[List[int]] = None
     sprite_exclude: Optional[List[int]] = None

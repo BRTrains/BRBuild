@@ -26,6 +26,27 @@ class GlobalActionsTests(unittest.TestCase):
             [{"condition": "param_hide == 1", "action": "disable_item(FEAT_TRAINS)"}],
         )
 
+    def test_loader_reads_cost_scale(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "GRF.yaml"
+            path.write_text(
+                """grf:\n  grfid: TEST\n  short_name: Test\n  name: Test\n  description: Test\nversioning:\n  version: 1\n  compatible_version: 1\ncost_scale: 0.8\n""",
+                encoding="utf-8",
+            )
+            grf = GrfLoader(path).load()
+
+        self.assertEqual(grf.cost_scale, 0.8)
+
+    def test_loader_rejects_cost_scale_that_can_overflow_a_four_x_callback(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "GRF.yaml"
+            path.write_text(
+                """grf:\n  grfid: TEST\n  short_name: Test\n  name: Test\n  description: Test\nversioning:\n  version: 1\n  compatible_version: 1\ncost_scale: 2\n""",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "65535"):
+                GrfLoader(path).load()
+
     def test_writer_emits_conditional_global_action(self):
         grf = Grf(
             grfid="TEST",

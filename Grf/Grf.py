@@ -6,6 +6,11 @@ DEFAULT_GLOBAL_PROPERTIES = {
     "train_width_32_px": 1,
 }
 
+# Cost callbacks may return a wider value than the one-byte property fallback. Keep
+# the score range fixed so a GRF can tune its absolute costs without changing the
+# model's relative ordering.
+COST_SCORE_MAX = 16000
+
 
 @dataclass
 class Grf:
@@ -30,3 +35,5 @@ class Grf:
     #: the list is read. It is handed the items the build produced, so a list that names
     #: their symbols cannot go stale.
     purchase_list_script: str | None = None
+    #: Project-wide multiplier applied to generated purchase and running-cost callbacks.
+    cost_scale: float = 1.0
