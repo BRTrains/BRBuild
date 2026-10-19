@@ -102,6 +102,7 @@ Two optional files sit beside it in the same folder:
     *   `max_value`: Maximum allowed value.
     *   `def_value`: Default value.
     *   `names` *(optional)*: Map of integer values to user-facing strings (e.g., `0: "Enabled", 1: "Disabled"`).
+*   **`cost_scale`** *(optional)*: Project-wide calibration for generated purchase and running-cost callbacks. Defaults to `1.0`; it changes absolute prices without changing their relative ordering. BRBuild injects a runtime **Cost Multiplier** parameter with choices `1/4`, `1/3`, `1/2`, `1x` (default), `2x`, `3x`, and `4x`; the selected value is applied by each vehicle's cost callback.
 *   **`global_vehicle_switches`**: List of NML switch definitions that apply globally. Each switch requires:
     *   `vehicle_type`: The feature/type (e.g., `TRAIN`, `ROADVEH`).
     *   `target_type`: Target for variables evaluation, e.g., `SELF` (default) or `PARENT`.
@@ -135,33 +136,7 @@ versioning:
   version: 1
   compatible_version: 1
 
-params:
-  - identifier: "param_cost_multiplier"
-    type: "int"
-    name_str: "Cost Multiplier"
-    desc_str: "Adjust the purchase and running costs of all trains."
-    min_value: 0
-    max_value: 2
-    def_value: 1
-    names:
-      0: "Cheap"
-      1: "Normal"
-      2: "Expensive"
-
-# Optional project-wide calibration for the generated cost callbacks. The builder's
-# 16,000 score ceiling remains fixed; this only changes the absolute scale.
 cost_scale: 0.8
-
-global_vehicle_switches:
-  - vehicle_type: "TRAIN"
-    target_type: "SELF"
-    name: "sw_global_cost_modifier"
-    expression: "param_cost_multiplier"
-    values:
-      0: 50
-      1: 100
-      2: 150
-      default: 100
 
 purchase_list:
   order: "grouped"

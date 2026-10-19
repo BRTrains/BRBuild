@@ -148,12 +148,37 @@ class Builder:
     def _load_grf(self, ctx: BuildContext):
         loader = GrfLoader(ctx.project.path / ctx.project.grfFolder / "GRF.yaml")
         grf = loader.load()
+        self._ensure_cost_parameter(grf)
         if self._is_default_template_folder(self._resolve_template_folder(ctx)):
             ctx.template_alignment_param_index = self._ensure_template_alignment_param(grf)
         ctx.grf = grf
         writer = NmlGrfWriter(grf)
         output_path = Path(ctx.nml_output_folder) / "GRF.gnml"
         ctx.nml_files.append(writer.write_grf_gnml(output_path))
+
+    @staticmethod
+    def _ensure_cost_parameter(grf):
+        """Inject the runtime purchase/running-cost multiplier parameter once."""
+        existing = [param for param in grf.params if param.get("identifier") == "param_cost_multiplier"]
+        if existing:
+            return
+        grf.params.append({
+            "identifier": "param_cost_multiplier",
+            "name_str": "Cost Multiplier",
+            "desc_str": "Adjust purchase and running costs",
+            "min_value": 0,
+            "max_value": 6,
+            "def_value": 3,
+            "names": {
+                0: "1/4",
+                1: "1/3",
+                2: "1/2",
+                3: "1x",
+                4: "2x",
+                5: "3x",
+                6: "4x",
+            },
+        })
 
     @staticmethod
     def _ensure_template_alignment_param(grf):

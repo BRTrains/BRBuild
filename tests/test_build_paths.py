@@ -65,6 +65,32 @@ class CostCalculatorTests(unittest.TestCase):
 
         self.assertAlmostEqual(reduced / normal, 0.8, delta=0.02)
 
+    def test_runtime_cost_expression_exposes_quarter_to_four_times_choices(self):
+        from PropertyCalculation.CostCalculator import CostCalculator
+        from PropertyCalculation.TrainType import TrainType
+
+        expression = CostCalculator(self._variant(TrainType.LOCOMOTIVE)).runtime_expression(100)
+
+        self.assertIn("param_cost_multiplier", expression)
+        self.assertIn("25", expression)
+        self.assertIn("300", expression)
+        self.assertIn("400", expression)
+
+
+    def test_runtime_cost_parameter_is_injected_with_named_choices(self):
+        from Builder.Builder import Builder
+        from Grf import Grf
+
+        grf = Grf("TEST", "TEST", "Test", "Test", "1", "1")
+        Builder._ensure_cost_parameter(grf)
+
+        parameter = next(param for param in grf.params if param["identifier"] == "param_cost_multiplier")
+        self.assertEqual(parameter["def_value"], 3)
+        self.assertEqual(parameter["max_value"], 6)
+        self.assertEqual(parameter["names"][0], "1/4")
+        self.assertEqual(parameter["names"][3], "1x")
+        self.assertEqual(parameter["names"][6], "4x")
+
 
 #: Root of the BRBuild checkout, so tests never depend on a machine-specific absolute path.
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -765,12 +791,16 @@ class BuildPathTests(unittest.TestCase):
         diesel = self._variant(power_type=["diesel"], power=2700, speed=152)
         turbine = self._variant(power_type=["gas_turbine"], power=2700, speed=152)
 
+        from PropertyCalculation.CostCalculator import CostCalculator
+
         self.assertGreater(
-            turbine.callbacks["running_cost_factor"], diesel.callbacks["running_cost_factor"]
+            CostCalculator(turbine).running_cost(), CostCalculator(diesel).running_cost()
         )
         self.assertGreater(
-            turbine.callbacks["cost_factor"], diesel.callbacks["cost_factor"]
+            CostCalculator(turbine).purchase_cost(), CostCalculator(diesel).purchase_cost()
         )
+        self.assertIn("param_cost_multiplier", turbine.callbacks["running_cost_factor"])
+        self.assertIn("param_cost_multiplier", turbine.callbacks["cost_factor"])
 
     def test_explicit_engine_class_wins_over_the_fuel_default(self):
         variant = self._variant(
