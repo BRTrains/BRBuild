@@ -146,6 +146,7 @@ class CostCalculatorTests(unittest.TestCase):
                 "param_freight_multiplier",
                 "param_disable_default_trains",
                 "param_disable_default_roadvehicles",
+                "param_development_mode",
             ],
         )
 
@@ -153,6 +154,34 @@ class CostCalculatorTests(unittest.TestCase):
         Builder._ensure_general_parameters(mixed)
         self.assertIn("param_disable_default_roadvehicles", [param["identifier"] for param in mixed.params])
         self.assertEqual(len(mixed.global_actions), 2)
+
+    def test_development_parameter_defaults_off(self):
+        from Builder.Builder import Builder
+        from Grf import Grf
+
+        grf = Grf("TEST", "TEST", "Test", "Test", "1", "1")
+        Builder._ensure_general_parameters(grf)
+        parameter = next(param for param in grf.params if param["identifier"] == "param_development_mode")
+        self.assertEqual(parameter["def_value"], 0)
+        self.assertEqual(parameter["names"], {0: "Off", 1: "On"})
+
+    def test_development_variant_writes_numeric_disable_item(self):
+        from NmlWriter.NmlVariantWriter import NmlVariantWriter
+
+        class Variant:
+            vehicle_type = VehicleType.TRAIN
+            identifier = "wip_default_train"
+            sprite_id = 1234
+            properties = {}
+            callbacks = {}
+            disable_item_conditions = [("FEAT_TRAINS", "param_development_mode == 0")]
+
+        output = StringIO()
+        writer = NmlVariantWriter.__new__(NmlVariantWriter)
+        writer.write_item(output, Variant())
+        text = output.getvalue()
+        self.assertIn("disable_item(FEAT_TRAINS, 1234);", text)
+        self.assertIn("param_development_mode == 0", text)
 
 
 #: Root of the BRBuild checkout, so tests never depend on a machine-specific absolute path.

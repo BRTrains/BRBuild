@@ -30,6 +30,8 @@ class Vehicle:
     operator: Optional[str] = None
     classification: Optional[str] = None
     additional_text: Optional[str] = None
+    #: Hide this unit unless the GRF's global development-mode parameter is enabled.
+    development: Optional[bool] = None
 
     vehicle_type: Optional[VehicleType] = None
     usage: Optional[Union[VehicleUsage, List[VehicleUsage]]] = None

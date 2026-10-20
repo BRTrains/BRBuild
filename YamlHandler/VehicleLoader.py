@@ -160,6 +160,7 @@ class VehicleLoader:
             operator=info.get("operator"),
             classification=data.get("classification"),
             additional_text=data.get("additional_text"),
+            development=VehicleLoader._parse_bool(data.get("development"), "'development'", path),
 
             vehicle_type=vehicle_type,
             usage=VehicleLoader._parse_usage(data.get("usage"), path),
@@ -467,6 +468,14 @@ class VehicleLoader:
         raise ValueError(
             f"Invalid value '{raw}' for 'has_cab' in {where}: expected true or false."
         )
+
+    @staticmethod
+    def _parse_bool(raw: Any, field: str, where: str) -> bool | None:
+        if raw is None:
+            return None
+        if isinstance(raw, bool):
+            return raw
+        raise ValueError(f"Invalid value '{raw}' for {field} in {where}: expected true or false.")
 
     @staticmethod
     def _parse_spritesheet(raw: Any, where: str, folder_path: str) -> str | None:

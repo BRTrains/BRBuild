@@ -254,6 +254,17 @@ class Builder:
                 {0: "Show Default OpenTTD road vehicles", 1: "Hide Default OpenTTD road vehicles"},
             )
         )
+        definitions.append(
+            (
+                "param_development_mode",
+                "Development Mode",
+                "Show units marked as work in progress or development units",
+                0,
+                1,
+                0,
+                {0: "Off", 1: "On"},
+            )
+        )
 
         builder_ids = {
             "param_running_cost_multiplier",
@@ -263,6 +274,7 @@ class Builder:
             "param_freight_multiplier",
             "param_disable_default_trains",
             "param_disable_default_roadvehicles",
+            "param_development_mode",
             "param_align_with",
         }
         # Remove legacy combined/default-vehicle identifiers before re-inserting the
@@ -518,6 +530,10 @@ class Builder:
 
             ingested_new_spritesheet = self._ingest_new_spritesheet(vehicle, ctx)
             has_spritesheet = self._has_any_sheet(vehicle)
+            # A unit without any usable PNG is necessarily unfinished (or a utility/debug
+            # definition whose artwork has not landed yet). Keep it in the GRF for development
+            # mode, but hide it by default just like an explicitly flagged unit.
+            vehicle.development = bool(vehicle.development) or not has_spritesheet
             allocator = None
             variant_groups = {}
 
@@ -629,6 +645,13 @@ class Builder:
                     vehicle.usage,
                     getattr(ctx.grf, "usage_filters", None),
                 )
+                variant.disable_item_conditions = []
+                if variant.disable_item_condition:
+                    variant.disable_item_conditions.append(variant.disable_item_condition)
+                if vehicle.development:
+                    variant.disable_item_conditions.append(
+                        (variant.vehicle_type.nml_feature, "param_development_mode == 0")
+                    )
 
                 try:
                     variant.process()

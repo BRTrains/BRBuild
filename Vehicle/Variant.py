@@ -96,6 +96,8 @@ class Variant:
         self.effect_callback_name = None
         self.effect_switch_name = None
         self.nml_override: dict = {}
+        self.disable_item_condition = None
+        self.disable_item_conditions = []
 
         self.identifier = None
         self.nml_filename = None
