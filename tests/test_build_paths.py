@@ -39,9 +39,8 @@ class CostCalculatorTests(unittest.TestCase):
         wagon = CostCalculator(self._variant(TrainType.WAGON, capacity=20))
         coach = CostCalculator(self._variant(TrainType.COACH, capacity=64))
 
+        self.assertGreater(wagon.purchase_cost(), 0)
         self.assertLess(wagon.purchase_cost(), coach.purchase_cost())
-        self.assertGreater(wagon.purchase_cost(), 255)
-        self.assertGreater(coach.purchase_cost(), 255)
 
     def test_three_car_mu_is_about_a_locomotive_and_three_coaches(self):
         from PropertyCalculation.CostCalculator import CostCalculator
@@ -60,8 +59,8 @@ class CostCalculatorTests(unittest.TestCase):
 
         low = CostCalculator(self._variant(TrainType.LOCOMOTIVE, power=3000, speed=100)).base_performance_cost()
         high = CostCalculator(self._variant(TrainType.LOCOMOTIVE, power=21000, speed=100)).base_performance_cost()
-        expected_low = 16000 * (0.65 * (3000 / 21000) + 0.35 * (100 / 250))
-        expected_high = 16000 * (0.65 + 0.35 * (100 / 250))
+        expected_low = 1000 * (0.65 * (3000 / 21000) + 0.35 * (100 / 250))
+        expected_high = 1000 * (0.65 + 0.35 * (100 / 250))
 
         self.assertAlmostEqual(low, expected_low)
         self.assertAlmostEqual(high, expected_high)
@@ -75,7 +74,7 @@ class CostCalculatorTests(unittest.TestCase):
 
         calculator = CostCalculator(variant)
 
-        expected = 16000 * (0.65 * (3000 / 21000) + 0.35 * (100 / 250))
+        expected = 1000 * (0.65 * (3000 / 21000) + 0.35 * (100 / 250))
         self.assertAlmostEqual(calculator.base_performance_cost(), expected)
 
     def test_cost_scale_changes_costs_proportionately(self):

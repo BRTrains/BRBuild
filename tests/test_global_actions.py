@@ -41,7 +41,7 @@ class GlobalActionsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "GRF.yaml"
             path.write_text(
-                """grf:\n  grfid: TEST\n  short_name: Test\n  name: Test\n  description: Test\nversioning:\n  version: 1\n  compatible_version: 1\ncost_scale: 2\n""",
+                """grf:\n  grfid: TEST\n  short_name: Test\n  name: Test\n  description: Test\nversioning:\n  version: 1\n  compatible_version: 1\ncost_scale: 20\n""",
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(ValueError, "65535"):
