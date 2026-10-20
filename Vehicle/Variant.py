@@ -663,7 +663,7 @@ class Variant:
         elif tokens or getattr(self, "fuel_type", None) == FuelType.ELECTRIC:
             base = "RUNNING_COST_ELECTRIC"
         else:
-            base = "RUNNING_COST_NONE"
+            base = "RUNNING_COST_DIESEL"
         self.properties["running_cost_base"] = base
 
     def _effect_power_key(self):

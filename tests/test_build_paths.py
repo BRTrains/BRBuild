@@ -1436,7 +1436,7 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(diesel["effect_spawn_model_and_powered"], "EFFECT_SPAWN_MODEL_DIESEL")
         self.assertEqual(electric["running_cost_base"], "RUNNING_COST_ELECTRIC")
         self.assertEqual(electric["effect_spawn_model_and_powered"], "EFFECT_SPAWN_MODEL_ELECTRIC")
-        self.assertEqual(unpowered["running_cost_base"], "RUNNING_COST_NONE")
+        self.assertEqual(unpowered["running_cost_base"], "RUNNING_COST_DIESEL")
         self.assertEqual(unpowered["effect_spawn_model_and_powered"], "EFFECT_SPAWN_MODEL_NONE")
         self.assertEqual(road["running_cost_base"], "RUNNING_COST_ROADVEH")
         self.assertNotIn("effect_spawn_model_and_powered", road)
