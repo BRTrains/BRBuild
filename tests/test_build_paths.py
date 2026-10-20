@@ -183,6 +183,36 @@ class CostCalculatorTests(unittest.TestCase):
         self.assertIn("disable_item(FEAT_TRAINS, 1234);", text)
         self.assertIn("param_development_mode == 0", text)
 
+    def test_development_name_prefix_changes_text_but_not_nml_key(self):
+        from Badge import BadgeRegistry
+        from Lang.StringRegistry import _registry
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+
+        BadgeRegistry().clear()
+        _registry.clear()
+        vehicle = Vehicle(
+            folder_path=".",
+            identifier="example",
+            name="Class Example",
+            development=True,
+        )
+        variant = Variant(vehicle, Livery("Blue"), Profile("DEFAULT"), VehicleType.TRAIN)
+        variant.generate_identifiers()
+
+        name_key = "str_example_default_blue_train_name"
+        self.assertEqual(variant.properties["name"], f"string({name_key})")
+        name_text = _registry.get(name_key)
+        assert name_text is not None
+        self.assertTrue(name_text.startswith("{RED}(devmode){BLACK} "))
+
+        vehicle.development = False
+        normal_variant = Variant(vehicle, Livery("Blue"), Profile("DEFAULT"), VehicleType.TRAIN)
+        normal_variant.generate_identifiers()
+        self.assertEqual(normal_variant.properties["name"], f"string({name_key})")
+
 
 #: Root of the BRBuild checkout, so tests never depend on a machine-specific absolute path.
 REPO_ROOT = Path(__file__).resolve().parents[1]

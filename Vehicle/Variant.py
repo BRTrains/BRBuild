@@ -2,7 +2,7 @@ import re
 import logging
 from Badge import BadgeRegistry
 from Grf.RailTypeTable import RailTypeTable
-from Lang.StringRegistry import nml_str
+from Lang.StringRegistry import nml_clean_str, nml_str
 from PropertyCalculation import (
     CostCalculator,
     FuelDefaults,
@@ -35,6 +35,7 @@ ROADVEH_POWER_PROPERTY_MAX_HP = 2550
 GRAY = "GRAY"
 BLACK = "BLACK"
 GOLD = "GOLD"
+RED = "RED"
 SILVER = "SILVER"
 LTBROWN = "LTBROWN"
 
@@ -200,6 +201,18 @@ class Variant:
         """Return the vehicle, formation and livery name segments."""
         return self._vehicle_display_name(), self._formation_display_name(), self._livery_display_name()
 
+    def _display_name(self):
+        """Return the displayed name without changing the variant's stable NML string key."""
+        if getattr(self.vehicle, "development", False):
+            return f"{colour(RED)}(devmode){colour(BLACK)} {nml_clean_str(self.name)}"
+        return self.name
+
+    def _display_string(self, text, key, *, deduplicate=False):
+        development = bool(getattr(self.vehicle, "development", False))
+        if development:
+            text = f"{colour(RED)}(devmode){colour(BLACK)} {nml_clean_str(text)}"
+        return nml_str(text, key, deduplicate=deduplicate, preserve_parentheses=development)
+
     def _profile_display_name(self):
         """Return the profile's own name, or "" when the profile is the unnamed `Default`."""
         if not self.profile:
@@ -246,7 +259,7 @@ class Variant:
         # keeps a vehicle's name in its own per-vehicle string space (Action 4 keyed by the
         # vehicle id), while a name returned from a callback is drawn from the 1024-id misc
         # pool (`0xD0`) — the pool the set's per-variant names had exhausted.
-        name_ref = nml_str(self.name, f"{self.identifier}_name")
+        name_ref = self._display_string(self.name, f"{self.identifier}_name")
         self.properties["name"] = name_ref
 
         # The root switch names the vehicle and formation; the nested switch names the
@@ -256,7 +269,7 @@ class Variant:
         livery_name = self._livery_display_name()
         vehicle_name = self._vehicle_display_name()
         self.name_callback_name = f"sw_{self.identifier}_name"
-        self.name_callback_string = nml_str(
+        self.name_callback_string = self._display_string(
             vehicle_name
             + (f" - {{SILVER}}{formation_name}{{BLACK}}" if formation_name else "")
             + (f" - {{GOLD}}{livery_name}" if livery_name else ""),

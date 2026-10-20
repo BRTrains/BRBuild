@@ -7,7 +7,13 @@ class StringRegistry:
         self._strings = {}  # name -> text
         self._names_by_text = {}  # cleaned text -> canonical name
 
-    def write_string(self, text: str, name: str = None, deduplicate: bool = False) -> str:
+    def write_string(
+        self,
+        text: str,
+        name: str | None = None,
+        deduplicate: bool = False,
+        preserve_parentheses: bool = False,
+    ) -> str:
         """Stores a string and returns a reference of the form string(identifier)."""
         if text is None:
             raise ValueError("String text cannot be None")
@@ -32,7 +38,7 @@ class StringRegistry:
         if name in self._strings:
             return f"string({name})"
 
-        cleaned_text = self.clean_string(text)
+        cleaned_text = self.clean_string(text, preserve_parentheses=preserve_parentheses)
         if deduplicate:
             canonical_name = self._names_by_text.get(cleaned_text)
             if canonical_name is not None:
@@ -47,8 +53,8 @@ class StringRegistry:
         """Sanitizes an NML string key identifier so it contains only valid [A-Za-z0-9_] characters."""
         return re.sub(r"[^A-Za-z0-9_]", "_", name)
 
-    def clean_string(self, in_str: str) -> str:
-        illegal_name_chars = "(),"
+    def clean_string(self, in_str: str, preserve_parentheses: bool = False) -> str:
+        illegal_name_chars = "," if preserve_parentheses else "(),"
         return in_str.translate(str.maketrans("", "", illegal_name_chars))
 
     def get(self, name: str) -> str | None:
