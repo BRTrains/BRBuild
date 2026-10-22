@@ -243,6 +243,7 @@ class VehicleSpriteAllocator:
 		self._lengths: dict[tuple[str, str], list[int]] = {}
 		self._definitions: dict[tuple[str, str], list[TemplateDefinition]] = {}
 		self._patterns: dict[tuple[str, str], list[int]] = {}
+		self._last_group_key: tuple[str, str] | None = None
 
 	@staticmethod
 	def _match_vehicle_rows(extractor: SpritesheetExtractor, vehicle_type_str: str, definitions: list[TemplateDefinition]):
@@ -304,30 +305,44 @@ class VehicleSpriteAllocator:
 			source = getattr(profile, "sprite_group", None)
 			livery_source = getattr(livery, "sprite_group", None)
 
-			if livery_source and str(livery_source).strip().lower() != str(livery.name).strip().lower():
-				base_livery = self._source_livery(livery_source)
-				group_slice = self._shared_livery_rows(profile, base_livery)
+			if livery_source and (
+				str(livery_source).strip().upper() == "PREVIOUS"
+				or str(livery_source).strip().lower() != str(livery.name).strip().lower()
+			):
+				if str(livery_source).strip().upper() == "PREVIOUS":
+					group_slice, source_key = self._previous_rows(profile, livery)
+				else:
+					base_livery = self._source_livery(livery_source)
+					group_slice = self._shared_livery_rows(profile, base_livery)
+					source_key = (str(profile.identifier), str(base_livery.name))
 				# The shared rows keep the sheet the source group drew them from.
 				self._record_sheet(
 					key,
 					getattr(self, "_sheet_paths", {}).get(
-						(str(profile.identifier), str(base_livery.name)),
+						source_key,
 						self.vehicle.spritesheet_path,
 					),
 				)
-			elif source and str(source) != str(profile.identifier):
-				group_slice = self._shared_rows(profile, livery, source)
+			elif source and (
+				str(source).strip().upper() == "PREVIOUS"
+				or str(source) != str(profile.identifier)
+			):
+				if str(source).strip().upper() == "PREVIOUS":
+					group_slice, source_key = self._previous_rows(profile, livery)
+				else:
+					group_slice = self._shared_rows(profile, livery, source)
+					source_key = (str(source), str(livery.name))
 				# The shared rows keep the sheet the source group drew them from.
 				self._record_sheet(
 					key,
 					getattr(self, "_sheet_paths", {}).get(
-						(str(source), str(livery.name)), self.vehicle.spritesheet_path
+						source_key, self.vehicle.spritesheet_path
 					),
 				)
 			else:
 				group_slice = self._take_rows(profile, livery, group.group_size)
-				self._assigned_rows[key] = group_slice
 
+			self._assigned_rows[key] = group_slice
 			if len(group_slice) < group.group_size:
 				raise ValueError(
 					f"Not enough recognised spritesets for group {key} in "
@@ -342,6 +357,9 @@ class VehicleSpriteAllocator:
 			if not hasattr(self, "_patterns"):
 				self._patterns = {}
 			self._patterns[key] = list(group.pattern)
+			# PREVIOUS is allocator-local: it can only refer to a group already
+			# resolved for this vehicle, never to the preceding vehicle.
+			self._last_group_key = key
 
 		names = self._template_names[key]
 		if getattr(vehicle_type, "nml_feature", None) == ROAD_VEHICLE_FEATURE:
@@ -502,6 +520,21 @@ class VehicleSpriteAllocator:
 			self.get(profile, base)
 
 		return self._assigned_rows[source_key]
+
+	def _previous_rows(self, profile: Profile, livery: Livery) -> tuple[list, tuple[str, str]]:
+		"""Return the rows of the last valid group resolved for this vehicle.
+
+		The key is captured before resolving anything recursively, so a chain such as
+	`sprite_group: some_livery` followed by `sprite_group: PREVIOUS` inherits the
+	actual rows (and sheet) rather than treating `some_livery` as a new name.
+		"""
+		source_key = self._last_group_key
+		if source_key is None or source_key not in self._assigned_rows:
+			raise ValueError(
+				f"'{profile.identifier}/{livery.name}' declares sprite_group 'PREVIOUS', "
+				f"but no previous valid sprite group exists for vehicle '{self.vehicle.identifier}'."
+			)
+		return self._assigned_rows[source_key], source_key
 
 	def get_purchase(
 		self,

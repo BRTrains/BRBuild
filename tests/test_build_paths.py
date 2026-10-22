@@ -1335,6 +1335,92 @@ class BuildPathTests(unittest.TestCase):
         self.assertEqual(base_sets, other_sets)
         self.assertEqual(allocator.cursor, 3)
 
+    def test_previous_sprite_group_reuses_the_last_resolved_group(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.VariantSpriteGroups import VehicleSpriteAllocator
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.yaml_path = "/tmp/example/example.yaml"
+        profile = Profile("DEFAULT", num_vehicles=1)
+        base = Livery("Base")
+        aliased = Livery("Aliased", sprite_group="Base")
+        previous = Livery("Previous", sprite_group="PREVIOUS")
+        vehicle.profiles = [profile]
+        vehicle.liveries = [base, aliased, previous]
+        rows = [(SimpleNamespace(name=f"row{index}"), SimpleNamespace(name="tmpl_train_6", length=4))
+                for index in range(1, 4)]
+
+        def fake_init(self, vehicle, palette, definitions):
+            self.vehicle = vehicle
+            self.is_ohle = False
+            self._image = None
+            self._palette = palette
+            self.vehicle_rows = rows
+            self.cursor = 0
+            self._assigned_rows = {}
+            self._spritesets = {}
+            self._template_names = {}
+            self._lengths = {}
+            self._definitions = {}
+            self._last_group_key = None
+
+        with patch.object(VehicleSpriteAllocator, "__init__", fake_init):
+            allocator = VehicleSpriteAllocator(vehicle, [], [])
+
+        base_sets, _, _ = allocator.get(profile, base)
+        aliased_sets, _, _ = allocator.get(profile, aliased)
+        previous_sets, _, _ = allocator.get(profile, previous)
+
+        self.assertEqual(base_sets, aliased_sets)
+        self.assertEqual(aliased_sets, previous_sets)
+        self.assertEqual(allocator.cursor, 1)
+
+    def test_previous_sprite_group_is_local_to_one_vehicle(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.VariantSpriteGroups import VehicleSpriteAllocator
+
+        def make_vehicle(identifier, sprite_group=None):
+            vehicle = Vehicle(folder_path=".", identifier=identifier, name=identifier)
+            vehicle.yaml_path = f"/tmp/{identifier}/{identifier}.yaml"
+            profile = Profile("DEFAULT", num_vehicles=1)
+            vehicle.profiles = [profile]
+            vehicle.liveries = [Livery("Only", sprite_group=sprite_group)]
+            return vehicle, profile, vehicle.liveries[0]
+
+        rows = [(SimpleNamespace(name="row1"), SimpleNamespace(name="tmpl_train_6", length=4))]
+
+        def fake_init(self, vehicle, palette, definitions):
+            self.vehicle = vehicle
+            self.is_ohle = False
+            self._image = None
+            self._palette = palette
+            self.vehicle_rows = rows
+            self.cursor = 0
+            self._assigned_rows = {}
+            self._spritesets = {}
+            self._template_names = {}
+            self._lengths = {}
+            self._definitions = {}
+            self._last_group_key = None
+
+        with patch.object(VehicleSpriteAllocator, "__init__", fake_init):
+            first_vehicle, first_profile, first_livery = make_vehicle("first")
+            second_vehicle, second_profile, second_livery = make_vehicle("second", "PREVIOUS")
+            first = VehicleSpriteAllocator(first_vehicle, [], [])
+            second = VehicleSpriteAllocator(second_vehicle, [], [])
+
+        first.get(first_profile, first_livery)
+        with self.assertRaisesRegex(ValueError, "no previous valid sprite group"):
+            second.get(second_profile, second_livery)
+
     def test_a_livery_sprite_group_naming_nothing_fails_loudly(self):
         from types import SimpleNamespace
         from unittest.mock import patch
