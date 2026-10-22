@@ -154,20 +154,27 @@ class Variant:
                 return val
         return None
 
+    def resolved_vehicle_count(self):
+        """Share the sprite arrangement's part count across articulation and names."""
+        from Vehicle.VariantSpriteGroups import _resolve_pattern
+
+        pattern = self.sprite_pattern or _resolve_pattern(self.livery, self.profile, self.vehicle)
+        if pattern:
+            return len(pattern)
+        count = self.get_attr("num_vehicles")
+        return count if count is not None else self.get_attr("size")
+
     def _formation_tag(self):
         override = self.get_attr("formation")
         if override:
             value = str(override).strip()
             return value if value.lower().startswith("formation/") else f"formation/{value}"
-        count = self.get_attr("num_vehicles")
-        if count is None:
-            count = self.get_attr("size")
         return formation_tag(
             getattr(self.vehicle, "train_type", None),
             self.get_attr("power"),
             self.get_attr("cargo_classes"),
             self.get_attr("power_type"),
-            num_vehicles=count,
+            num_vehicles=self.resolved_vehicle_count(),
         )
 
     def _formation_display_name(self):
@@ -622,21 +629,7 @@ class Variant:
                 if badge not in self.badges:
                     self.badges.append(badge)
 
-        formation_override = self.get_attr("formation")
-        if formation_override:
-            formation = str(formation_override).strip()
-            formation = formation if formation.lower().startswith("formation/") else f"formation/{formation}"
-        else:
-            count = self.get_attr("num_vehicles")
-            if count is None:
-                count = self.get_attr("size")
-            formation = formation_tag(
-                getattr(self.vehicle, "train_type", None),
-                self.get_attr("power"),
-                self.get_attr("cargo_classes"),
-                self.get_attr("power_type"),
-                num_vehicles=count,
-            )
+        formation = self._formation_tag()
         if formation:
             badge = BadgeRegistry().add_badge(formation)
             if badge not in self.badges:
@@ -994,9 +987,7 @@ class Variant:
             self.callbacks[callback] = target
 
     def handleArticulated(self):
-        count = self.get_attr("num_vehicles")
-        if count is None:
-            count = self.get_attr("size")
+        count = self.resolved_vehicle_count()
 
         if count is not None and int(count) > 1:
             self.articulated_count = int(count)

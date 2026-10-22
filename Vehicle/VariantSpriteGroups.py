@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+import hashlib
+import json
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -594,6 +596,43 @@ class VehicleSpriteAllocator:
 		sheet = getattr(self, "_sheet_paths", {}).get(key)
 		image = self._image if sheet is None else self.image_for(sheet)
 
+		path = Path(output_folder) / self._purchase_filename(spritesets)
+		metadata_path = path.with_suffix(".png.purchase.json")
+		template = Template(
+			name="generated_purchase",
+			sprites=[Sprite(0, 0, 128, 13, -25, -8)],
+		)
+		result = (Spriteset("generated_purchase", str(path.resolve()), template), "tmpl_purchase")
+		# Hash the decoded source used for cropping, including its palette. This
+		# also works for remapped sheets and does not rely on timestamp precision.
+		identity = {
+			"version": 1,
+			"source_hash": hashlib.sha256(image.tobytes()).hexdigest(),
+			"source_size": list(image.size),
+			"source_mode": image.mode,
+			"source_palette": image.getpalette(),
+			"palette": list(self._palette),
+			"lengths": self._lengths.get(key, []),
+			"sprite_order": getattr(self, "_patterns", {}).get(key, []),
+			"parts": [
+				{
+					"file": str(spriteset.file), "x": spriteset.x, "y": spriteset.y,
+					"view": vars(spriteset.template.sprites[6]) if len(spriteset.template.sprites) > 6 else None,
+					"box": vars(definitions[index].bounding_boxes[6])
+					if index < len(definitions) and len(definitions[index].bounding_boxes) > 6 else None,
+				}
+				for index, spriteset in enumerate(spritesets)
+			],
+		}
+		# Round-trip tuples to JSON lists before comparing with persisted metadata.
+		identity = json.loads(json.dumps(identity))
+		try:
+			stored = json.loads(metadata_path.read_text())
+			if stored["inputs"] == identity and stored["output_hash"] == hashlib.sha256(path.read_bytes()).hexdigest():
+				return result
+		except (OSError, ValueError, KeyError, TypeError):
+			pass
+
 		parts = []
 		for index, spriteset in enumerate(spritesets):
 			views = spriteset.template.sprites
@@ -641,15 +680,13 @@ class VehicleSpriteAllocator:
 			)
 			x_cursor += crop.width
 
-		path = Path(output_folder) / self._purchase_filename(spritesets)
 		path.parent.mkdir(parents=True, exist_ok=True)
 		self._write_if_changed(path, purchase)
-
-		template = Template(
-			name="generated_purchase",
-			sprites=[Sprite(0, 0, 128, 13, -25, -8)],
-		)
-		return Spriteset("generated_purchase", str(path.resolve()), template), "tmpl_purchase"
+		metadata_path.write_text(json.dumps({
+			"inputs": identity,
+			"output_hash": hashlib.sha256(path.read_bytes()).hexdigest(),
+		}, indent=2) + "\n")
+		return result
 
 	@staticmethod
 	def _write_if_changed(path: Path, image: Image.Image) -> None:
