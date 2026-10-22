@@ -306,39 +306,58 @@ class VehicleSpriteAllocator:
 			livery_source = getattr(livery, "sprite_group", None)
 
 			if livery_source and (
-				str(livery_source).strip().upper() == "PREVIOUS"
+				str(livery_source).strip().upper() in {"PREVIOUS", "SPRITESHEET"}
 				or str(livery_source).strip().lower() != str(livery.name).strip().lower()
 			):
-				if str(livery_source).strip().upper() == "PREVIOUS":
+				mode = str(livery_source).strip().upper()
+				if mode == "PREVIOUS":
 					group_slice, source_key = self._previous_rows(profile, livery)
+					self._record_sheet(
+						key,
+						getattr(self, "_sheet_paths", {}).get(
+							source_key, self.vehicle.spritesheet_path
+						),
+					)
+				elif mode == "SPRITESHEET":
+					group_slice, sheet_path = self._spritesheet_rows(profile, livery)
+					self._record_sheet(key, sheet_path)
 				else:
 					base_livery = self._source_livery(livery_source)
 					group_slice = self._shared_livery_rows(profile, base_livery)
 					source_key = (str(profile.identifier), str(base_livery.name))
-				# The shared rows keep the sheet the source group drew them from.
-				self._record_sheet(
-					key,
-					getattr(self, "_sheet_paths", {}).get(
-						source_key,
-						self.vehicle.spritesheet_path,
-					),
-				)
+					# The shared rows keep the sheet the source group drew them from.
+					self._record_sheet(
+						key,
+						getattr(self, "_sheet_paths", {}).get(
+							source_key, self.vehicle.spritesheet_path
+						),
+					)
 			elif source and (
-				str(source).strip().upper() == "PREVIOUS"
+				str(source).strip().upper() in {"PREVIOUS", "SPRITESHEET"}
 				or str(source) != str(profile.identifier)
 			):
-				if str(source).strip().upper() == "PREVIOUS":
+				mode = str(source).strip().upper()
+				if mode == "PREVIOUS":
 					group_slice, source_key = self._previous_rows(profile, livery)
+					self._record_sheet(
+						key,
+						getattr(self, "_sheet_paths", {}).get(
+							source_key, self.vehicle.spritesheet_path
+						),
+					)
+				elif mode == "SPRITESHEET":
+					group_slice, sheet_path = self._spritesheet_rows(profile, livery)
+					self._record_sheet(key, sheet_path)
 				else:
 					group_slice = self._shared_rows(profile, livery, source)
 					source_key = (str(source), str(livery.name))
-				# The shared rows keep the sheet the source group drew them from.
-				self._record_sheet(
-					key,
-					getattr(self, "_sheet_paths", {}).get(
-						source_key, self.vehicle.spritesheet_path
-					),
-				)
+					# The shared rows keep the sheet the source group drew them from.
+					self._record_sheet(
+						key,
+						getattr(self, "_sheet_paths", {}).get(
+							source_key, self.vehicle.spritesheet_path
+						),
+					)
 			else:
 				group_slice = self._take_rows(profile, livery, group.group_size)
 
@@ -520,6 +539,14 @@ class VehicleSpriteAllocator:
 			self.get(profile, base)
 
 		return self._assigned_rows[source_key]
+
+	def _spritesheet_rows(self, profile: Profile, livery: Livery) -> tuple[list, str]:
+		"""Return every recognised row of the group's spritesheet without advancing a cursor."""
+		sheet = declared_sheet_path(livery, profile, self.vehicle)
+		if sheet is None or _same_path(sheet, self.vehicle.spritesheet_path):
+			return self.vehicle_rows, str(self.vehicle.spritesheet_path)
+		pool = self._extra_pool(sheet)
+		return pool["rows"], pool["path"]
 
 	def _previous_rows(self, profile: Profile, livery: Livery) -> tuple[list, tuple[str, str]]:
 		"""Return the rows of the last valid group resolved for this vehicle.

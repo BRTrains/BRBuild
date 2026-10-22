@@ -1421,6 +1421,52 @@ class BuildPathTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "no previous valid sprite group"):
             second.get(second_profile, second_livery)
 
+    def test_spritesheet_group_uses_absolute_rows_without_advancing_cursor(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.VariantSpriteGroups import VehicleSpriteAllocator
+
+        vehicle = Vehicle(folder_path=".", identifier="example", name="Class Example")
+        vehicle.yaml_path = "/tmp/example/example.yaml"
+        profile = Profile("DEFAULT", num_vehicles=1)
+        base = Livery("Base")
+        absolute = Livery("Absolute", sprite_override=[2, 4], sprite_group="SPRITESHEET")
+        following = Livery("Following")
+        vehicle.profiles = [profile]
+        vehicle.liveries = [base, absolute, following]
+        rows = [(SimpleNamespace(name=f"row{index}"), SimpleNamespace(name="tmpl_train_6", length=4))
+                for index in range(1, 6)]
+
+        def fake_init(self, vehicle, palette, definitions):
+            self.vehicle = vehicle
+            self.is_ohle = False
+            self._image = None
+            self._palette = palette
+            self.vehicle_rows = rows
+            self.cursor = 0
+            self._assigned_rows = {}
+            self._spritesets = {}
+            self._template_names = {}
+            self._lengths = {}
+            self._definitions = {}
+            self._last_group_key = None
+
+        with patch.object(VehicleSpriteAllocator, "__init__", fake_init):
+            allocator = VehicleSpriteAllocator(vehicle, [], [])
+
+        base_sets, _, _ = allocator.get(profile, base)
+        absolute_sets, _, _ = allocator.get(profile, absolute)
+        following_sets, _, _ = allocator.get(profile, following)
+
+        self.assertEqual([sprite.name for sprite in base_sets], ["row1"])
+        self.assertEqual([sprite.name for sprite in absolute_sets], ["row2", "row4"])
+        # SPRITESHEET did not participate in cursor-based allocation.
+        self.assertEqual([sprite.name for sprite in following_sets], ["row2"])
+        self.assertEqual(allocator.cursor, 2)
+
     def test_previous_tracks_forward_after_a_new_sprite_group(self):
         from types import SimpleNamespace
         from unittest.mock import patch
