@@ -543,7 +543,21 @@ class LightingOverlayCache:
 
 	@property
 	def path(self) -> Path:
-		return self.sheet_path.parent / "meta" / (self.sheet_path.name + self.SUFFIX)
+		path = self.sheet_path.parent / "meta" / (self.sheet_path.name + self.SUFFIX)
+		legacy = self.sheet_path.with_name(self.sheet_path.name + self.SUFFIX)
+		if legacy.is_file() and not path.is_file():
+			try:
+				path.parent.mkdir(parents=True, exist_ok=True)
+				legacy.replace(path)
+				logger.info(f"Moved legacy lighting cache '{legacy}' to '{path}'.")
+			except OSError as exc:
+				logger.warning(f"Could not move legacy lighting cache '{legacy}': {exc}")
+		elif legacy.is_file() and path.is_file():
+			try:
+				legacy.unlink()
+			except OSError as exc:
+				logger.warning(f"Could not remove legacy lighting cache '{legacy}': {exc}")
+		return path
 
 	def load(self) -> dict[str, Detection]:
 		"""Return the cached detections by pairing signature, or {} when there is no usable cache."""

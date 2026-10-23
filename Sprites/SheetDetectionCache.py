@@ -54,8 +54,22 @@ class SheetDetectionCache:
 
 	@property
 	def path(self) -> Path:
-		"""Where the cache for this sheet lives in its vehicle's metadata folder."""
-		return self.sheet_path.parent / "meta" / (self.sheet_path.name + self.SUFFIX)
+		"""Where the cache for this sheet lives, migrating its old root-side sidecar once."""
+		path = self.sheet_path.parent / "meta" / (self.sheet_path.name + self.SUFFIX)
+		legacy = self.sheet_path.with_name(self.sheet_path.name + self.SUFFIX)
+		if legacy.is_file() and not path.is_file():
+			try:
+				path.parent.mkdir(parents=True, exist_ok=True)
+				legacy.replace(path)
+				logger.info(f"Moved legacy sheet cache '{legacy}' to '{path}'.")
+			except OSError as exc:
+				logger.warning(f"Could not move legacy sheet cache '{legacy}': {exc}")
+		elif legacy.is_file() and path.is_file():
+			try:
+				legacy.unlink()
+			except OSError as exc:
+				logger.warning(f"Could not remove legacy sheet cache '{legacy}': {exc}")
+		return path
 
 	def load(self) -> Rows | None:
 		"""Return the cached rows, or None if there is no usable cache for this sheet."""

@@ -1029,6 +1029,7 @@ class Builder:
         Returns None if the sheet can't be confidently classified against the known
         templates - the caller treats that as a fatal error for this vehicle.
         """
+        self._migrate_vehicle_metadata(vehicle)
         self._stage_palette_normalized_sheets(vehicle, ctx)
         # Canonicalise the staged copy as well: palette correction can expose row gutters
         # that were hidden by alpha, and NML must read the template-sized result.
@@ -1039,6 +1040,36 @@ class Builder:
         except Exception as exc:
             logger.exception(f"Unable to load sprite allocator for vehicle '{vehicle.identifier}': {exc}")
             return None
+
+    @staticmethod
+    def _migrate_vehicle_metadata(vehicle):
+        """Move legacy BRBuild sidecars from a vehicle root into its ``meta`` folder."""
+        sheet_path = getattr(vehicle, "spritesheet_path", None)
+        if not sheet_path:
+            return
+        root = Path(sheet_path).parent
+        if not root.is_dir():
+            return
+        suffixes = (
+            ".sheetcache.json",
+            ".lightcache.json",
+            ".normalization.json",
+            ".stagecache.json",
+            ".purchase.json",
+        )
+        metadata = root / "meta"
+        for legacy in root.iterdir():
+            if not legacy.is_file() or not legacy.name.endswith(suffixes):
+                continue
+            destination = metadata / legacy.name
+            try:
+                metadata.mkdir(parents=True, exist_ok=True)
+                if destination.is_file():
+                    legacy.unlink()
+                else:
+                    legacy.replace(destination)
+            except OSError as exc:
+                logger.warning(f"Could not move legacy BRBuild metadata '{legacy}': {exc}")
 
     def _stage_palette_normalized_sheets(self, vehicle, ctx: BuildContext):
         """Give NML palette-valid staging copies of every sheet used by a candidate."""
