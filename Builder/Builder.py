@@ -1088,7 +1088,8 @@ class Builder:
 
     @staticmethod
     def _palette_stage_cache_path(destination):
-        return Path(destination).with_name(Path(destination).name + ".stagecache.json")
+        destination = Path(destination)
+        return destination.parent / "meta" / (destination.name + ".stagecache.json")
 
     def _palette_stage_cache_valid(self, source, destination, palette):
         if not Path(destination).is_file():
@@ -1111,7 +1112,9 @@ class Builder:
             "source_sha256": self._file_digest(source),
             "palette_sha256": self._palette_digest(palette),
         }
-        self._palette_stage_cache_path(destination).write_text(
+        cache_path = self._palette_stage_cache_path(destination)
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(
             json.dumps(payload, indent=1) + "\n", encoding="utf-8"
         )
 

@@ -43,14 +43,15 @@ This applies to every replacement sheet, not just hand-drawn revisions: a direct
 
 A build with an empty `new/` folder leaves the committed spritesheet untouched and simply reads it, so rebuilds do not churn artwork.
 
-#### Derived metadata beside a spritesheet
+#### Derived metadata in a vehicle's `meta/` folder
 
-A build writes two kinds of derived file next to each spritesheet, both of which belong in the project's `.gitignore` and neither of which is a build input:
+A build writes BRBuild's derived cache and metadata files under a `meta/` subfolder of the vehicle folder. These files are build outputs, not inputs, and belong in the project's `.gitignore`:
 
-- `<sheet>.png.cache` / `<sheet>.png.cacheindex` — nmlc's own cache of the sprites encoded from that image. Rewriting an image gives it a newer mtime than the cache and throws its entries away, so BRBuild only rewrites a generated sprite (a purchase icon) when its bytes actually changed.
-- `<sheet>.png.sheetcache.json` — the sprite rows detected in that sheet, with the hash of the sheet, the palette, the template definitions and the vehicle type they were detected against. Row detection scans every pixel and is the most expensive part of a rebuild, so it is skipped whenever all four still match. Editing a sheet, the palette or a template invalidates the cache automatically; deleting the file just forces one rebuild to detect again.
+- `<sheet>.sheetcache.json` — the sprite rows detected in that sheet, with the hash of the sheet, the palette, the template definitions and the vehicle type they were detected against. Row detection scans every pixel and is the most expensive part of a rebuild, so it is skipped whenever all four still match.
+- `<sheet>.lightcache.json` — detected lighting pixels and any lighting-pattern assumptions for the sheet.
+- `<sheet>.normalization.json`, `<sheet>.stagecache.json`, and generated purchase metadata — internal BRBuild bookkeeping for normalisation, palette staging, and purchase-icon generation.
 
-Neither file is read from anywhere else, and both are safe to delete at any time.
+NML's `<sheet>.png.cache` / `<sheet>.png.cacheindex` files remain beside their images and are not moved: they belong to nmlc, not BRBuild. All BRBuild metadata is safe to delete; it is regenerated automatically when needed.
 
 Reset mode (`--reset-graphics`) gives `new/` priority; if no new image is available, it restores the published sheet from `ingested/`. Legacy `original/` folders and `<name>_original.png` siblings are migrated into `ingested/` automatically when encountered.
 
@@ -439,7 +440,7 @@ profiles:
 - The path is relative to the candidate folder (an absolute path is accepted as-is) and is
   resolved at load.
 - Rows are consumed from that sheet with its own cursor, using the same detection, template
-  matching and `<sheet>.png.sheetcache.json` cache as the candidate's own sheet, so a
+  matching and `<sheet>.sheetcache.json` cache in the vehicle's `meta/` folder as the candidate's own sheet, so a
   standalone sheet is held to exactly the same geometry contract.
 - The group's purchase icon and lighting overlays are read from the sheet the rows came from,
   and each sheet gets its own `<Sheet>_lights.png` overlay.
@@ -610,13 +611,13 @@ The assumption is deliberately narrow, and each condition is a way for it to be 
 | `none` | emit no lighting layer for this variant at all |
 
 Every assumption is labelled so it can be found and checked: the build logs a warning naming the
-source and the target, the sheet's `<sheet>.lightcache.json` records `"assumed_from"` and
-`"view_mapping": "assumed"` (so `grep assumed <sheet>.lightcache.json` lists every guess on that
+source and the target, the sheet's `meta/<sheet>.lightcache.json` records `"assumed_from"` and
+`"view_mapping": "assumed"` (so `grep assumed meta/<sheet>.lightcache.json` lists every guess on that
 sheet), and the detection's flags carry `lamps assumed from '<source>': verify in game`.
 
 ### Cost and caching
 
-Detection is pure pixel work over the published sheet, so it is cached beside the sheet in
+Detection is pure pixel work over the published sheet, so it is cached in the vehicle's `meta/` folder as
 `<sheet>.lightcache.json`, keyed by the sheet bytes, the palette, the template geometry, the rules
 version and the pairings it was asked about. An unchanged rebuild re-uses every entry and does no
 detection at all; the generated overlay and transparency sheets are only rewritten when their contents

@@ -53,7 +53,7 @@ class FormationPurchaseTests(unittest.TestCase):
 
     def test_purchase_cache_tracks_source_lengths_order_and_output(self):
         allocator = object.__new__(VehicleSpriteAllocator)
-        allocator.vehicle = SimpleNamespace(identifier="example")
+        allocator.vehicle = SimpleNamespace(identifier="example", spritesheet_path="source.png")
         allocator._palette = [0, 0, 255, 255, 0, 0] + [0] * 762
         allocator._image = Image.new("P", (16, 13), 1)
         allocator._image.putpalette(allocator._palette)
@@ -67,9 +67,10 @@ class FormationPurchaseTests(unittest.TestCase):
         allocator._patterns = {key: [1]}
 
         with tempfile.TemporaryDirectory() as folder:
+            allocator.vehicle.spritesheet_path = str(Path(folder) / "source.png")
             purchase, _ = allocator.get_purchase(profile, livery, folder)
             path = Path(purchase.file)
-            metadata = path.with_suffix(".png.purchase.json")
+            metadata = Path(folder) / "meta" / (path.name + ".purchase.json")
             self.assertTrue(metadata.is_file())
             with patch.object(allocator._image, "crop", wraps=allocator._image.crop) as crop:
                 allocator.get_purchase(profile, livery, folder)

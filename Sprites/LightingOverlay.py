@@ -543,7 +543,7 @@ class LightingOverlayCache:
 
 	@property
 	def path(self) -> Path:
-		return self.sheet_path.with_name(self.sheet_path.name + self.SUFFIX)
+		return self.sheet_path.parent / "meta" / (self.sheet_path.name + self.SUFFIX)
 
 	def load(self) -> dict[str, Detection]:
 		"""Return the cached detections by pairing signature, or {} when there is no usable cache."""
@@ -573,6 +573,7 @@ class LightingOverlayCache:
 			"detections": {key: value.serialise() for key, value in sorted(detections.items())},
 		}
 		try:
+			self.path.parent.mkdir(parents=True, exist_ok=True)
 			self.path.write_text(json.dumps(payload, indent=1), encoding="utf-8")
 		except OSError as exc:
 			logger.warning(f"Could not write lighting cache '{self.path}': {exc}")

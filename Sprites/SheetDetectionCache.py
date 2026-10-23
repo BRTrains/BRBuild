@@ -54,8 +54,8 @@ class SheetDetectionCache:
 
 	@property
 	def path(self) -> Path:
-		"""Where the cache for this sheet lives (beside it, never inside a build folder)."""
-		return self.sheet_path.with_name(self.sheet_path.name + self.SUFFIX)
+		"""Where the cache for this sheet lives in its vehicle's metadata folder."""
+		return self.sheet_path.parent / "meta" / (self.sheet_path.name + self.SUFFIX)
 
 	def load(self) -> Rows | None:
 		"""Return the cached rows, or None if there is no usable cache for this sheet."""
@@ -104,6 +104,7 @@ class SheetDetectionCache:
 		}
 
 		try:
+			self.path.parent.mkdir(parents=True, exist_ok=True)
 			self.path.write_text(json.dumps(payload, indent=1), encoding="utf-8")
 		except OSError as exc:
 			logger.warning(f"Could not write sheet cache '{self.path}': {exc}")

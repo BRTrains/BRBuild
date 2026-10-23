@@ -75,7 +75,7 @@ class SpritesheetLegacyConverter:
 
 	@staticmethod
 	def _cache_path(path: Path) -> Path:
-		return path.with_name(path.name + ".normalization.json")
+		return path.parent / "meta" / (path.name + ".normalization.json")
 
 	def _normalization_cache_valid(self, path: Path, vehicle_type: str) -> bool:
 		try:
@@ -101,7 +101,9 @@ class SpritesheetLegacyConverter:
 			"templates_sha256": _templates_digest(self.definitions),
 			"vehicle_type": vehicle_type,
 		}
-		self._cache_path(path).write_text(
+		cache_path = self._cache_path(path)
+		cache_path.parent.mkdir(parents=True, exist_ok=True)
+		cache_path.write_text(
 			json.dumps(payload, indent=1) + "\n", encoding="utf-8"
 		)
 

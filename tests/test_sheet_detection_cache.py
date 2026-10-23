@@ -71,6 +71,7 @@ class SheetDetectionCacheTests(unittest.TestCase):
         cache.store(_rows())
 
         self.assertTrue(cache.path.is_file())
+        self.assertEqual(cache.path.parent.name, "meta")
         self.assertEqual(cache.path.name, "sheet.png.sheetcache.json")
 
         loaded = cache.load()
@@ -129,6 +130,7 @@ class SheetDetectionCacheTests(unittest.TestCase):
 
     def test_corrupt_cache_file_is_ignored(self):
         cache = self._cache()
+        cache.path.parent.mkdir(parents=True, exist_ok=True)
         cache.path.write_text("{ not json", encoding="utf-8")
 
         with self.assertLogs("Sprites.SheetDetectionCache", level="WARNING"):

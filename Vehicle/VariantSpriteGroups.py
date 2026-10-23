@@ -597,7 +597,7 @@ class VehicleSpriteAllocator:
 		image = self._image if sheet is None else self.image_for(sheet)
 
 		path = Path(output_folder) / self._purchase_filename(spritesets)
-		metadata_path = path.with_suffix(".png.purchase.json")
+		metadata_path = Path(str(self.vehicle.spritesheet_path)).parent / "meta" / (path.name + ".purchase.json")
 		template = Template(
 			name="generated_purchase",
 			sprites=[Sprite(0, 0, 128, 13, -25, -8)],
@@ -682,6 +682,7 @@ class VehicleSpriteAllocator:
 
 		path.parent.mkdir(parents=True, exist_ok=True)
 		self._write_if_changed(path, purchase)
+		metadata_path.parent.mkdir(parents=True, exist_ok=True)
 		metadata_path.write_text(json.dumps({
 			"inputs": identity,
 			"output_hash": hashlib.sha256(path.read_bytes()).hexdigest(),
