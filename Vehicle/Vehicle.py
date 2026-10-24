@@ -11,6 +11,21 @@ from Vehicle.Livery import Livery
 from Vehicle.Profile import Profile
 
 
+def resolve_case_insensitive_file(path: str | Path) -> str:
+    """Resolve a file name without case sensitivity, rejecting ambiguous matches."""
+    candidate = Path(path)
+    if not candidate.parent.is_dir():
+        return str(candidate)
+    matches = sorted(
+        item for item in candidate.parent.iterdir()
+        if item.is_file() and item.name.casefold() == candidate.name.casefold()
+    )
+    if len(matches) > 1:
+        names = ", ".join(item.name for item in matches)
+        raise ValueError(f"Ambiguous case-insensitive file name '{candidate.name}': found {names}.")
+    return str(matches[0] if matches else candidate)
+
+
 @dataclass
 class Vehicle:
     folder_path: str
@@ -110,4 +125,4 @@ class Vehicle:
             return self.spritesheet_override
         if not self.yaml_path:
             return None
-        return str(Path(self.yaml_path).with_suffix(".png"))
+        return resolve_case_insensitive_file(Path(self.yaml_path).with_suffix(".png"))

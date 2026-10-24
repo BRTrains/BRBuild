@@ -11,6 +11,7 @@ from PropertyCalculation import DoorType, TrainType, VehicleType, VehicleUsage
 from PropertyCalculation.CargoClasses import parse_cargo
 from Sprites.LightingOverlay import LIGHTING_SETTINGS
 from Vehicle import Livery, Profile, Vehicle
+from Vehicle.Vehicle import resolve_case_insensitive_file
 
 # assumes Vehicle, Profile, Livery already defined
 # from models import Vehicle, Profile, Livery
@@ -496,7 +497,7 @@ class VehicleLoader:
         path = Path(raw.strip())
         if not path.is_absolute():
             path = Path(folder_path) / path
-        return str(path)
+        return resolve_case_insensitive_file(path)
 
     @staticmethod
     def _parse_lighting(raw: Any, where: str) -> str | None:
