@@ -534,6 +534,14 @@ class Builder:
             # definition whose artwork has not landed yet). Keep it in the GRF for development
             # mode, but hide it by default just like an explicitly flagged unit.
             vehicle.development = bool(vehicle.development) or not has_spritesheet
+            if not has_spritesheet:
+                self._record_failure(
+                    ctx,
+                    vehicle,
+                    None,
+                    "development mode",
+                    "No spritesheet or usable sprites were found; unit is retained as a development-mode unit.",
+                )
             allocator = None
             variant_groups = {}
 
@@ -735,9 +743,9 @@ class Builder:
         else:
             lines += [
                 f"**Failed units:** {len(ctx.failed_units)}  ",
-                f"**Failed variants/errors:** {len(ctx.failed_errors)}",
+                f"**Errors/attention items:** {len(ctx.failed_errors)}",
                 "",
-                "## Failed vehicles",
+                "## Build issues and development units",
                 "",
             ]
             for failure in ctx.failed_errors:
