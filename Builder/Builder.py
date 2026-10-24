@@ -540,7 +540,7 @@ class Builder:
                     vehicle,
                     None,
                     "development mode",
-                    "No spritesheet or usable sprites were found; unit is retained as a development-mode unit.",
+                    f"No {vehicle.identifier}.png spritesheet found",
                 )
             allocator = None
             variant_groups = {}
@@ -559,7 +559,7 @@ class Builder:
                         vehicle,
                         None,
                         "sprite allocation",
-                        f"No recognised spritesets in '{vehicle.spritesheet_path}'.",
+                        "Unable to resolve required spritesets from spritesheet",
                     )
                     continue
 
