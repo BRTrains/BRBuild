@@ -117,6 +117,7 @@ class Variant:
             self.handleSpeed,
             self.handleTilt,
             self.handleCargo,
+            self.handleLiveryRefitCargo,
             self.handleCapacity,
             self.handlePhysics,
             self.handleFuelType,
@@ -543,6 +544,35 @@ class Variant:
 
         if self.get_attr("autorefit"):
             self.add_misc_flag("TRAIN_FLAG_AUTOREFIT")
+
+    def handleLiveryRefitCargo(self):
+        """Make a synthetic livery-refit item genuinely refittable.
+
+        OpenTTD's refit UI needs a valid default cargo as well as a non-empty
+        refit mask.  BRTrains2 used concrete cargo labels (PASS/TOUR and
+        GOOD/FOOD), but BRTrains3 deliberately has no cargo table.  The
+        first-refittable form preserves the same compatibility behaviour: an
+        industry set can provide whichever cargo in the selected class exists.
+        """
+        if not self.is_livery_refit:
+            return
+
+        cargo_classes = list(self.get_attr("cargo_classes") or [])
+        if not cargo_classes:
+            train_type = getattr(self.vehicle, "train_type", None)
+            if train_type == TrainType.LOCOMOTIVE:
+                # BRTrains2's locomotive convention is [GOOD, FOOD].  The
+                # PIECE_GOODS class is the cargo-table-free equivalent.
+                cargo_classes = ["CC_PIECE_GOODS"]
+            elif train_type == TrainType.MULTIPLE_UNIT:
+                # A small number of BRTrains2 MPV-like units use the same
+                # goods-compatible refit workaround despite carrying no
+                # ordinary cargo.
+                cargo_classes = ["CC_PIECE_GOODS"]
+
+        if cargo_classes:
+            self.properties["refittable_cargo_classes"] = as_bitmask(cargo_classes)
+            self.properties["default_cargo_type"] = "DEFAULT_CARGO_FIRST_REFITTABLE"
 
     def handleCapacity(self):
         capacity = self.get_attr("capacity")
