@@ -101,6 +101,7 @@ class Variant:
         self.disable_item_conditions = []
         self.is_livery_refit = False
         self.refit_groups = []
+        self.refit_switches = []
 
         self.identifier = None
         self.nml_filename = None
@@ -908,7 +909,7 @@ class Variant:
         if not self.spritesets:
             return
         if self.is_livery_refit:
-            if self.purchase_spriteset is not None:
+            if self.purchase_spriteset is not None and self.purchase_template_name is not None:
                 self.purchase_spriteset_name = f"spriteset_{self.identifier}_purchase"
                 if "purchase" not in self.nml_override_callbacks():
                     self.callbacks["purchase"] = self.purchase_spriteset_name

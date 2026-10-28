@@ -604,9 +604,9 @@ class Builder:
                     f"and profile {variant.profile.identifier}"
                 )
 
+                refit_liveries = []
                 if allocator is not None:
                     try:
-                        refit_liveries = []
                         if getattr(variant, "is_livery_refit", False):
                             variant.refit_groups = []
                             refit_liveries = [
@@ -715,6 +715,32 @@ class Builder:
                     failed_variant_ids.add(id(variant))
                     self._record_failure(ctx, vehicle, variant, "variant processing", exc)
                     continue
+
+                if getattr(variant, "is_livery_refit", False):
+                    variant.refit_switches = []
+                    applicable_liveries = [
+                        livery for livery in vehicle.liveries
+                        if not livery.profiles
+                        or str(variant.profile.identifier).lower() in {
+                            str(item).lower() for item in livery.profiles
+                        }
+                    ]
+                    for livery in applicable_liveries:
+                        source = next(
+                            (
+                                candidate for candidate in variants
+                                if not getattr(candidate, "is_livery_refit", False)
+                                and candidate.profile is variant.profile
+                                and candidate.livery is livery
+                                and candidate.vehicle_type == variant.vehicle_type
+                                and candidate.callbacks.get("default")
+                            ),
+                            None,
+                        )
+                        if source is not None:
+                            variant.refit_switches.append(
+                                (livery.name, source.callbacks["default"])
+                            )
 
                 self._assign_variant_group(variant, variant_groups)
 
@@ -1048,6 +1074,8 @@ class Builder:
 
     @staticmethod
     def _assign_variant_group(variant, variant_groups):
+        if getattr(variant, "is_livery_refit", False):
+            return
         feature = NmlVariantWriter._feature(variant)
         profile_key = str(variant.profile.identifier).strip().lower()
         feature_groups = variant_groups.setdefault(feature, {})
