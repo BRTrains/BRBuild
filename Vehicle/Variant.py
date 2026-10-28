@@ -39,6 +39,12 @@ RED = "RED"
 SILVER = "SILVER"
 LTBROWN = "LTBROWN"
 
+# BRTrains2 uses [GOOD, FOOD] as a compatibility refit slot for locomotives
+# and several departmental/MPV units. BRTrains3 has no cargo table, so the
+# piece-goods class lets an industry set provide whichever compatible cargo
+# exists without making the unit a real cargo carrier.
+LIVERY_REFIT_COMPATIBILITY_CLASSES = ["CC_PIECE_GOODS"]
+
 
 def colour(name: str) -> str:
     """Render an OpenTTD text colour code, e.g. `{GOLD}`."""
@@ -561,14 +567,12 @@ class Variant:
         if not cargo_classes:
             train_type = getattr(self.vehicle, "train_type", None)
             if train_type == TrainType.LOCOMOTIVE:
-                # BRTrains2's locomotive convention is [GOOD, FOOD].  The
-                # PIECE_GOODS class is the cargo-table-free equivalent.
-                cargo_classes = ["CC_PIECE_GOODS"]
+                cargo_classes = list(LIVERY_REFIT_COMPATIBILITY_CLASSES)
             elif train_type == TrainType.MULTIPLE_UNIT:
-                # A small number of BRTrains2 MPV-like units use the same
-                # goods-compatible refit workaround despite carrying no
-                # ordinary cargo.
-                cargo_classes = ["CC_PIECE_GOODS"]
+                # Departmental/MPV units use the same compatibility treatment
+                # as locomotives, even when their operational role is not
+                # ordinary freight.
+                cargo_classes = list(LIVERY_REFIT_COMPATIBILITY_CLASSES)
 
         if cargo_classes:
             self.properties["refittable_cargo_classes"] = as_bitmask(cargo_classes)
