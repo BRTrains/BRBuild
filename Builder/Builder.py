@@ -265,6 +265,17 @@ class Builder:
                 {0: "Off", 1: "On"},
             )
         )
+        definitions.append(
+            (
+                "param_livery_mode",
+                "Livery Mode",
+                "Choose separate variants, livery refits, or both",
+                0,
+                2,
+                0,
+                {0: "Variants", 1: "Livery Refits", 2: "Both"},
+            )
+        )
 
         builder_ids = {
             "param_running_cost_multiplier",
@@ -275,6 +286,7 @@ class Builder:
             "param_disable_default_trains",
             "param_disable_default_roadvehicles",
             "param_development_mode",
+            "param_livery_mode",
             "param_align_with",
         }
         # Remove legacy combined/default-vehicle identifiers before re-inserting the
@@ -594,12 +606,34 @@ class Builder:
 
                 if allocator is not None:
                     try:
-                        variant.spritesets, variant.sprite_template_names, variant.sprite_lengths = allocator.get(
-                            variant.profile, variant.livery, variant.vehicle_type
+                        refit_liveries = []
+                        if getattr(variant, "is_livery_refit", False):
+                            variant.refit_groups = []
+                            refit_liveries = [
+                                livery for livery in vehicle.liveries
+                                if not livery.profiles
+                                or str(variant.profile.identifier).lower() in {
+                                    str(item).lower() for item in livery.profiles
+                                }
+                            ]
+                            for livery in refit_liveries:
+                                group = allocator.get(variant.profile, livery, variant.vehicle_type)
+                                variant.refit_groups.append((livery.name, *group))
+                            if not variant.refit_groups:
+                                raise ValueError(f"No livery refits apply to profile {variant.profile.identifier}")
+                            first = variant.refit_groups[0]
+                            variant.spritesets, variant.sprite_template_names, variant.sprite_lengths = first[1:]
+                            variant.sprite_pattern = allocator.pattern_for(variant.profile, refit_liveries[0])
+                        else:
+                            variant.spritesets, variant.sprite_template_names, variant.sprite_lengths = allocator.get(
+                                variant.profile, variant.livery, variant.vehicle_type
+                            )
+                            variant.sprite_pattern = allocator.pattern_for(variant.profile, variant.livery)
+                        purchase_livery = (
+                            refit_liveries[0] if getattr(variant, "is_livery_refit", False) else variant.livery
                         )
-                        variant.sprite_pattern = allocator.pattern_for(variant.profile, variant.livery)
                         purchase = allocator.get_purchase(
-                            variant.profile, variant.livery, ctx.nml_output_folder
+                            variant.profile, purchase_livery, ctx.nml_output_folder
                         )
                         variant.purchase_spriteset, variant.purchase_template_name = purchase if purchase else (None, None)
                     except Exception as exc:
@@ -609,7 +643,11 @@ class Builder:
                         self._record_failure(ctx, vehicle, variant, "sprite allocation", exc)
                         continue
 
-                if allocator is not None and variant.spritesets:
+                if (
+                    allocator is not None
+                    and not getattr(variant, "is_livery_refit", False)
+                    and variant.spritesets
+                ):
                     lighting = lightings.get(str(allocator.sheet_for(variant.profile, variant.livery)))
                     if lighting is not None:
                         variant.lighting_detection = lighting.detection_for(
@@ -659,6 +697,14 @@ class Builder:
                 if vehicle.development:
                     variant.disable_item_conditions.append(
                         (variant.vehicle_type.nml_feature, "param_development_mode == 0")
+                    )
+                if getattr(variant, "is_livery_refit", False):
+                    variant.disable_item_conditions.append(
+                        (variant.vehicle_type.nml_feature, "param_livery_mode == 0")
+                    )
+                else:
+                    variant.disable_item_conditions.append(
+                        (variant.vehicle_type.nml_feature, "param_livery_mode == 1")
                     )
 
                 try:
@@ -1247,6 +1293,8 @@ class Builder:
         waiting: dict[tuple, list] = {}
 
         for variant in variants:
+            if getattr(variant, "is_livery_refit", False):
+                continue
             if not variant.spritesets or self._lighting_setting(variant) == LIGHTING_NONE:
                 continue
             if self._lighting_setting(variant) == LIGHTING_EXACT:

@@ -6,6 +6,7 @@ from Sprites.Spriteset import Spriteset
 from .BaseNmlWriter import BaseNmlWriter
 from .NmlSpritesetWriter import NmlSpritesetWriter
 from .NmlSwitchWriter import NmlSwitchWriter
+from Lang.StringRegistry import nml_str
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,51 @@ class NmlVariantWriter(BaseNmlWriter):
         """Write the generated switches and sprites for this variant."""
         self._write_articulated_switch(f, variant)
         self._write_name_switches(f, variant)
-        self._write_spritesets(f, variant)
+        if getattr(variant, "is_livery_refit", False):
+            self._write_livery_refits(f, variant)
+        else:
+            self._write_spritesets(f, variant)
         self._write_effect(f, variant)
+
+    def _write_livery_refits(self, f, variant):
+        """Emit the BRTrains2-style cargo-subtype livery selector."""
+        groups = getattr(variant, "refit_groups", None) or []
+        if not getattr(variant, "is_livery_refit", False) or not groups:
+            return
+        feature = self._feature(variant)
+        if variant.purchase_spriteset is not None and variant.purchase_template_name is not None:
+            self.spriteset_writer.write(
+                f, variant.purchase_spriteset, variant.purchase_template_name,
+                name=variant.purchase_spriteset_name,
+            )
+        livery_switches = {}
+        text_values = {}
+        for index, (livery_name, spritesets, templates, _lengths) in enumerate(groups):
+            names = []
+            for part, (spriteset, template) in enumerate(zip(spritesets, templates)):
+                name = f"spriteset_{variant.identifier}_refit_{index}_{part}"
+                self.spriteset_writer.write(f, spriteset, template, name=name)
+                names.append(name)
+            part_switch = f"sw_{variant.identifier}_refit_{index}"
+            self.switch_writer.write_switch(
+                f, feature, "SELF", part_switch,
+                f"position_in_articulated_veh % {len(names)}",
+                {part: name for part, name in enumerate(names)},
+            )
+            livery_switches[index] = part_switch
+            text = nml_str(livery_name, f"{variant.identifier}_refit_text_{index}", deduplicate=True)
+            text_values[index] = f"return {text}"
+
+        root = f"sw_{variant.identifier}_refit"
+        self.switch_writer.write_switch(
+            f, feature, "SELF", root, "cargo_subtype", livery_switches
+        )
+        self.switch_writer.write_switch(
+            f, feature, "SELF", f"{root}_text", "cargo_subtype",
+            {**text_values, "default": "return CB_RESULT_NO_TEXT"},
+        )
+        variant.callbacks["default"] = root
+        variant.callbacks["cargo_subtype_text"] = f"{root}_text"
 
     def _write_effect(self, f, variant):
         """Write the generated create_effect callback and its articulated-position selector."""

@@ -99,6 +99,8 @@ class Variant:
         self.nml_override: dict = {}
         self.disable_item_condition = None
         self.disable_item_conditions = []
+        self.is_livery_refit = False
+        self.refit_groups = []
 
         self.identifier = None
         self.nml_filename = None
@@ -905,6 +907,12 @@ class Variant:
         """
         if not self.spritesets:
             return
+        if self.is_livery_refit:
+            if self.purchase_spriteset is not None:
+                self.purchase_spriteset_name = f"spriteset_{self.identifier}_purchase"
+                if "purchase" not in self.nml_override_callbacks():
+                    self.callbacks["purchase"] = self.purchase_spriteset_name
+            return
 
         overridden = self.nml_override_callbacks()
 
@@ -939,6 +947,8 @@ class Variant:
         stays as layer 0's selector. A supplied `default` override wins, as everywhere else, and
         `lighting: none` (vehicle, profile or livery) suppresses the layer entirely.
         """
+        if self.is_livery_refit:
+            return
         if self.lighting_overlay_path is None or not self.spritesets:
             return
         if self.get_attr("lighting") == LIGHTING_NONE:

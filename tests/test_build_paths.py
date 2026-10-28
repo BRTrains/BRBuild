@@ -147,6 +147,7 @@ class CostCalculatorTests(unittest.TestCase):
                 "param_disable_default_trains",
                 "param_disable_default_roadvehicles",
                 "param_development_mode",
+                "param_livery_mode",
             ],
         )
 
