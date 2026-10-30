@@ -1,0 +1,784 @@
+COLOUR_DARK_BLUE:
+- index: 198
+  hex: '#081858'
+  rgb:
+  - 8
+  - 24
+  - 88
+- index: 199
+  hex: '#0C2468'
+  rgb:
+  - 12
+  - 36
+  - 104
+- index: 200
+  hex: '#14347C'
+  rgb:
+  - 20
+  - 52
+  - 124
+- index: 201
+  hex: '#1C448C'
+  rgb:
+  - 28
+  - 68
+  - 140
+- index: 202
+  hex: '#285CA4'
+  rgb:
+  - 40
+  - 92
+  - 164
+- index: 203
+  hex: '#3878BC'
+  rgb:
+  - 56
+  - 120
+  - 188
+- index: 204
+  hex: '#4898D8'
+  rgb:
+  - 72
+  - 152
+  - 216
+- index: 205
+  hex: '#64ACE0'
+  rgb:
+  - 100
+  - 172
+  - 224
+COLOUR_PALE_GREEN:
+- index: 96
+  hex: '#103418'
+  rgb:
+  - 16
+  - 52
+  - 24
+- index: 97
+  hex: '#20482C'
+  rgb:
+  - 32
+  - 72
+  - 44
+- index: 98
+  hex: '#386048'
+  rgb:
+  - 56
+  - 96
+  - 72
+- index: 99
+  hex: '#4C7458'
+  rgb:
+  - 76
+  - 116
+  - 88
+- index: 100
+  hex: '#60886C'
+  rgb:
+  - 96
+  - 136
+  - 108
+- index: 101
+  hex: '#78A488'
+  rgb:
+  - 120
+  - 164
+  - 136
+- index: 102
+  hex: '#98C0A8'
+  rgb:
+  - 152
+  - 192
+  - 168
+- index: 103
+  hex: '#B8DCC8'
+  rgb:
+  - 184
+  - 220
+  - 200
+COLOUR_PINK:
+- index: 42
+  hex: '#701020'
+  rgb:
+  - 112
+  - 16
+  - 32
+- index: 43
+  hex: '#882034'
+  rgb:
+  - 136
+  - 32
+  - 52
+- index: 44
+  hex: '#A0384C'
+  rgb:
+  - 160
+  - 56
+  - 76
+- index: 45
+  hex: '#BC546C'
+  rgb:
+  - 188
+  - 84
+  - 108
+- index: 46
+  hex: '#CC687C'
+  rgb:
+  - 204
+  - 104
+  - 124
+- index: 47
+  hex: '#DC8490'
+  rgb:
+  - 220
+  - 132
+  - 144
+- index: 48
+  hex: '#EC9CA4'
+  rgb:
+  - 236
+  - 156
+  - 164
+- index: 49
+  hex: '#FCBCC0'
+  rgb:
+  - 252
+  - 188
+  - 192
+COLOUR_YELLOW:
+- index: 62
+  hex: '#804408'
+  rgb:
+  - 128
+  - 68
+  - 8
+- index: 63
+  hex: '#9C6010'
+  rgb:
+  - 156
+  - 96
+  - 16
+- index: 64
+  hex: '#B87818'
+  rgb:
+  - 184
+  - 120
+  - 24
+- index: 65
+  hex: '#D49C20'
+  rgb:
+  - 212
+  - 156
+  - 32
+- index: 66
+  hex: '#E8B810'
+  rgb:
+  - 232
+  - 184
+  - 16
+- index: 67
+  hex: '#FCD400'
+  rgb:
+  - 252
+  - 212
+  - 0
+- index: 68
+  hex: '#FCF880'
+  rgb:
+  - 252
+  - 248
+  - 128
+- index: 69
+  hex: '#FCFCC0'
+  rgb:
+  - 252
+  - 252
+  - 192
+COLOUR_RED:
+- index: 179
+  hex: '#5C0000'
+  rgb:
+  - 92
+  - 0
+  - 0
+- index: 180
+  hex: '#800000'
+  rgb:
+  - 128
+  - 0
+  - 0
+- index: 181
+  hex: '#A00000'
+  rgb:
+  - 160
+  - 0
+  - 0
+- index: 182
+  hex: '#C40000'
+  rgb:
+  - 196
+  - 0
+  - 0
+- index: 183
+  hex: '#E00000'
+  rgb:
+  - 224
+  - 0
+  - 0
+- index: 164
+  hex: '#FC3434'
+  rgb:
+  - 252
+  - 52
+  - 52
+- index: 165
+  hex: '#FC6458'
+  rgb:
+  - 252
+  - 100
+  - 88
+- index: 166
+  hex: '#FC907C'
+  rgb:
+  - 252
+  - 144
+  - 124
+COLOUR_LIGHT_BLUE:
+- index: 154
+  hex: '#104060'
+  rgb:
+  - 16
+  - 64
+  - 96
+- index: 155
+  hex: '#18506C'
+  rgb:
+  - 24
+  - 80
+  - 108
+- index: 156
+  hex: '#286078'
+  rgb:
+  - 40
+  - 96
+  - 120
+- index: 157
+  hex: '#347084'
+  rgb:
+  - 52
+  - 112
+  - 132
+- index: 158
+  hex: '#508CA0'
+  rgb:
+  - 80
+  - 140
+  - 160
+- index: 159
+  hex: '#74ACC0'
+  rgb:
+  - 116
+  - 172
+  - 192
+- index: 160
+  hex: '#9CCCDC'
+  rgb:
+  - 156
+  - 204
+  - 220
+- index: 161
+  hex: '#CCF0FC'
+  rgb:
+  - 204
+  - 240
+  - 252
+COLOUR_GREEN:
+- index: 82
+  hex: '#205004'
+  rgb:
+  - 32
+  - 80
+  - 4
+- index: 83
+  hex: '#306004'
+  rgb:
+  - 48
+  - 96
+  - 4
+- index: 84
+  hex: '#40700C'
+  rgb:
+  - 64
+  - 112
+  - 12
+- index: 85
+  hex: '#548414'
+  rgb:
+  - 84
+  - 132
+  - 20
+- index: 206
+  hex: '#5C9C34'
+  rgb:
+  - 92
+  - 156
+  - 52
+- index: 207
+  hex: '#6CB040'
+  rgb:
+  - 108
+  - 176
+  - 64
+- index: 208
+  hex: '#7CC84C'
+  rgb:
+  - 124
+  - 200
+  - 76
+- index: 209
+  hex: '#90E05C'
+  rgb:
+  - 144
+  - 224
+  - 92
+COLOUR_DARK_GREEN:
+- index: 88
+  hex: '#1C3418'
+  rgb:
+  - 28
+  - 52
+  - 24
+- index: 89
+  hex: '#2C4420'
+  rgb:
+  - 44
+  - 68
+  - 32
+- index: 90
+  hex: '#3C5830'
+  rgb:
+  - 60
+  - 88
+  - 48
+- index: 91
+  hex: '#50683C'
+  rgb:
+  - 80
+  - 104
+  - 60
+- index: 92
+  hex: '#687C4C'
+  rgb:
+  - 104
+  - 124
+  - 76
+- index: 93
+  hex: '#80945C'
+  rgb:
+  - 128
+  - 148
+  - 92
+- index: 94
+  hex: '#98B06C'
+  rgb:
+  - 152
+  - 176
+  - 108
+- index: 95
+  hex: '#B4CC7C'
+  rgb:
+  - 180
+  - 204
+  - 124
+COLOUR_BLUE:
+- index: 146
+  hex: '#0034A0'
+  rgb:
+  - 0
+  - 52
+  - 160
+- index: 147
+  hex: '#0048B8'
+  rgb:
+  - 0
+  - 72
+  - 184
+- index: 148
+  hex: '#0060D4'
+  rgb:
+  - 0
+  - 96
+  - 212
+- index: 149
+  hex: '#1878DC'
+  rgb:
+  - 24
+  - 120
+  - 220
+- index: 150
+  hex: '#3890E8'
+  rgb:
+  - 56
+  - 144
+  - 232
+- index: 151
+  hex: '#58A8F0'
+  rgb:
+  - 88
+  - 168
+  - 240
+- index: 152
+  hex: '#80C4FC'
+  rgb:
+  - 128
+  - 196
+  - 252
+- index: 153
+  hex: '#BCE0FC'
+  rgb:
+  - 188
+  - 224
+  - 252
+COLOUR_CREAM:
+- index: 114
+  hex: '#744428'
+  rgb:
+  - 116
+  - 68
+  - 40
+- index: 115
+  hex: '#885438'
+  rgb:
+  - 136
+  - 84
+  - 56
+- index: 116
+  hex: '#A46040'
+  rgb:
+  - 164
+  - 96
+  - 64
+- index: 117
+  hex: '#B87050'
+  rgb:
+  - 184
+  - 112
+  - 80
+- index: 118
+  hex: '#CC8060'
+  rgb:
+  - 204
+  - 128
+  - 96
+- index: 119
+  hex: '#D49470'
+  rgb:
+  - 212
+  - 148
+  - 112
+- index: 120
+  hex: '#E0A880'
+  rgb:
+  - 224
+  - 168
+  - 128
+- index: 121
+  hex: '#ECBC94'
+  rgb:
+  - 236
+  - 188
+  - 148
+COLOUR_MAUVE:
+- index: 128
+  hex: '#242844'
+  rgb:
+  - 36
+  - 40
+  - 68
+- index: 129
+  hex: '#303454'
+  rgb:
+  - 48
+  - 52
+  - 84
+- index: 130
+  hex: '#404064'
+  rgb:
+  - 64
+  - 64
+  - 100
+- index: 131
+  hex: '#505074'
+  rgb:
+  - 80
+  - 80
+  - 116
+- index: 132
+  hex: '#646488'
+  rgb:
+  - 100
+  - 100
+  - 136
+- index: 133
+  hex: '#8484A4'
+  rgb:
+  - 132
+  - 132
+  - 164
+- index: 134
+  hex: '#ACACC0'
+  rgb:
+  - 172
+  - 172
+  - 192
+- index: 135
+  hex: '#D4D4E0'
+  rgb:
+  - 212
+  - 212
+  - 224
+COLOUR_PURPLE:
+- index: 136
+  hex: '#281470'
+  rgb:
+  - 40
+  - 20
+  - 112
+- index: 137
+  hex: '#402C90'
+  rgb:
+  - 64
+  - 44
+  - 144
+- index: 138
+  hex: '#5840AC'
+  rgb:
+  - 88
+  - 64
+  - 172
+- index: 139
+  hex: '#684CC4'
+  rgb:
+  - 104
+  - 76
+  - 196
+- index: 140
+  hex: '#7858E0'
+  rgb:
+  - 120
+  - 88
+  - 224
+- index: 141
+  hex: '#8C68FC'
+  rgb:
+  - 140
+  - 104
+  - 252
+- index: 142
+  hex: '#A088FC'
+  rgb:
+  - 160
+  - 136
+  - 252
+- index: 143
+  hex: '#BCA8FC'
+  rgb:
+  - 188
+  - 168
+  - 252
+COLOUR_ORANGE:
+- index: 64
+  hex: '#B87818'
+  rgb:
+  - 184
+  - 120
+  - 24
+- index: 192
+  hex: '#CC8808'
+  rgb:
+  - 204
+  - 136
+  - 8
+- index: 193
+  hex: '#E49004'
+  rgb:
+  - 228
+  - 144
+  - 4
+- index: 194
+  hex: '#FC9C00'
+  rgb:
+  - 252
+  - 156
+  - 0
+- index: 195
+  hex: '#FCB030'
+  rgb:
+  - 252
+  - 176
+  - 48
+- index: 196
+  hex: '#FCC464'
+  rgb:
+  - 252
+  - 196
+  - 100
+- index: 197
+  hex: '#FCD898'
+  rgb:
+  - 252
+  - 216
+  - 152
+- index: 39
+  hex: '#F4DCB0'
+  rgb:
+  - 244
+  - 220
+  - 176
+COLOUR_BROWN:
+- index: 32
+  hex: '#482C04'
+  rgb:
+  - 72
+  - 44
+  - 4
+- index: 33
+  hex: '#583C14'
+  rgb:
+  - 88
+  - 60
+  - 20
+- index: 34
+  hex: '#68502C'
+  rgb:
+  - 104
+  - 80
+  - 44
+- index: 35
+  hex: '#7C6848'
+  rgb:
+  - 124
+  - 104
+  - 72
+- index: 36
+  hex: '#98845C'
+  rgb:
+  - 152
+  - 132
+  - 92
+- index: 37
+  hex: '#B8A078'
+  rgb:
+  - 184
+  - 160
+  - 120
+- index: 38
+  hex: '#D4BC94'
+  rgb:
+  - 212
+  - 188
+  - 148
+- index: 39
+  hex: '#F4DCB0'
+  rgb:
+  - 244
+  - 220
+  - 176
+COLOUR_GREY:
+- index: 4
+  hex: '#404040'
+  rgb:
+  - 64
+  - 64
+  - 64
+- index: 5
+  hex: '#505050'
+  rgb:
+  - 80
+  - 80
+  - 80
+- index: 6
+  hex: '#646464'
+  rgb:
+  - 100
+  - 100
+  - 100
+- index: 7
+  hex: '#747474'
+  rgb:
+  - 116
+  - 116
+  - 116
+- index: 8
+  hex: '#848484'
+  rgb:
+  - 132
+  - 132
+  - 132
+- index: 9
+  hex: '#949494'
+  rgb:
+  - 148
+  - 148
+  - 148
+- index: 10
+  hex: '#A8A8A8'
+  rgb:
+  - 168
+  - 168
+  - 168
+- index: 11
+  hex: '#B8B8B8'
+  rgb:
+  - 184
+  - 184
+  - 184
+COLOUR_WHITE:
+- index: 8
+  hex: '#848484'
+  rgb:
+  - 132
+  - 132
+  - 132
+- index: 9
+  hex: '#949494'
+  rgb:
+  - 148
+  - 148
+  - 148
+- index: 10
+  hex: '#A8A8A8'
+  rgb:
+  - 168
+  - 168
+  - 168
+- index: 11
+  hex: '#B8B8B8'
+  rgb:
+  - 184
+  - 184
+  - 184
+- index: 12
+  hex: '#C8C8C8'
+  rgb:
+  - 200
+  - 200
+  - 200
+- index: 13
+  hex: '#D8D8D8'
+  rgb:
+  - 216
+  - 216
+  - 216
+- index: 14
+  hex: '#E8E8E8'
+  rgb:
+  - 232
+  - 232
+  - 232
+- index: 15
+  hex: '#FCFCFC'
+  rgb:
+  - 252
+  - 252
+  - 252
