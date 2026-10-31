@@ -1,5 +1,39 @@
 # OpenTTD 2CC company colour palettes
 
+## Company colour replacement gradients
+
+These are the actual OpenTTD company-colour recolour gradients. Pixels using these indices are converted to the selected company colours when the corresponding recolour flag is present. They are distinct from the result palettes listed below; the secondary 2CC range is a source range and must not be confused with the `COLOUR_GREEN` result palette, even though indices 82–85 appear in both lists.
+
+### 1CC (Primary)
+
+| Palette index | Hex |
+|---:|:---|
+| 198 | `0xC6` |
+| 199 | `0xC7` |
+| 200 | `0xC8` |
+| 201 | `0xC9` |
+| 202 | `0xCA` |
+| 203 | `0xCB` |
+| 204 | `0xCC` |
+| 205 | `0xCD` |
+
+### 2CC (Secondary)
+
+| Palette index | Hex |
+|---:|:---|
+| 80 | `0x50` |
+| 81 | `0x51` |
+| 82 | `0x52` |
+| 83 | `0x53` |
+| 84 | `0x54` |
+| 85 | `0x55` |
+| 86 | `0x56` |
+| 87 | `0x57` |
+
+## Result palettes
+
+The palettes below are the resulting colour gradients, not the source indices that trigger company-colour replacement.
+
 ## COLOUR_DARK_BLUE
 
 | Palette index | Hex | RGB |

@@ -1,3 +1,17 @@
+# Actual source indices that trigger OpenTTD company-colour replacement.
+# The secondary source range shares numeric indices 82–85 with the
+# COLOUR_GREEN result palette, but the two uses are semantically distinct.
+COMPANY_COLOUR_REPLACEMENT_GRADIENTS:
+  primary_1cc:
+    name: '1CC (Primary)'
+    indices: [198, 199, 200, 201, 202, 203, 204, 205]
+    hex_range: '0xC6–0xCD'
+  secondary_2cc:
+    name: '2CC (Secondary)'
+    indices: [80, 81, 82, 83, 84, 85, 86, 87]
+    hex_range: '0x50–0x57'
+
+# Result palettes: the colour gradients produced by company-colour replacement.
 COLOUR_DARK_BLUE:
 - index: 198
   hex: '#081858'
