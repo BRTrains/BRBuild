@@ -1,17 +1,13 @@
 import hashlib
 import json
-import subprocess
-import sys
 import time
 import logging
-import re
 import shutil
 from pathlib import Path
 
 from Badge import BadgeRegistry
 from Grf.RailTypeTable import RailTypeTable
 from Lang.StringRegistry import _registry
-from Lang.StringWriter import StringWriter
 from NmlWriter import NmlGrfWriter, NmlVariantWriter, NmlCollator, NmlCompiler
 from Project import Project
 from Sprites.LightingOverlay import (
@@ -27,13 +23,16 @@ from Sprites.PalettedImage import PalettedImage
 from Templates.SpritesheetLegacyConverter import SpritesheetLegacyConverter
 from Templates.TemplateGenerator import TemplateGenerator
 from Templates.TemplateLoaderNML import TemplateLoaderNML
-from Vehicle import PurchaseList, Variant, VariantIterator, VehicleSpriteAllocator
+from Vehicle import Variant, VariantIterator, VehicleSpriteAllocator
 from Vehicle.UsageVisibility import disable_condition
 from YamlHandler import VehicleLoader, GrfLoader
 from .BuildContext import BuildContext
 from .CandidateFinder import CandidateFinder
 from .SpriteIDRegistry import SpriteIDRegistry
 from .ManifestWriter import ManifestWriter
+from .GrfParameterInjector import GrfParameterInjector
+from .PurchaseListBuilder import PurchaseListBuilder
+from .NmlOutput import NmlOutput
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +46,7 @@ class Builder:
     def __init__(self):
         self.nmlCollator = NmlCollator()
         self.nmlCompiler = NmlCompiler()
+        self.nmlOutput = NmlOutput(self.nmlCollator, self.nmlCompiler)
         return
 
     def build(self, project_data, log_nml_output=False, release=False, docs=False):
@@ -159,220 +159,15 @@ class Builder:
 
     @staticmethod
     def _ensure_cost_parameters(grf):
-        """Inject separate runtime purchase/running-cost parameters first."""
-        choices = {
-            0: "1/4",
-            1: "1/3",
-            2: "1/2",
-            3: "1x",
-            4: "2x",
-            5: "3x",
-            6: "4x",
-        }
-        definitions = [
-            ("param_running_cost_multiplier", "Running Cost Multiplier"),
-            ("param_purchase_cost_multiplier", "Purchase Cost Multiplier"),
-        ]
-
-        # Remove the previous combined parameter if a caller is reusing a loaded
-        # config object from the earlier builder version.
-        grf.params[:] = [param for param in grf.params if param.get("identifier") != "param_cost_multiplier"]
-        for identifier, name in reversed(definitions):
-            existing = next((param for param in grf.params if param.get("identifier") == identifier), None)
-            if existing is None:
-                existing = {
-                    "identifier": identifier,
-                    "name_str": name,
-                    "desc_str": f"Adjust {name.lower()}",
-                    "min_value": 0,
-                    "max_value": 6,
-                    "def_value": 3,
-                    "names": choices,
-                }
-            else:
-                grf.params.remove(existing)
-            grf.params.insert(0, existing)
+        return GrfParameterInjector.ensure_cost_parameters(grf)
 
     @staticmethod
     def _ensure_general_parameters(grf):
-        """Inject shared speed, capacity, and default-vehicle controls first."""
-        definitions = [
-            (
-                "param_wagon_speed_limits",
-                "Wagon Speed Limits",
-                "Enable or disable speed limits on unpowered coaches and wagons",
-                0,
-                1,
-                1,
-                {0: "Disabled", 1: "Enabled"},
-            ),
-            (
-                "param_speed_mode",
-                "Speed Mode",
-                "Use each unit's design speed, or its permitted service speed",
-                0,
-                1,
-                1,
-                {0: "Service Speed", 1: "Design Speed"},
-            ),
-            (
-                "param_passenger_multiplier",
-                "Passenger Capacity Multiplier",
-                "Increase capacities of passenger vehicles",
-                1,
-                4,
-                1,
-                {1: "1x", 2: "2x", 3: "3x", 4: "4x"},
-            ),
-            (
-                "param_mail_multiplier",
-                "Mail Capacity Multiplier",
-                "Increase capacities of mail vehicles",
-                1,
-                4,
-                1,
-                {1: "1x", 2: "2x", 3: "3x", 4: "4x"},
-            ),
-            (
-                "param_freight_multiplier",
-                "Freight Capacity Multiplier",
-                "Increase capacities of freight vehicles",
-                1,
-                4,
-                1,
-                {1: "1x", 2: "2x", 3: "3x", 4: "4x"},
-            ),
-            (
-                "param_disable_default_trains",
-                "Hide Default OpenTTD trains?",
-                "Hide the default OpenTTD trains from the vehicle list",
-                0,
-                1,
-                1,
-                {0: "Show Default OpenTTD trains", 1: "Hide Default OpenTTD trains"},
-            ),
-        ]
-        definitions.append(
-            (
-                "param_disable_default_roadvehicles",
-                "Hide Default OpenTTD road vehicles?",
-                "Hide the default OpenTTD road vehicles from the vehicle list",
-                0,
-                1,
-                1,
-                {0: "Show Default OpenTTD road vehicles", 1: "Hide Default OpenTTD road vehicles"},
-            )
-        )
-        definitions.append(
-            (
-                "param_development_mode",
-                "Development Mode",
-                "Show units marked as work in progress or development units",
-                0,
-                1,
-                0,
-                {0: "Off", 1: "On"},
-            )
-        )
-        definitions.append(
-            (
-                "param_livery_mode",
-                "Livery Mode",
-                "Choose separate variants, livery refits, or both",
-                0,
-                2,
-                0,
-                {0: "Variants", 1: "Livery Refits", 2: "Both"},
-            )
-        )
-
-        builder_ids = {
-            "param_wagon_speed_limits",
-            "param_running_cost_multiplier",
-            "param_purchase_cost_multiplier",
-            "param_passenger_multiplier",
-            "param_mail_multiplier",
-            "param_freight_multiplier",
-            "param_disable_default_trains",
-            "param_disable_default_roadvehicles",
-            "param_development_mode",
-            "param_livery_mode",
-            "param_align_with",
-        }
-        # Remove legacy combined/default-vehicle identifiers before re-inserting the
-        # canonical builder-owned definitions.
-        legacy_ids = {"param_disable_default_vehicles"}
-        grf.params[:] = [
-            param for param in grf.params
-            if param.get("identifier") not in legacy_ids
-        ]
-        insertion_index = next(
-            (index for index, param in enumerate(grf.params)
-             if param.get("identifier") not in builder_ids),
-            len(grf.params),
-        )
-        for identifier, name, description, minimum, maximum, default, names in definitions:
-            existing = next((param for param in grf.params if param.get("identifier") == identifier), None)
-            if existing is not None:
-                grf.params.remove(existing)
-            else:
-                existing = {
-                    "identifier": identifier,
-                    "name_str": name,
-                    "desc_str": description,
-                    "min_value": minimum,
-                    "max_value": maximum,
-                    "def_value": default,
-                    "names": names,
-                }
-            grf.params.insert(insertion_index, existing)
-            insertion_index += 1
-
-        grf.global_actions[:] = [
-            action for action in grf.global_actions
-            if action.get("condition") not in {
-                "param_disable_default_trains == 1",
-                "param_disable_default_roadvehicles == 1",
-                "param_disable_default_vehicles == 1",
-            }
-        ]
-        actions = [
-            {"condition": "param_disable_default_trains == 1", "action": "disable_item(FEAT_TRAINS)"}
-        ]
-        actions.append(
-            {"condition": "param_disable_default_roadvehicles == 1", "action": "disable_item(FEAT_ROADVEHS)"}
-        )
-        grf.global_actions[0:0] = actions
-
+        return GrfParameterInjector.ensure_general_parameters(grf)
 
     @staticmethod
     def _ensure_template_alignment_param(grf):
-        existing = [param for param in grf.params if param.get("identifier") == "param_align_with"]
-        if existing:
-            parameter = existing[0]
-            grf.params.remove(parameter)
-            insertion_index = next(
-                (index for index, param in enumerate(grf.params)
-                 if param.get("identifier") not in {"param_running_cost_multiplier", "param_purchase_cost_multiplier", "param_align_with"}),
-                len(grf.params),
-            )
-            grf.params.insert(insertion_index, parameter)
-            return insertion_index
-        insertion_index = next(
-            (index for index, param in enumerate(grf.params)
-             if param.get("identifier") not in {"param_running_cost_multiplier", "param_purchase_cost_multiplier", "param_align_with"}),
-            len(grf.params),
-        )
-        grf.params.insert(insertion_index, {
-            "identifier": "param_align_with",
-            "name_str": "Align with",
-            "desc_str": "Choose the sprite offset alignment convention",
-            "min_value": 0,
-            "max_value": 1,
-            "def_value": 1,
-            "names": {0: "Generic", 1: "Iron Horse"},
-        })
-        return insertion_index
+        return GrfParameterInjector.ensure_template_alignment_param(grf)
 
     def _load_railtypes(self, ctx: BuildContext):
         """Load the project's `RailTypes.yaml`, if it has one, and emit it as NML.
@@ -1384,206 +1179,22 @@ class Builder:
                 )
 
     def _collate_nml(self, ctx: BuildContext):
-        if len(ctx.nml_files) == 0:
-            raise RuntimeError("No NML files available for collation.")
-
-        custom_nml_folder = ctx.project.path / ctx.project.grfFolder / "custom_nml"
-        purchase_list_blocks, skipped_custom_nml = self._purchase_list_nml(ctx)
-        ctx.nml_filepath = self.nmlCollator.collate(
-            ctx.nml_files,
-            ctx.project.name,
-            custom_nml_folder,
-            ctx.project.path,
-            candidates_root=ctx.project.path,
-            staged_candidate_nml=Path(ctx.nml_output_folder) / "candidate_nml",
-            vehicle_nml_files={
-                identifier: files
-                for identifier, files in ctx.vehicle_nml_files.items()
-                if identifier not in ctx.failed_units
-            },
-            variant_owners=ctx.variant_owners,
-            generated_trailing_nml=purchase_list_blocks,
-            skip_custom_nml=skipped_custom_nml,
-        )
-        logger.info(f"NML collation complete: {ctx.nml_filepath}")
+        return self.nmlOutput.collate(ctx)
 
     @staticmethod
     def _purchase_list_nml(ctx: BuildContext) -> tuple[list, list]:
-        """Return the project's purchase-list NML, and any file it replaces.
-
-        A `sort` block names the generated items, so it can only be written once the
-        variants exist; the blocks go after every item and before any hand-written
-        `custom_nml/append` file.
-
-        `purchase_list.file` names a manual NML file the project maintains itself
-        (relative to the GRF folder). Its contents are returned as a generated block,
-        and the path is returned as well so the collator does not compile the same
-        file a second time from its `custom_nml` folder.
-
-        `purchase_list.script` names a project script the build runs, so a list that has to
-        name the build's own item symbols cannot go stale. The script is handed the items
-        this build produced and returns the list it built; the build stores that in its own
-        working data (never in the project) and compiles it.
-        """
-        grf = getattr(ctx, "grf", None)
-        manual_file = getattr(grf, "purchase_list_file", None)
-        script = getattr(grf, "purchase_list_script", None)
-
-        if manual_file is not None:
-            path = Builder._purchase_list_path(
-                ctx, manual_file, root=ctx.project.path / ctx.project.grfFolder, setting="purchase_list.file"
-            )
-            if not path.is_file():
-                raise FileNotFoundError(f"Purchase-list file not found: {path}")
-            logger.info(f"Using manual purchase-list NML file: {path}")
-            return [Builder._filter_manual_purchase_list(path.read_text(encoding="utf-8"), ctx)], [path]
-
-        if script:
-            block = Builder._run_purchase_list_script(script, ctx)
-
-            if not block.strip():
-                logger.warning(
-                    f"Purchase-list script '{script}' returned no block: no purchase-list order "
-                    "will be emitted."
-                )
-                return [], []
-
-            stored = Builder._write_purchase_list(ctx, block)
-            logger.info(
-                f"Purchase-list script '{script}' returned {len(block.splitlines())} line(s), "
-                f"stored at {stored}."
-            )
-            return [block], []
-
-        order = getattr(grf, "purchase_list_order", PurchaseList.NONE)
-        if order == PurchaseList.NONE:
-            return [], []
-
-        generated = PurchaseList.build_blocks(ctx.successful_variants, order)
-        if generated:
-            logger.info(
-                f"Purchase-list order '{order}': wrote {len(generated)} sort block(s) "
-                f"for {len(ctx.successful_variants)} variant(s)."
-            )
-        return generated, []
-
-    @staticmethod
-    def _write_purchase_list(ctx: BuildContext, block: str) -> Path:
-        """Store a script's purchase list in the build's own working data, not the project."""
-        destination = Path(ctx.nml_output_folder) / "purchase_list.pnml"
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(block.rstrip("\n") + "\n", encoding="utf-8")
-
-        return destination
-
-    @staticmethod
-    def _purchase_list_path(ctx: BuildContext, relative: str, *, root, setting: str) -> Path:
-        """Resolve a path a purchase list names, confined to the tree it belongs in."""
-        allowed = Path(root).expanduser().resolve()
-        path = (allowed / relative).resolve()
-
-        if path != allowed and allowed not in path.parents:
-            raise ValueError(f"'{setting}' must stay inside {allowed}: {relative}")
-
-        return path
-
-    @staticmethod
-    def _purchase_list_items(ctx: BuildContext) -> Path:
-        """Write the items this build produced, per feature and in build order, for a script."""
-        features: dict[str, list[dict]] = {}
-
-        for position, variant in enumerate(ctx.successful_variants):
-            facts = PurchaseList.facts_from_variant(variant, position)
-            features.setdefault(facts.feature, []).append(
-                {
-                    "identifier": facts.identifier,
-                    "vehicle": facts.unit,
-                    "profile": str(getattr(getattr(variant, "profile", None), "identifier", "") or ""),
-                    "livery": str(getattr(getattr(variant, "livery", None), "name", "") or ""),
-                    "name": facts.name,
-                }
-            )
-
-        destination = Path(ctx.nml_output_folder) / "purchase_list_items.json"
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(
-            json.dumps({"project": ctx.project.name, "features": features}, indent=1) + "\n",
-            encoding="utf-8",
-        )
-
-        return destination
-
-    @staticmethod
-    def _run_purchase_list_script(relative: str, ctx: BuildContext) -> str:
-        """Run a project's purchase-list script against this build's items, returning what it printed."""
-        script = Builder._purchase_list_path(
-            ctx, relative, root=ctx.project.path, setting="purchase_list.script"
-        )
-        if not script.is_file():
-            raise FileNotFoundError(f"Purchase-list script not found: {script}")
-
-        items = Builder._purchase_list_items(ctx)
-        completed = subprocess.run(
-            [sys.executable, str(script), "--items", str(items)],
-            cwd=str(ctx.project.path),
-            capture_output=True,
-            text=True,
-        )
-
-        for line in completed.stdout.splitlines():
-            logger.debug(f"purchase-list script: {line}")
-
-        if completed.returncode != 0:
-            raise RuntimeError(
-                f"Purchase-list script '{script}' failed with exit code {completed.returncode}: "
-                f"{completed.stderr.strip() or 'no error output'}"
-            )
-
-        logger.info(
-            f"Ran purchase-list script '{relative}' for {len(ctx.successful_variants)} variant(s)."
-        )
-
-        return completed.stdout
-
-    @staticmethod
-    def _filter_manual_purchase_list(text: str, ctx: BuildContext) -> str:
-        """Remove item symbols for variants excluded from this build."""
-        available = {variant.identifier for variant in ctx.successful_variants}
-        filtered = []
-        for line in text.splitlines(keepends=True):
-            match = re.match(r"^(\s*)([A-Za-z_][A-Za-z0-9_]*),(\s*(?://.*)?\r?\n?)$", line)
-            if match and match.group(2) not in available:
-                logger.warning(
-                    f"Omitting '{match.group(2)}' from the manual purchase list: "
-                    "the corresponding variant did not build successfully."
-                )
-                newline = "\n" if line.endswith("\n") else ""
-                filtered.append(f"{match.group(1)}// omitted unavailable item: {match.group(2)},{newline}")
-            else:
-                filtered.append(line)
-        return "".join(filtered)
+        """Compatibility wrapper for purchase-list generation."""
+        return PurchaseListBuilder.build(ctx)
 
     def _finalize_sprite_ids(self, ctx: BuildContext):
         deprecated_files = ctx.sprite_id_registry.finalize(ctx.nml_output_folder)
         ctx.nml_files.extend(deprecated_files)
 
     def _write_language(self, ctx: BuildContext):
-        ctx.lang_folder = str(Path(ctx.nml_output_folder) / "lang")
-        ctx.sprite_id_registry.register_deprecated_strings(_registry.write_string)
-        string_writer = StringWriter(_registry, ctx.lang_folder)
-        string_writer.write_file()
-        logger.info(f"Wrote language file to {ctx.lang_folder}")
+        return self.nmlOutput.write_language(ctx)
 
     def _compile_newgrf(self, ctx: BuildContext):
-        if not ctx.nml_filepath:
-            raise RuntimeError("NML file path is missing for compilation.")
-
-        ctx.newgrf_filepath = self.nmlCompiler.compile(ctx.nml_filepath, ctx.lang_folder, ctx.log_nml_output)
-        logger.info(f"newGRF compilation complete: {ctx.newgrf_filepath}")
+        return self.nmlOutput.compile(ctx)
 
     def _copy_newgrf(self, ctx: BuildContext):
-        if not getattr(ctx, 'newgrf_filepath', None):
-            raise RuntimeError("Compiled GRF path is missing for copying.")
-
-        self.nmlCompiler.copy_newgrf(ctx.newgrf_filepath)
-        logger.info(f"newGRF copying complete for {ctx.newgrf_filepath}")
+        return self.nmlOutput.copy(ctx)
