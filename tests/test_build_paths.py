@@ -140,6 +140,7 @@ class CostCalculatorTests(unittest.TestCase):
         self.assertEqual(
             [param["identifier"] for param in trains.params],
             [
+                "param_wagon_speed_limits",
                 "param_speed_mode",
                 "param_passenger_multiplier",
                 "param_mail_multiplier",
@@ -165,6 +166,16 @@ class CostCalculatorTests(unittest.TestCase):
         parameter = next(param for param in grf.params if param["identifier"] == "param_development_mode")
         self.assertEqual(parameter["def_value"], 0)
         self.assertEqual(parameter["names"], {0: "Off", 1: "On"})
+
+    def test_wagon_speed_limit_parameter_defaults_to_enabled(self):
+        from Builder.Builder import Builder
+        from Grf import Grf
+
+        grf = Grf("TEST", "TEST", "Test", "Test", "1", "1")
+        Builder._ensure_general_parameters(grf)
+        parameter = next(param for param in grf.params if param["identifier"] == "param_wagon_speed_limits")
+        self.assertEqual(parameter["def_value"], 1)
+        self.assertEqual(parameter["names"], {0: "Disabled", 1: "Enabled"})
 
     def test_development_variant_writes_numeric_disable_item(self):
         from NmlWriter.NmlVariantWriter import NmlVariantWriter
@@ -1188,6 +1199,33 @@ class BuildPathTests(unittest.TestCase):
 
         self.assertEqual(variant.speed, 100)
         self.assertEqual(variant.properties["speed"], "100 mph")
+        self.assertNotIn("speed", variant.callbacks)
+
+    def test_zero_power_train_gets_toggleable_unlimited_speed_callback(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="wagon", name="Coach", power=0, speed=100)
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Default"), Profile("Default"), VehicleType.TRAIN
+        )
+        variant.process()
+
+        self.assertEqual(variant.properties["speed"], "100 mph")
+        self.assertEqual(variant.callbacks["speed"], "param_wagon_speed_limits == 1 ? 160 : 0")
+
+    def test_powered_train_does_not_get_wagon_speed_limit_callback(self):
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+
+        vehicle = Vehicle(folder_path=".", identifier="engine", name="Engine", power=4000, speed=100)
+        variant = __import__("Vehicle.Variant", fromlist=["Variant"]).Variant(
+            vehicle, Livery("Default"), Profile("Default"), VehicleType.TRAIN
+        )
+        variant.process()
+
         self.assertNotIn("speed", variant.callbacks)
 
     def test_design_and_service_speeds_become_a_parameter_selector(self):

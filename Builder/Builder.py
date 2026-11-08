@@ -198,6 +198,15 @@ class Builder:
         """Inject shared speed, capacity, and default-vehicle controls first."""
         definitions = [
             (
+                "param_wagon_speed_limits",
+                "Wagon Speed Limits",
+                "Enable or disable speed limits on unpowered coaches and wagons",
+                0,
+                1,
+                1,
+                {0: "Disabled", 1: "Enabled"},
+            ),
+            (
                 "param_speed_mode",
                 "Speed Mode",
                 "Use each unit's design speed, or its permitted service speed",
@@ -278,6 +287,7 @@ class Builder:
         )
 
         builder_ids = {
+            "param_wagon_speed_limits",
             "param_running_cost_multiplier",
             "param_purchase_cost_multiplier",
             "param_passenger_multiplier",

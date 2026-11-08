@@ -400,17 +400,28 @@ class Variant:
             return
 
         self.properties["speed"] = self._format_speed(self.speed)
+        speed_expression = None
         if design is None or service is None or float(design) == float(service):
-            return
+            speed_expression = speed_field(self.speed)
+        else:
+            if design < service:
+                logger.warning(
+                    "%s has a design speed lower than its service speed (%s < %s mph)",
+                    self.identifier,
+                    design,
+                    service,
+                )
+            speed_expression = self._speed_selector(design, service)
 
-        if design < service:
-            logger.warning(
-                "%s has a design speed lower than its service speed (%s < %s mph)",
-                self.identifier,
-                design,
-                service,
-            )
-        self.callbacks["speed"] = self._speed_selector(design, service)
+        # OpenTTD treats a train speed property/callback result of zero as no limit.
+        # BRTrains applies this global control to every unit with zero power, rather
+        # than relying on the authored train_type (which is intentionally not the
+        # definition of a wagon here).
+        vehicle_type = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
+        if self.get_attr("power") == 0 and vehicle_type == "TRAIN":
+            self.callbacks["speed"] = f"param_wagon_speed_limits == 1 ? {speed_expression} : 0"
+        elif design is not None and service is not None and float(design) != float(service):
+            self.callbacks["speed"] = speed_expression
 
     @staticmethod
     def _format_speed(value) -> str:
