@@ -1,30 +1,14 @@
-import hashlib
-import json
-import time
 import logging
-import shutil
 from pathlib import Path
 
-from Badge import BadgeRegistry
 from Grf.RailTypeTable import RailTypeTable
-from Lang.StringRegistry import _registry
 from NmlWriter import NmlGrfWriter, NmlVariantWriter, NmlCollator, NmlCompiler
 from Project import Project
-from Sprites.LightingOverlay import (
-    LIGHTING_AUTO,
-    LIGHTING_EXACT,
-    LIGHTING_NONE,
-    Part,
-    VehicleLighting,
-    boxes_of,
-    pattern_of,
-)
+from Sprites.LightingOverlay import Part
 from Sprites.PalettedImage import PalettedImage
-from Templates.SpritesheetLegacyConverter import SpritesheetLegacyConverter
 from Templates.TemplateGenerator import TemplateGenerator
 from Templates.TemplateLoaderNML import TemplateLoaderNML
 from Vehicle import Variant, VariantIterator, VehicleSpriteAllocator
-from Vehicle.UsageVisibility import disable_condition
 from YamlHandler import VehicleLoader, GrfLoader
 from .BuildContext import BuildContext
 from .CandidateFinder import CandidateFinder
@@ -35,6 +19,9 @@ from .PurchaseListBuilder import PurchaseListBuilder
 from .NmlOutput import NmlOutput
 from .SpriteIngestManager import SpriteIngestManager
 from .CandidateProcessor import CandidateProcessor
+from .SpritePreparation import SpritePreparation
+from .LightingResolver import LightingResolver
+from .BuildPipeline import BuildPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -51,65 +38,13 @@ class Builder:
         self.nmlOutput = NmlOutput(self.nmlCollator, self.nmlCompiler)
         self.spriteIngest = SpriteIngestManager()
         self.candidateProcessor = CandidateProcessor(self)
+        self.spritePreparation = SpritePreparation(self)
+        self.lightingResolver = LightingResolver()
+        self.pipeline = BuildPipeline(self)
         return
 
     def build(self, project_data, log_nml_output=False, release=False, docs=False):
-        # Clear global registries so each project build starts fresh
-        _registry.clear()
-        BadgeRegistry().clear()
-        context = BuildContext(
-            project_data=project_data,
-            log_nml_output=log_nml_output,
-            release=release,
-        )
-
-        stages = [
-            self._load_project,
-            self._validate_project_path,
-            self._load_sprite_id_registry,
-            self._load_grf,
-            self._load_railtypes,
-            self._load_palette,
-            self._write_templates,
-            self._discover_candidates,
-            self._prepare_sprite_ids,
-            self._process_candidates,
-            self._write_errors,
-            self._finalize_sprite_ids,
-            self._collate_nml,
-            self._write_language,
-            self._compile_newgrf,
-            self._finalize_sprite_ingests,
-            self._copy_newgrf,
-        ]
-
-        start_time = time.time()
-        for stage in stages:
-            try:
-                stage(context)
-            except Exception as exc:
-                logger.exception(f"Build stage {stage.__name__} failed: {exc}")
-                if docs:
-                    self._write_manifest_failure(context, exc)
-                return
-
-        if docs:
-            # Documentation is deliberately outside the build-stage list: it is written only
-            # after the compiled GRF has been copied, and a documentation failure must not
-            # turn an otherwise successful build into a failed build.
-            try:
-                ManifestWriter(context.project, context.successful_variants).write()
-            except Exception as exc:
-                logger.exception(f"Unable to write build manifest: {exc}")
-                try:
-                    ManifestWriter(context.project, context.successful_variants).write_failure_report(exc)
-                except Exception:
-                    logger.exception("Unable to write manifest failure report.")
-
-        elapsed = round(time.time() - start_time, 2)
-        logger.info(f"BRBuild build process for project '{context.project.name}' completed successfully.")
-        logger.info(f"Successful variants: {len(context.successful_variants)}. Failed variants: {len(context.failed_variants)}.")
-        logger.info(f"BRBuild project '{context.project.name}' build complete after {elapsed} seconds.")
+        return self.pipeline.run(project_data, log_nml_output, release, docs)
 
     @staticmethod
     def _write_manifest_failure(ctx: BuildContext, error: Exception):
@@ -441,17 +376,11 @@ class Builder:
         }
 
     def _load_sprite_allocator(self, vehicle, ctx: BuildContext, *, normalize: bool = False):
-        """Build a sprite allocator for a vehicle's spritesheet.
-
-        Returns None if the sheet can't be confidently classified against the known
-        templates - the caller treats that as a fatal error for this vehicle.
-        """
         self._migrate_vehicle_metadata(vehicle)
         self._stage_palette_normalized_sheets(vehicle, ctx)
         # Canonicalise the staged copy as well: palette correction can expose row gutters
         # that were hidden by alpha, and NML must read the template-sized result.
         self._convert_spritesheet(vehicle, ctx)
-
         try:
             return VehicleSpriteAllocator(vehicle, ctx.palette, self._get_template_definitions(ctx))
         except Exception as exc:
@@ -460,253 +389,46 @@ class Builder:
 
     @staticmethod
     def _migrate_vehicle_metadata(vehicle):
-        """Move legacy BRBuild sidecars from a vehicle root into its ``meta`` folder."""
-        sheet_path = getattr(vehicle, "spritesheet_path", None)
-        if not sheet_path:
-            return
-        root = Path(sheet_path).parent
-        if not root.is_dir():
-            return
-        suffixes = (
-            ".sheetcache.json",
-            ".lightcache.json",
-            ".normalization.json",
-            ".stagecache.json",
-            ".purchase.json",
-        )
-        metadata = root / "meta"
-        for legacy in root.iterdir():
-            if not legacy.is_file() or not legacy.name.endswith(suffixes):
-                continue
-            destination = metadata / legacy.name
-            try:
-                metadata.mkdir(parents=True, exist_ok=True)
-                if destination.is_file():
-                    legacy.unlink()
-                else:
-                    legacy.replace(destination)
-            except OSError as exc:
-                logger.warning(f"Could not move legacy BRBuild metadata '{legacy}': {exc}")
+        return SpritePreparation._migrate_vehicle_metadata(vehicle)
 
     def _stage_palette_normalized_sheets(self, vehicle, ctx: BuildContext):
-        """Give NML palette-valid staging copies of every sheet used by a candidate."""
-        staging_root = Path(ctx.nml_output_folder) / "palette" / vehicle.identifier
-        for declared in self._declared_sheets(vehicle):
-            source = Path((getattr(vehicle, "spritesheet_overrides", None) or {}).get(declared, declared))
-            if not source.is_file():
-                continue
-            destination = staging_root / Path(declared).name
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            if self._palette_stage_cache_valid(source, destination, ctx.palette):
-                if declared == vehicle.spritesheet_path:
-                    vehicle.spritesheet_override = str(destination)
-                else:
-                    vehicle.spritesheet_overrides[declared] = str(destination)
-                continue
-
-            image = PalettedImage.load(source, ctx.palette)
-            if image.is_using_palette():
-                if not destination.is_file() or destination.read_bytes() != source.read_bytes():
-                    shutil.copy2(source, destination)
-            else:
-                image.set_palette()
-                from io import BytesIO
-
-                buffer = BytesIO()
-                image.image.save(buffer, format="PNG")
-                data = buffer.getvalue()
-                if not destination.is_file() or destination.read_bytes() != data:
-                    destination.write_bytes(data)
-            self._write_palette_stage_cache(source, destination, ctx.palette)
-            if declared == vehicle.spritesheet_path:
-                vehicle.spritesheet_override = str(destination)
-            else:
-                vehicle.spritesheet_overrides[declared] = str(destination)
-            logger.info(
-                f"Staged palette-normalized spritesheet '{source.name}' for '{vehicle.identifier}'."
-            )
+        return self.spritePreparation._stage_palette_normalized_sheets(vehicle, ctx)
 
     @staticmethod
     def _palette_digest(palette):
-        return hashlib.sha256(bytes(bytearray(palette))).hexdigest()
+        return SpritePreparation._palette_digest(palette)
 
     @staticmethod
     def _file_digest(path):
-        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        return SpritePreparation._file_digest(path)
 
     @staticmethod
     def _palette_stage_cache_path(destination):
-        destination = Path(destination)
-        return destination.parent / "meta" / (destination.name + ".stagecache.json")
+        return SpritePreparation._palette_stage_cache_path(destination)
 
     def _palette_stage_cache_valid(self, source, destination, palette):
-        if not Path(destination).is_file():
-            return False
-        try:
-            payload = json.loads(self._palette_stage_cache_path(destination).read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return False
-        return payload == {
-            "format": "brbuild-palette-stage",
-            "version": PALETTE_STAGE_CACHE_VERSION,
-            "source_sha256": self._file_digest(source),
-            "palette_sha256": self._palette_digest(palette),
-        }
+        return self.spritePreparation._palette_stage_cache_valid(source, destination, palette)
 
     def _write_palette_stage_cache(self, source, destination, palette):
-        payload = {
-            "format": "brbuild-palette-stage",
-            "version": PALETTE_STAGE_CACHE_VERSION,
-            "source_sha256": self._file_digest(source),
-            "palette_sha256": self._palette_digest(palette),
-        }
-        cache_path = self._palette_stage_cache_path(destination)
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(
-            json.dumps(payload, indent=1) + "\n", encoding="utf-8"
-        )
+        return self.spritePreparation._write_palette_stage_cache(source, destination, palette)
 
     def _convert_spritesheet(self, vehicle, ctx: BuildContext):
-        """Normalise the vehicle's spritesheets in place to only their recognised template rows.
-
-        One sheet per drop: the candidate's own `<Vehicle>.png`, plus any sheet a profile or
-        livery names for itself, each held to the same contract.
-        """
-        definitions = self._get_template_definitions(ctx)
-        if not definitions:
-            logger.debug(f"No template definitions found; skipping spritesheet conversion for '{vehicle.identifier}'.")
-            return
-
-        v_type = vehicle.vehicle_type
-        v_type_str = v_type.name.lower() if hasattr(v_type, "name") else str(v_type).lower()
-
-        sheets = [vehicle.spritesheet_path]
-        sheets.extend(
-            str(staged)
-            for staged in (getattr(vehicle, "spritesheet_overrides", None) or {}).values()
-        )
-
-        for sheet in sheets:
-            if not Path(sheet).is_file():
-                # A candidate whose own sheet is absent builds from its profiles' sheets alone.
-                continue
-            try:
-                converter = SpritesheetLegacyConverter(definitions, ctx.palette)
-                kept = converter.process(sheet, v_type_str)
-                if kept is None:
-                    logger.info(
-                        f"Reused cached normalized spritesheet '{Path(sheet).name}' for "
-                        f"'{vehicle.identifier}'."
-                    )
-                else:
-                    logger.info(
-                        f"Converted spritesheet '{Path(sheet).name}' for '{vehicle.identifier}': "
-                        f"kept {len(kept)} recognised row(s)."
-                    )
-            except Exception as exc:
-                logger.exception(f"Unable to convert spritesheet '{sheet}' for '{vehicle.identifier}': {exc}")
+        return self.spritePreparation._convert_spritesheet(vehicle, ctx)
 
     @staticmethod
     def _variant_parts(variant) -> list[Part]:
-        """One `Part` per drawing of a variant, in consist order."""
-        return [
-            Part(row_y=sprite.y, template_name=template_name, boxes=boxes_of(sprite))
-            for sprite, template_name in zip(variant.spritesets, variant.sprite_template_names)
-        ]
+        return LightingResolver._variant_parts(variant)
 
     @staticmethod
     def _lighting_setting(variant) -> str:
-        """A variant's `lighting` setting, resolved livery -> profile -> vehicle."""
-        return str(variant.get_attr("lighting") or LIGHTING_AUTO).strip().lower()
+        return LightingResolver._lighting_setting(variant)
 
     @staticmethod
     def _variant_label(variant) -> str:
-        """A readable, greppable name for a variant, before its identifier is generated.
-
-        The assumption pass runs before `Variant.process()`, so `variant.identifier` is still unset;
-        the label is what the log and the cache record as the source of an assumption.
-        """
-        return f"{variant.vehicle.identifier} {variant.profile.identifier}/{variant.livery.name}"
+        return LightingResolver._variant_label(variant)
 
     def _assume_lighting_patterns(self, variants, allocator, lightings) -> None:
-        """Fill an unreadable livery's lamps from a sibling livery that draws the same pattern.
-
-        Jon's rule (2026-09-25): where a unit's own artwork identifies lamps on at least one livery
-        and says nothing about another, the silent one is assumed to match — one livery of a class
-        shows the class's lamp geometry. A guess is worth making because a player who does not like
-        it has to hand-author that vehicle's lamps anyway, so it costs nobody anything when it is
-        right and is one override away when it is wrong.
-
-        Deliberately narrow, on Jon's conditions:
-
-        - only where **exactly one** trustworthy pattern was identified; two or more is ambiguity about which to
-          use, so nothing is assumed and the rows keep their flags;
-        - only within one spritesheet **and** one template, because a pattern is box-relative;
-        - only from a pattern the detector did not flag, and only for a drawing it said *nothing*
-          about: a row it actively rejected (over
-          the cap, asymmetric, both end-on faces lit) keeps its flag for a human;
-        - never for a variant set to `lighting: exact`, which is the manual override.
-
-        Every assumption is labelled three ways so it is easy to find and confirm: the detection
-        records the identifier it came from (`assumed_from`, which lands in the sheet's
-        `.lightcache.json` with `"view_mapping": "assumed"`), the build logs a warning naming source
-        and target, and the variant is marked in game by the lamps themselves being the guess.
-        """
-        identified: dict[tuple, dict[frozenset, str]] = {}
-        waiting: dict[tuple, list] = {}
-
-        for variant in variants:
-            if getattr(variant, "is_livery_refit", False):
-                continue
-            if not variant.spritesets or self._lighting_setting(variant) == LIGHTING_NONE:
-                continue
-            if self._lighting_setting(variant) == LIGHTING_EXACT:
-                continue  # the manual override: trust only what this vehicle's art shows
-
-            sheet = str(allocator.sheet_for(variant.profile, variant.livery))
-            parts = self._variant_parts(variant)
-            if len({part.row_y for part in parts}) != len(parts):
-                continue  # drawings sharing a row cannot be told apart per part
-
-            detection = variant.lighting_detection
-            for index, part in enumerate(parts):
-                key = (sheet, part.template_name, index)
-                if detection is not None and detection.pixels:
-                    pattern = pattern_of(detection, part)
-                    if detection.assumed_from or detection.flags or not pattern:
-                        # An assumption is not evidence for the next one; a row the detector flagged
-                        # (over the cap, asymmetric) is too unreliable to set the pattern; and a part
-                        # this drawing said nothing about must not register an empty pattern.
-                        continue
-                    identified.setdefault(key, {}).setdefault(pattern, self._variant_label(variant))
-                elif detection is None or not detection.flags:
-                    waiting.setdefault(key, []).append((variant, index, parts))
-
-        for key, targets in waiting.items():
-            patterns = identified.get(key) or {}
-            if len(patterns) != 1:
-                continue
-            pattern, source = next(iter(patterns.items()))
-            sheet = key[0]
-            lighting = lightings.get(sheet)
-            if lighting is None:
-                continue
-
-            for variant, part_index, parts in targets:
-                detection = lighting.assume_for(parts, part_index, pattern, source)
-                if not detection.pixels:
-                    continue
-                flag = f"lamps assumed from '{source}' (same sheet and template): verify in game"
-                if flag not in detection.flags:
-                    detection.flags.append(flag)
-                variant.lighting_detection = detection
-                logger.warning(
-                    f"Assumed the lighting pattern of '{source}' for "
-                    f"'{self._variant_label(variant)}': its own drawing showed no lamps. The sidecar "
-                    f"beside the sheet records it as \"view_mapping\": \"assumed\"; set "
-                    f"`lighting: exact` on that livery (or its profile or vehicle) to keep the "
-                    f"artwork as drawn instead."
-                )
+        return LightingResolver._assume_lighting_patterns(variants, allocator, lightings)
 
     def _collate_nml(self, ctx: BuildContext):
         return self.nmlOutput.collate(ctx)
