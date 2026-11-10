@@ -53,7 +53,6 @@ class NmlCompiler:
         if nml_path is None:
             return -1
 
-        # Prepare parameters
         parameters = [nml_filepath]
 
         if lang_folder:
@@ -76,7 +75,6 @@ class NmlCompiler:
             *parameters,
         ]
 
-        # Compile. Log output to file if requested, otherwise just print to console. Always print to console.
         log_file = open("nmlc.log", "w") if log_nml_output else None
         try:
             completed = subprocess.run(

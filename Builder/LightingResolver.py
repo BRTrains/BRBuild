@@ -39,21 +39,9 @@ class LightingResolver:
     def _assume_lighting_patterns(variants, allocator, lightings) -> None:
         """Fill an unreadable livery's lamps from a sibling livery that draws the same pattern.
 
-        Jon's rule (2026-09-25): where a unit's own artwork identifies lamps on at least one livery
-        and says nothing about another, the silent one is assumed to match — one livery of a class
-        shows the class's lamp geometry. A guess is worth making because a player who does not like
-        it has to hand-author that vehicle's lamps anyway, so it costs nobody anything when it is
-        right and is one override away when it is wrong.
-
-        Deliberately narrow, on Jon's conditions:
-
-        - only where **exactly one** trustworthy pattern was identified; two or more is ambiguity about which to
-          use, so nothing is assumed and the rows keep their flags;
-        - only within one spritesheet **and** one template, because a pattern is box-relative;
-        - only from a pattern the detector did not flag, and only for a drawing it said *nothing*
-          about: a row it actively rejected (over
-          the cap, asymmetric, both end-on faces lit) keeps its flag for a human;
-        - never for a variant set to `lighting: exact`, which is the manual override.
+        Where a unit's own artwork identifies lamps on at least one livery and says nothing about another,
+        assume the unreadable livery matches that sibling pattern. This is deliberately narrow: only
+        one trustworthy pattern, on the same sheet and template, and never for `lighting: exact`.
 
         Every assumption is labelled three ways so it is easy to find and confirm: the detection
         records the identifier it came from (`assumed_from`, which lands in the sheet's

@@ -126,9 +126,6 @@ class SheetDetectionCache:
 
 		logger.debug(f"Cached {len(rows)} detected row(s) to '{self.path}'.")
 
-	# ------------------------------------------------------------------
-	# Validation
-	# ------------------------------------------------------------------
 
 	def _payload_matches(self, payload: dict) -> bool:
 		"""Return True when the cache describes the sheet, palette and templates in use."""
@@ -166,9 +163,6 @@ class SheetDetectionCache:
 		except OSError:
 			return None
 
-	# ------------------------------------------------------------------
-	# Serialisation
-	# ------------------------------------------------------------------
 
 	@staticmethod
 	def _entry(spriteset: Spriteset, definition: TemplateDefinition) -> dict:

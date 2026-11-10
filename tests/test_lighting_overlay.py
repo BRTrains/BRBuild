@@ -453,10 +453,9 @@ def _detection(lamps: dict) -> Detection:
 
 
 class AssumedPatternTests(unittest.TestCase):
-    """Jon's rule: a livery the detector cannot read takes its unit's own lamp pattern.
+    """An unreadable livery inherits its unit's single trustworthy lamp pattern.
 
-    Only where exactly one trustworthy pattern exists, only on the same sheet and template, and
-    never when the unit says `lighting: exact`.
+    The pattern must come from the same sheet and template, and `lighting: exact` disables the assumption.
     """
 
     def setUp(self):

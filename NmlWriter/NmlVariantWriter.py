@@ -20,7 +20,6 @@ class NmlVariantWriter(BaseNmlWriter):
 
         self.filepath = str(Path(output_path) / variant_model.nml_filename)
 
-        # Ensure the output directory exists
         Path(self.filepath).parent.mkdir(parents=True, exist_ok=True)
 
     def write(self):
@@ -359,7 +358,6 @@ class NmlVariantWriter(BaseNmlWriter):
 
         self.writeline(f, item_header, indent=0)
 
-        # NML Properties Block
         properties = dict(getattr(variant, "properties", None) or {})
         if sprite_id is not None:
             properties["sprite_id"] = self._sprite_id_property(feature)
@@ -374,7 +372,6 @@ class NmlVariantWriter(BaseNmlWriter):
                 self.writeline(f, f"{prop_name}: {val_str}", indent=2)
             self.writeline(f, "}", indent=1)
 
-        # NML Graphics & Callbacks Block
         callbacks = getattr(variant, "callbacks", None)
         if callbacks and len(callbacks) > 0:
             self.writeline(f, "graphics {", indent=1)

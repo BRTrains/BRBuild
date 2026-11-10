@@ -53,7 +53,6 @@ class PowerTypeClassifier:
         raw_power = self.variant.get_attr("power_type") or self.variant.get_attr("fuel_type")
         tokens = self._extract_tokens(raw_power)
 
-        # Initialize variant flags
         self.variant.is_electric = False
         self.variant.is_ohle = False
         self.variant.is_third_rail = False
@@ -61,7 +60,6 @@ class PowerTypeClassifier:
         self.variant.is_dual_voltage = False
         self.variant.is_multi_mode = False
 
-        # Check for unpowered condition
         is_explicit_unpowered = any(t in ("NONE", "UNPOWERED") for t in tokens)
         has_no_power = (getattr(self.variant, "power", None) == 0) and not tokens
 
