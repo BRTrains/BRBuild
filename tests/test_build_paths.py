@@ -713,6 +713,44 @@ class BuildPathTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 VehicleLoader.load(str(path))
 
+    def test_non_train_vehicle_types_do_not_require_train_type(self):
+        """Road, ship, and aircraft definitions may omit the train-only type."""
+        import textwrap
+        from YamlHandler.VehicleLoader import VehicleLoader
+
+        with tempfile.TemporaryDirectory() as folder:
+            for vehicle_type in ("road", "ship", "plane"):
+                document = textwrap.dedent(
+                    f"""
+                    info:
+                      identifier: example_{vehicle_type}
+                      name: Example {vehicle_type}
+                    stats:
+                      vehicle_type: {vehicle_type}
+                    """
+                )
+                path = Path(folder) / f"{vehicle_type}.yaml"
+                path.write_text(document, encoding="utf-8")
+                vehicle = VehicleLoader.load(str(path))
+                self.assertEqual(vehicle.vehicle_type.name, vehicle_type.upper())
+                self.assertIsNone(vehicle.train_type)
+
+            train_path = Path(folder) / "train.yaml"
+            train_path.write_text(
+                textwrap.dedent(
+                    """
+                    info:
+                      identifier: example_train
+                      name: Example Train
+                    stats:
+                      vehicle_type: train
+                    """
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "train_type"):
+                VehicleLoader.load(str(train_path))
+
     def test_road_vehicles_keep_their_own_track_property(self):
         """A tram's running gear is `tram_type`, not `track_type`."""
         from Vehicle.Livery import Livery

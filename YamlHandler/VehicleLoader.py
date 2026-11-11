@@ -135,15 +135,17 @@ class VehicleLoader:
         vehicle_type = VehicleLoader._parse_vehicle_type(raw_vehicle_type)
         
         raw_train_type = stats.get("train_type", "").upper()
-        if raw_train_type == "":
-            raise ValueError(f"Missing required stat 'train_type' in {path}")
+        train_type = None
+        if vehicle_type is VehicleType.TRAIN:
+            if raw_train_type == "":
+                raise ValueError(f"Missing required stat 'train_type' in {path}")
 
-        try:
-            # First try to parse as enum member (e.g., "LOCOMOTIVE" or "FREIGHT_WAGON")
-            train_type = TrainType[raw_train_type.upper()]
-        except KeyError:
-            # If that fails, try to parse as raw value (e.g., "locomotive" or "freight_wagon")
-            train_type = TrainType(raw_train_type)
+            try:
+                # First try to parse as enum member (e.g., "LOCOMOTIVE" or "FREIGHT_WAGON")
+                train_type = TrainType[raw_train_type.upper()]
+            except KeyError:
+                # If that fails, try to parse as raw value (e.g., "locomotive" or "freight_wagon")
+                train_type = TrainType(raw_train_type)
 
         cargo_classes = parse_cargo(data.get("cargo"), f"'cargo' in {path}")
         non_cargo_classes = parse_cargo(
