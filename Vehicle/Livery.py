@@ -11,6 +11,7 @@ class Livery:
     size: Optional[int] = None
     num_vehicles: Optional[int] = None
     formation: Optional[str] = None
+    articulated_parts: Optional[List[dict]] = None
     sprite_override: Optional[List[int]] = None
     sprite_exclude: Optional[List[int]] = None
     profiles: Optional[List[str]] = None

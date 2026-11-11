@@ -199,6 +199,9 @@ class VehicleLoader:
             size=stats.get("size") or data.get("size"),
             num_vehicles=stats.get("num_vehicles") or data.get("num_vehicles"),
             formation=data.get("formation") or stats.get("formation"),
+            articulated_parts=VehicleLoader._parse_articulated_parts(
+                data.get("articulated_parts"), f"vehicle {info.get('identifier', path)}"
+            ),
             sprite_override=data.get("sprite_override"),
             sprite_exclude=data.get("sprite_exclude"),
 
@@ -397,6 +400,40 @@ class VehicleLoader:
         return parsed
 
     @staticmethod
+    def _parse_articulated_parts(raw: Any, where: str) -> list[dict[str, str]] | None:
+        if raw is None:
+            return None
+        if not isinstance(raw, list):
+            raise ValueError(f"'articulated_parts' in {where} must be a list of mappings")
+        parsed = []
+        for index, entry in enumerate(raw):
+            if not isinstance(entry, dict):
+                raise ValueError(
+                    f"'articulated_parts[{index}]' in {where} must be a mapping with 'vehicle'"
+                )
+            unknown = set(entry) - {"vehicle", "profile", "livery"}
+            if unknown:
+                raise ValueError(
+                    f"'articulated_parts[{index}]' in {where} has unknown keys: {sorted(unknown)}"
+                )
+            vehicle = entry.get("vehicle")
+            if not isinstance(vehicle, str) or not vehicle.strip():
+                raise ValueError(
+                    f"'articulated_parts[{index}]' in {where} requires a non-empty 'vehicle'"
+                )
+            value = {"vehicle": vehicle.strip()}
+            for key in ("profile", "livery"):
+                if key in entry:
+                    selected = entry[key]
+                    if not isinstance(selected, str) or not selected.strip():
+                        raise ValueError(
+                            f"'articulated_parts[{index}].{key}' in {where} must be non-empty"
+                        )
+                    value[key] = selected.strip()
+            parsed.append(value)
+        return parsed
+
+    @staticmethod
     def _parse_effect_vehicle_map(raw: Any, where: str) -> dict | None:
         if raw is None:
             return None
@@ -528,6 +565,9 @@ class VehicleLoader:
             size=p.get("size"),
             num_vehicles=p.get("num_vehicles"),
             formation=p.get("formation"),
+            articulated_parts=VehicleLoader._parse_articulated_parts(
+                p.get("articulated_parts"), f"profile {identifier}"
+            ),
             sprite_override=p.get("sprite_override"),
             sprite_exclude=p.get("sprite_exclude"),
             sprite_group=p.get("sprite_group"),
@@ -582,6 +622,9 @@ class VehicleLoader:
             size=lv.get("size"),
             num_vehicles=lv.get("num_vehicles"),
             formation=lv.get("formation"),
+            articulated_parts=VehicleLoader._parse_articulated_parts(
+                lv.get("articulated_parts"), f"livery {name}"
+            ),
             sprite_override=lv.get("sprite_override"),
             sprite_exclude=lv.get("sprite_exclude"),
             sprite_group=lv.get("sprite_group"),

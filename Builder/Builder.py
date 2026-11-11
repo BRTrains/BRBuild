@@ -8,8 +8,8 @@ from Sprites.LightingOverlay import Part
 from Sprites.PalettedImage import PalettedImage
 from Templates.TemplateGenerator import TemplateGenerator
 from Templates.TemplateLoaderNML import TemplateLoaderNML
-from Vehicle import Variant, VariantIterator, VehicleSpriteAllocator
-from YamlHandler import VehicleLoader, GrfLoader
+from Vehicle import Variant, VehicleSpriteAllocator
+from YamlHandler import GrfLoader
 from .BuildContext import BuildContext
 from .CandidateFinder import CandidateFinder
 from .SpriteIDRegistry import SpriteIDRegistry
@@ -22,6 +22,7 @@ from .CandidateProcessor import CandidateProcessor
 from .SpritePreparation import SpritePreparation
 from .LightingResolver import LightingResolver
 from .BuildPipeline import BuildPipeline
+from .ItemCatalog import ItemCatalog
 
 logger = logging.getLogger(__name__)
 
@@ -213,19 +214,18 @@ class Builder:
         logger.info(f"Candidate finding complete. Found {elapsed_candidates} candidates.")
 
     def _prepare_sprite_ids(self, ctx: BuildContext):
+        ctx.item_catalog = ItemCatalog.from_candidates(ctx.candidates, ctx.rail_type_table)
         keys = set()
-        for candidate in ctx.candidates:
-            for file in candidate.get("files", []):
-                vehicle = VehicleLoader.load(file)
-                for variant in VariantIterator(vehicle):
-                    keys.add(
-                        (
-                            str(vehicle.identifier).strip().lower(),
-                            str(variant.profile.identifier).strip().lower(),
-                            str(variant.livery.name).strip().lower(),
-                            self._vehicle_type_name(variant.vehicle_type),
-                        )
+        for vehicle in ctx.item_catalog.vehicles:
+            for variant in ctx.item_catalog.all_variants_for(vehicle):
+                keys.add(
+                    (
+                        str(vehicle.identifier).strip().lower(),
+                        str(variant.registry_profile_identifier or variant.profile.identifier).strip().lower(),
+                        str(variant.livery.name).strip().lower(),
+                        self._vehicle_type_name(variant.vehicle_type),
                     )
+                )
         ctx.sprite_id_registry.prepare(keys)
 
     def find_candidates(self, scan_paths):
@@ -359,9 +359,11 @@ class Builder:
     @staticmethod
     def _compatibility_snapshot(variant) -> dict:
         capacity = variant.get_attr("capacity")
-        articulated_count = variant.get_attr("num_vehicles")
-        if articulated_count is None:
-            articulated_count = variant.get_attr("size")
+        appended_parts = getattr(variant, "articulated_part_variants", None)
+        if appended_parts:
+            articulated_count = 1 + len(appended_parts)
+        else:
+            articulated_count = variant.resolved_vehicle_count()
 
         lengths = list(getattr(variant, "sprite_lengths", None) or [])
         if not lengths:

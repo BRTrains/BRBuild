@@ -65,6 +65,21 @@ def test_manifest_contains_every_materialised_variant_and_real_rows(tmp_path):
     assert_no_absolute(manifest)
 
 
+def test_manifest_excludes_hidden_articulated_variants_from_all_public_lists(tmp_path):
+    public = _variant(tmp_path)
+    hidden = _variant(tmp_path)
+    hidden.identifier = "hidden_part_a_standard_blue_train_pos1"
+    hidden.hidden_articulated_part = True
+
+    manifest = ManifestWriter(
+        SimpleNamespace(name="Demo", path=tmp_path), [public, hidden]
+    ).build_document(builder_commit="abc")
+
+    assert [item["variant"]["identifier"] for item in manifest["variants"]] == [public.identifier]
+    assert manifest["profiles"][0]["variants"] == [public.identifier]
+    assert manifest["liveries"][0]["variants"] == [public.identifier]
+
+
 def test_write_is_atomic_and_preserves_previous_manifest_on_failure(tmp_path, monkeypatch):
     project = SimpleNamespace(name="Demo", path=tmp_path)
     writer = ManifestWriter(project, [_variant(tmp_path)])

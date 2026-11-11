@@ -99,6 +99,18 @@ class NmlVariantWriter(BaseNmlWriter):
         articulated_switch_name = getattr(variant, "articulated_switch_name", None)
         articulated_count = getattr(variant, "articulated_count", None)
         if articulated_switch_name and articulated_count is not None:
+            articulated_parts = getattr(variant, "articulated_part_variants", None)
+            if articulated_parts:
+                values = {
+                    position: part.identifier
+                    for position, part in enumerate(articulated_parts, start=1)
+                }
+                values["default"] = "CB_RESULT_NO_MORE_ARTICULATED_PARTS"
+                self.switch_writer.write_switch(
+                    f, self._feature(variant), "SELF", articulated_switch_name,
+                    "extra_callback_info1", values,
+                )
+                return
             articulated_range = (
                 "1" if articulated_count == 2 else f"1..{articulated_count - 1}"
             )

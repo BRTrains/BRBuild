@@ -100,6 +100,12 @@ class Variant:
         self.length_switch_name = None
         self.articulated_switch_name = None
         self.articulated_count = None
+        self.articulated_part_variants = None
+        self.hidden_articulated_part = False
+        self.hidden_identifier_base = None
+        self.suppress_articulated = False
+        self.registry_profile_identifier = None
+        self.target_part_position = None
         self.effect_callback_name = None
         self.effect_switch_name = None
         self.nml_override: dict = {}
@@ -268,6 +274,8 @@ class Variant:
             f"{self.vehicle_type.name}"
         ).lower()
         self.identifier = re.sub(r"[^a-z0-9_]", "_", raw_id)
+        if self.hidden_identifier_base:
+            self.identifier = self.hidden_identifier_base
         if self.sprite_id_generation > 1:
             self.identifier = f"{self.identifier}_v{self.sprite_id_generation}"
         self.nml_filename = f"{self.identifier}.gnml"
@@ -278,6 +286,13 @@ class Variant:
         # pool (`0xD0`) — the pool the set's per-variant names had exhausted.
         name_ref = self._display_string(self.name, f"{self.identifier}_name")
         self.properties["name"] = name_ref
+
+        if self.hidden_articulated_part:
+            self.purchase_spriteset = None
+            self.purchase_template_name = None
+            if getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper() == "TRAM":
+                self.add_misc_flag("ROADVEH_FLAG_TRAM")
+            return
 
         # The root switch names the vehicle and formation; the nested switch names the
         # formation and livery. The variant property below carries the full name including
@@ -337,6 +352,8 @@ class Variant:
         self.properties["model_life"] = str(model_life)
 
         self.properties["climates_available"] = "ALL_CLIMATES"
+        if self.hidden_articulated_part:
+            self.properties["climates_available"] = "NO_CLIMATE"
 
         vehicle_life = self.get_attr("vehicle_life")
         if vehicle_life is not None:
@@ -985,6 +1002,18 @@ class Variant:
             if "purchase" not in overridden:
                 self.callbacks["purchase"] = self.purchase_spriteset_name
 
+    def pin_articulated_position(self, spritesets, template_names, lengths, pattern):
+        """Project exactly one target formation position onto this hidden item."""
+        position = self.target_part_position
+        if position is None or position >= len(pattern) or position >= len(spritesets):
+            raise ValueError(f"Invalid articulated target position {position} for pattern {pattern}")
+        self.spritesets = [spritesets[position]]
+        self.sprite_template_names = [template_names[position]]
+        self.sprite_lengths = [lengths[position]] if lengths else []
+        self.sprite_pattern = [1]
+        self.purchase_spriteset = None
+        self.purchase_template_name = None
+
     def handleLighting(self):
         """Give the variant a second sprite layer when its drawing carries lamps.
 
@@ -1024,9 +1053,13 @@ class Variant:
     def resolve_nml_override(self) -> dict:
         """Merge `nml_override` blocks vehicle first, then profile, then livery.
 
-        Later sources win, matching how per-variant statistics resolve, so a livery can
-        point one of its own variants at a different switch than the profile does.
+        Hidden articulated projections must keep their generated, position-pinned graphics
+        and cannot safely inherit callback targets declared for the source vehicle item.
+        Later sources otherwise win, matching how per-variant statistics resolve, so a
+        livery can point one of its own variants at a different switch than the profile does.
         """
+        if self.hidden_articulated_part:
+            return {}
         merged: dict[str, str] = {}
         for source in (self.vehicle, self.profile, self.livery):
             merged.update(getattr(source, "nml_override", None) or {})
@@ -1043,6 +1076,13 @@ class Variant:
             self.callbacks[callback] = target
 
     def handleArticulated(self):
+        if self.suppress_articulated:
+            return
+        if self.articulated_part_variants:
+            self.articulated_count = len(self.articulated_part_variants) + 1
+            self.articulated_switch_name = f"switch_articulated_{self.identifier}"
+            self.callbacks["articulated_part"] = self.articulated_switch_name
+            return
         count = self.resolved_vehicle_count()
 
         if count is not None and int(count) > 1:

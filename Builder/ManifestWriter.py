@@ -9,13 +9,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from Vehicle.PublicVariants import public_variants
+
 
 class ManifestWriter:
     """Project manifest writer that only consumes already-materialised build state."""
 
     def __init__(self, project, successful_variants):
         self.project = project
-        self.successful_variants = list(successful_variants)
+        self.successful_variants = public_variants(successful_variants)
         self.output = Path(project.path) / "docs" / "generated" / "manifest.json"
 
     def write(self, builder_commit: str | None = None) -> Path:

@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from Vehicle import PurchaseList
+from Vehicle.PublicVariants import public_variants
 
 logger = logging.getLogger(__name__)
 
@@ -51,11 +52,12 @@ class PurchaseListBuilder:
         if order == PurchaseList.NONE:
             return [], []
 
-        generated = PurchaseList.build_blocks(ctx.successful_variants, order)
+        variants = public_variants(ctx.successful_variants)
+        generated = PurchaseList.build_blocks(variants, order)
         if generated:
             logger.info(
                 f"Purchase-list order '{order}': wrote {len(generated)} sort block(s) "
-                f"for {len(ctx.successful_variants)} variant(s)."
+                f"for {len(variants)} variant(s)."
             )
         return generated, []
 
@@ -78,7 +80,7 @@ class PurchaseListBuilder:
     def _write_items(ctx) -> Path:
         """Write the items this build produced, in feature/build order, for a script."""
         features: dict[str, list[dict]] = {}
-        for position, variant in enumerate(ctx.successful_variants):
+        for position, variant in enumerate(public_variants(ctx.successful_variants)):
             facts = PurchaseList.facts_from_variant(variant, position)
             features.setdefault(facts.feature, []).append(
                 {
@@ -120,13 +122,16 @@ class PurchaseListBuilder:
                 f"Purchase-list script '{script}' failed with exit code {completed.returncode}: "
                 f"{completed.stderr.strip() or 'no error output'}"
             )
-        logger.info(f"Ran purchase-list script '{relative}' for {len(ctx.successful_variants)} variant(s).")
+        logger.info(
+            f"Ran purchase-list script '{relative}' for "
+            f"{len(public_variants(ctx.successful_variants))} variant(s)."
+        )
         return completed.stdout
 
     @staticmethod
     def _filter_manual(text: str, ctx) -> str:
         """Remove item symbols for variants excluded from this build."""
-        available = {variant.identifier for variant in ctx.successful_variants}
+        available = {variant.identifier for variant in public_variants(ctx.successful_variants)}
         filtered = []
         for line in text.splitlines(keepends=True):
             match = re.match(r"^(\s*)([A-Za-z_][A-Za-z0-9_]*),(\s*(?://.*)?\r?\n?)$", line)

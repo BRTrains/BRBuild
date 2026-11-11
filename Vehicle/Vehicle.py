@@ -83,6 +83,7 @@ class Vehicle:
     #: Set by the builder from GRF.yaml; not a vehicle-authored field.
     cost_scale: Optional[float] = None
     formation: Optional[str] = None
+    articulated_parts: Optional[List[dict]] = None
     sprite_override: Optional[List[int]] = None
     sprite_exclude: Optional[List[int]] = None
 

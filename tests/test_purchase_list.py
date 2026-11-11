@@ -12,6 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from Builder import Builder
+from Builder.PurchaseListBuilder import PurchaseListBuilder
 from Grf import Grf
 from NmlWriter.NmlCollator import NmlCollator
 from PropertyCalculation.TrainType import TrainType
@@ -381,6 +382,51 @@ class PurchaseListScriptTests(unittest.TestCase):
             [item["identifier"] for item in items["features"]["FEAT_ROADVEHS"]],
             ["toby_default_brown_tram"],
         )
+
+    def test_hidden_articulated_parts_are_excluded_from_script_items(self):
+        with tempfile.TemporaryDirectory() as folder:
+            context = self.context(folder)
+            hidden = _Stub(
+                "hidden_part_annie_default_default_tram_pos1",
+                "Annie",
+                "date(1920, 1, 1)",
+                TrainType.COACH,
+                feature="FEAT_ROADVEHS",
+            )
+            hidden.hidden_articulated_part = True
+            context.successful_variants.append(hidden)
+
+            path = PurchaseListBuilder._write_items(context)
+            items = json.loads(path.read_text())
+
+        road = [item["identifier"] for item in items["features"]["FEAT_ROADVEHS"]]
+        self.assertEqual(road, ["toby_default_brown_tram"])
+
+    def test_hidden_articulated_parts_are_excluded_from_generated_and_manual_lists(self):
+        with tempfile.TemporaryDirectory() as folder:
+            context = self.context(folder)
+            hidden = _Stub(
+                "hidden_part_annie_default_default_tram_pos1",
+                "Annie",
+                "date(1920, 1, 1)",
+                TrainType.COACH,
+                feature="FEAT_ROADVEHS",
+            )
+            hidden.hidden_articulated_part = True
+            context.successful_variants.append(hidden)
+            context.grf.purchase_list_order = GROUPED
+
+            generated, _ = Builder._purchase_list_nml(context)
+            manual = PurchaseListBuilder._filter_manual(
+                "sort(FEAT_ROADVEHS, [\n"
+                "  toby_default_brown_tram,\n"
+                "  hidden_part_annie_default_default_tram_pos1,\n"
+                "]);\n",
+                context,
+            )
+
+        self.assertNotIn(hidden.identifier, "".join(generated))
+        self.assertIn("omitted unavailable item: " + hidden.identifier, manual)
 
     def test_a_static_file_is_used_when_no_script_is_named(self):
         with tempfile.TemporaryDirectory() as folder:
