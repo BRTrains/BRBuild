@@ -330,6 +330,7 @@ class Variant:
         the loader; a raw year is still accepted here so a variant built by hand (a
         test, or a caller constructing a Variant directly) behaves sensibly.
         """
+        vehicle_type_name = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
         intro_date = self.get_attr("introduction_date")
         if intro_date is not None:
             if isinstance(intro_date, int) or (isinstance(intro_date, str) and intro_date.isdigit()):
@@ -352,9 +353,10 @@ class Variant:
             model_life = self.clamp(int(model_life), 1, 254) # Clamp to NML range
         self.properties["model_life"] = str(model_life)
 
-        self.properties["climates_available"] = "ALL_CLIMATES"
-        if self.hidden_articulated_part:
-            self.properties["climates_available"] = "NO_CLIMATE"
+        if vehicle_type_name != "PLANE":
+            self.properties["climates_available"] = "ALL_CLIMATES"
+            if self.hidden_articulated_part:
+                self.properties["climates_available"] = "NO_CLIMATE"
 
         vehicle_life = self.get_attr("vehicle_life")
         if vehicle_life is not None:
@@ -608,6 +610,9 @@ class Variant:
             self.properties["default_cargo_type"] = "DEFAULT_CARGO_FIRST_REFITTABLE"
 
     def handleCapacity(self):
+        if getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper() == "PLANE":
+            return
+
         capacity = self.get_attr("capacity")
         if capacity is None:
             capacity = 0
@@ -630,21 +635,20 @@ class Variant:
 
     def handlePhysics(self):
         PhysicsRules().apply_rules(self)
+        vehicle_type_name = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
 
         power = self.get_attr("power")
         if power is not None:
             self.power = power
-            vehicle_type_name = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
             if vehicle_type_name in ("TRAM", "ROAD"):
                 self.properties["power"] = f"{min(power, ROADVEH_POWER_PROPERTY_MAX_HP)} hp"
-            else:
+            elif vehicle_type_name != "PLANE":
                 self.properties["power"] = f"{power} hp"
         else:
             self.power = 0
 
         weight = self.get_attr("weight")
-        if weight is not None:
-            vehicle_type_name = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
+        if weight is not None and vehicle_type_name != "PLANE":
             if vehicle_type_name in ("TRAM", "ROAD"):
                 # A road vehicle's weight property is one byte of 1/4 tons, so it cannot carry
                 # more than 63.75 t: the property holds the clamped figure as the fallback and the
@@ -657,10 +661,10 @@ class Variant:
             else:
                 self.properties["weight"] = f"{weight} ton"
 
-        if hasattr(self, "te_coefficient") and self.te_coefficient is not None:
+        if vehicle_type_name == "TRAIN" and hasattr(self, "te_coefficient") and self.te_coefficient is not None:
             self.properties["tractive_effort_coefficient"] = str(self.te_coefficient)
 
-        if hasattr(self, "ad_coefficient") and self.ad_coefficient is not None:
+        if vehicle_type_name == "TRAIN" and hasattr(self, "ad_coefficient") and self.ad_coefficient is not None:
             self.properties["air_drag_coefficient"] = str(self.ad_coefficient)
 
     def handleCosts(self):
@@ -725,6 +729,8 @@ class Variant:
     def handleRunningCostBase(self):
         """Select the NML running-cost category from the resolved vehicle type."""
         vehicle_type = getattr(self.vehicle_type, "name", str(self.vehicle_type)).upper()
+        if vehicle_type == "PLANE":
+            return
         if vehicle_type in {"TRAM", "ROAD", "ROADVEH"}:
             self.properties["running_cost_base"] = "RUNNING_COST_ROADVEH"
             return

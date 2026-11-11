@@ -751,6 +751,29 @@ class BuildPathTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "train_type"):
                 VehicleLoader.load(str(train_path))
 
+    def test_non_train_vehicle_types_do_not_emit_train_physics_properties(self):
+        """Aircraft, ships, and road vehicles do not use train physics properties."""
+        from Vehicle.Livery import Livery
+        from Vehicle.Profile import Profile
+        from Vehicle.Vehicle import Vehicle
+        from Vehicle.Variant import Variant
+
+        for vehicle_type in (VehicleType.ROAD, VehicleType.SHIP, VehicleType.PLANE):
+            vehicle = Vehicle(
+                folder_path=".",
+                identifier="example",
+                name="Example",
+                vehicle_type=vehicle_type,
+                weight=10,
+                speed=100,
+                power=500,
+                tractive_effort=100,
+            )
+            variant = Variant(vehicle, Livery("Default"), Profile("Default"), vehicle_type)
+            variant.handlePhysics()
+            self.assertNotIn("air_drag_coefficient", variant.properties, vehicle_type)
+            self.assertNotIn("tractive_effort_coefficient", variant.properties, vehicle_type)
+
     def test_road_vehicles_keep_their_own_track_property(self):
         """A tram's running gear is `tram_type`, not `track_type`."""
         from Vehicle.Livery import Livery
