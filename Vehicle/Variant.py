@@ -88,6 +88,7 @@ class Variant:
         self.sprite_lengths = list()
         self.spriteset_names = list()
         self.purchase_spriteset = None
+        self.purchase_sprite_parts = []
         self.purchase_spriteset_name = None
         #: Lamp pixels found for this variant (Sprites.LightingOverlay.Detection), plus the sheets the
         #: builder generated for it. Set before `process()` so the misc flag and graphics chain follow.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import hashlib
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -23,6 +24,138 @@ from .Livery import Livery
 from .Profile import Profile
 from .SpriteSizeTemplate import standard_pattern
 from .Vehicle import Vehicle
+
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class PurchaseSpritePart:
+	"""One physical vehicle part and the staged artwork/template used to draw it."""
+
+	image: Image.Image
+	palette: list[int]
+	spriteset: Spriteset
+	definition: TemplateDefinition | None
+
+
+class PurchaseSpriteComposer:
+	"""Compose ordered physical parts into one canonical purchase-list sprite."""
+
+	def __init__(self, palette: list[int]):
+		self.palette = list(palette)
+
+	def compose(
+		self,
+		parts: list[PurchaseSpritePart],
+		output_path: str | Path,
+		metadata_path: str | Path | None = None,
+	) -> tuple[Spriteset, str] | None:
+		if not parts:
+			return None
+
+		path = Path(output_path)
+		metadata = Path(metadata_path) if metadata_path else path.with_suffix(path.suffix + ".purchase.json")
+		template = Template(
+			name="generated_purchase",
+			sprites=[Sprite(0, 0, 128, 13, -25, -8)],
+		)
+		result = (Spriteset("generated_purchase", str(path.resolve()), template), "tmpl_purchase")
+		crops = [self._west_crop(part) for part in parts]
+		if any(crop is None for crop in crops):
+			return None
+		total_width = sum(crop.width for crop in crops if crop is not None)
+		if total_width > 128:
+			logger.warning(
+				"Purchase sprite '%s' is %dpx wide and overflows the 128px canvas",
+				path.name,
+				total_width,
+			)
+		identity = json.loads(json.dumps({
+			"version": 2,
+			"output": str(path.resolve()),
+			"palette": _palette_digest(self.palette),
+			"parts": [self._identity(part) for part in parts],
+		}))
+		try:
+			stored = json.loads(metadata.read_text())
+			if (
+				stored["inputs"] == identity
+				and stored["output_hash"] == hashlib.sha256(path.read_bytes()).hexdigest()
+			):
+				return result
+		except (OSError, ValueError, KeyError, TypeError):
+			pass
+
+		blue_index = self._palette_index((0, 0, 255))
+		purchase = Image.new("P", (128, 13), color=blue_index)
+		purchase.putpalette(self.palette)
+		x_cursor = 0
+		for crop in crops:
+			assert crop is not None
+			if x_cursor < purchase.width:
+				visible_width = min(crop.width, purchase.width - x_cursor)
+				visible_height = min(crop.height, purchase.height)
+				source_top = crop.height - visible_height
+				paste_y = purchase.height - visible_height
+				visible = crop.crop((0, source_top, visible_width, source_top + visible_height))
+				if visible.mode != "P" or visible.getpalette() != self.palette:
+					visible = visible.convert("RGB").quantize(palette=purchase, dither=Image.Dither.NONE)
+				purchase.paste(visible, (x_cursor, paste_y))
+			x_cursor += crop.width
+
+		path.parent.mkdir(parents=True, exist_ok=True)
+		VehicleSpriteAllocator._write_if_changed(path, purchase)
+		metadata.parent.mkdir(parents=True, exist_ok=True)
+		metadata.write_text(json.dumps({
+			"inputs": identity,
+			"output_hash": hashlib.sha256(path.read_bytes()).hexdigest(),
+		}, indent=2) + "\n")
+		return result
+
+	@staticmethod
+	def _west_crop(part: PurchaseSpritePart) -> Image.Image | None:
+		views = part.spriteset.template.sprites
+		if len(views) <= 6:
+			return None
+		view = views[6]
+		left = part.spriteset.x + view.left_x
+		top = part.spriteset.y + view.upper_y
+		right = left + view.width
+		bottom = top + view.height
+		if part.definition is not None and len(part.definition.bounding_boxes) > 6:
+			box = part.definition.bounding_boxes[6]
+			right = min(right, part.spriteset.x + box.left_x + box.width)
+			bottom = min(bottom, part.spriteset.y + box.upper_y + box.height)
+		return part.image.crop((left, top, right, bottom))
+
+	@staticmethod
+	def _identity(part: PurchaseSpritePart) -> dict:
+		view = part.spriteset.template.sprites[6] if len(part.spriteset.template.sprites) > 6 else None
+		box = (
+			part.definition.bounding_boxes[6]
+			if part.definition is not None and len(part.definition.bounding_boxes) > 6
+			else None
+		)
+		return {
+			"source_hash": hashlib.sha256(part.image.tobytes()).hexdigest(),
+			"source_size": list(part.image.size),
+			"source_mode": part.image.mode,
+			# Digests keep the sidecar small: a full 768-entry palette per part is ~9 KB.
+			"source_palette": _palette_digest(part.image.getpalette()),
+			"palette": _palette_digest(part.palette),
+			"file": str(part.spriteset.file),
+			"x": part.spriteset.x,
+			"y": part.spriteset.y,
+			"view": vars(view) if view is not None else None,
+			"box": vars(box) if box is not None else None,
+		}
+
+	def _palette_index(self, colour: tuple[int, int, int]) -> int:
+		for index in range(256):
+			if tuple(self.palette[index * 3:index * 3 + 3]) == colour:
+				return index
+		raise ValueError(f"Colour {colour} is missing from the configured palette")
 
 
 @dataclass
@@ -48,6 +181,13 @@ def _resolve(attr: str, livery: Livery, profile: Profile, vehicle: Vehicle):
 		if value is not None:
 			return value
 	return None
+
+
+def _palette_digest(palette) -> str | None:
+	"""Identify a palette without storing its 768 entries in every cache sidecar."""
+	if palette is None:
+		return None
+	return hashlib.sha256(bytes(palette)).hexdigest()
 
 
 def _same_path(one: str | Path | None, other: str | Path | None) -> bool:
@@ -564,6 +704,25 @@ class VehicleSpriteAllocator:
 				f"but no previous valid sprite group exists for vehicle '{self.vehicle.identifier}'."
 			)
 		return self._assigned_rows[source_key], source_key
+
+	def get_purchase_parts(
+		self, profile: Profile, livery: Livery
+	) -> list[PurchaseSpritePart]:
+		"""Describe each expanded physical part using its actual staged source image."""
+		key = (str(profile.identifier), str(livery.name))
+		spritesets = self._spritesets.get(key) or []
+		definitions = self._definitions.get(key) or []
+		sheet = getattr(self, "_sheet_paths", {}).get(key)
+		image = self._image if sheet is None else self.image_for(sheet)
+		return [
+			PurchaseSpritePart(
+				image,
+				self._palette,
+				spriteset,
+				definitions[index] if index < len(definitions) else None,
+			)
+			for index, spriteset in enumerate(spritesets)
+		]
 
 	def get_purchase(
 		self,

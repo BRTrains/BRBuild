@@ -2,12 +2,14 @@
 
 import logging
 from pathlib import Path
+import re
 from tempfile import TemporaryDirectory
 
 from Lang.StringRegistry import _registry
 from NmlWriter import NmlVariantWriter
 from Sprites.LightingOverlay import VehicleLighting
 from Vehicle import VariantIterator
+from Vehicle.VariantSpriteGroups import PurchaseSpriteComposer
 from Vehicle.UsageVisibility import disable_condition
 from YamlHandler import VehicleLoader
 from .BuildContext import BuildContext
@@ -31,6 +33,7 @@ class CandidateProcessor:
             self.process_candidate(candidate, ctx)
 
         self._prune_failed_dependencies(ctx)
+        self._compose_purchase_sprites(ctx)
         self._write_variants(ctx)
 
         if len(ctx.successful_variants) == 0:
@@ -170,12 +173,31 @@ class CandidateProcessor:
                                 variant.sprite_template_names = template_names
                                 variant.sprite_lengths = lengths
                                 variant.sprite_pattern = pattern
+                        purchase_livery = (
+                            refit_liveries[0] if getattr(variant, "is_livery_refit", False) else variant.livery
+                        )
+                        # Only articulated items compose parts; every other variant keeps the
+                        # allocator's own single-group icon.
+                        purchase_parts = (
+                            allocator.get_purchase_parts(variant.profile, purchase_livery)
+                            if getattr(variant, "articulated_part_variants", None)
+                            or getattr(variant, "hidden_articulated_part", False)
+                            else []
+                        )
                         if getattr(variant, "hidden_articulated_part", False):
+                            position = variant.target_part_position
+                            if position is None or position >= len(purchase_parts):
+                                raise ValueError(
+                                    f"Invalid articulated purchase position {position} for "
+                                    f"{len(purchase_parts)} physical parts"
+                                )
+                            variant.purchase_sprite_parts = [purchase_parts[position]]
+                            purchase = None
+                        elif "purchase" in variant.resolve_nml_override():
+                            variant.purchase_sprite_parts = []
                             purchase = None
                         else:
-                            purchase_livery = (
-                                refit_liveries[0] if getattr(variant, "is_livery_refit", False) else variant.livery
-                            )
+                            variant.purchase_sprite_parts = purchase_parts
                             purchase = allocator.get_purchase(
                                 variant.profile, purchase_livery, ctx.nml_output_folder
                             )
@@ -350,6 +372,40 @@ class CandidateProcessor:
             if not getattr(record[1], "hidden_articulated_part", False)
             or id(record[1]) in referenced_hidden
         ]
+
+    def _compose_purchase_sprites(self, ctx: BuildContext):
+        """Replace an articulated parent's own icon with its complete flat formation."""
+        composer = PurchaseSpriteComposer(ctx.palette)
+        for _, variant, _ in self._pending_variants:
+            if getattr(variant, "hidden_articulated_part", False):
+                continue
+            hidden_parts = getattr(variant, "articulated_part_variants", None) or []
+            if not hidden_parts or "purchase" in variant.resolve_nml_override():
+                continue
+            parts = list(getattr(variant, "purchase_sprite_parts", None) or [])
+            for hidden in hidden_parts:
+                parts.extend(getattr(hidden, "purchase_sprite_parts", None) or [])
+            if not parts:
+                continue
+            filename = "purchase_" + re.sub(r"[^a-z0-9_]", "_", str(variant.identifier).lower()) + ".png"
+            try:
+                purchase = composer.compose(parts, Path(ctx.nml_output_folder) / filename)
+            except Exception as exc:
+                # One unreadable sheet must not abort a multi-candidate build: keep the
+                # item's own icon and report it like any other per-variant sprite problem.
+                logger.warning(f"Unable to compose the purchase icon for {variant.identifier}: {exc}")
+                continue
+            if purchase is None:
+                logger.warning(
+                    f"Cannot compose the complete formation for {variant.identifier}: "
+                    "a part has no west-view sprite; keeping its own purchase icon"
+                )
+                continue
+            variant.purchase_spriteset, variant.purchase_template_name = purchase
+            # The icon is installed after process() named the callback, so name the
+            # spriteset here rather than letting the writer fall back to a shared name.
+            variant.purchase_spriteset_name = f"spriteset_{variant.identifier}_purchase"
+            variant.callbacks["purchase"] = variant.purchase_spriteset_name
 
     def _write_variants(self, ctx: BuildContext):
         """Write the complete pending batch before publishing any registry success."""
